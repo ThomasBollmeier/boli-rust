@@ -31,7 +31,7 @@ pub enum TokenType {
     Integer(i64),
     Real(f64),
     Bool(bool),
-    String(String),
+    Str(String),
     Def,
     DefStruct,
     If,

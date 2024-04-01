@@ -1,7 +1,7 @@
 use super::{
     stream::{BufferedStream, CharsStream, Stream},
     tokens::{
-        Token,
+        LogicalOp, Token,
         TokenType::{self, *},
     },
 };
@@ -41,6 +41,58 @@ impl Lexer {
             }
         }
     }
+
+    fn skip_line_comment(&mut self) {
+        while let Some(c) = self.next_char() {
+            if c == '\n' {
+                break;
+            }
+        }
+    }
+
+    fn scan_number(&mut self, first_char: char, line: usize, column: usize) -> Option<Token> {
+        let mut number = String::new();
+        number.push(first_char);
+
+        while let Some(c) = self.stream.peek() {
+            if c.is_digit(10) {
+                number.push(self.next_char()?);
+            } else if c == '.' {
+                self.next_char();
+                continue; // . can be used for grouping digits
+            } else {
+                break;
+            }
+        }
+
+        if self.stream.peek() == Some(',') {
+            self.next_char();
+            number.push('.');
+            while let Some(c) = self.stream.peek() {
+                if c.is_digit(10) {
+                    number.push(self.next_char()?);
+                } else if c == '.' {
+                    self.next_char();
+                    continue; // . can be used for grouping digits
+                } else {
+                    break;
+                }
+            }
+            let number = number.parse::<f64>().unwrap();
+            Some(Token {
+                token_type: Real(number),
+                line,
+                column,
+            })
+        } else {
+            let number = number.parse::<i64>().unwrap();
+            Some(Token {
+                token_type: Integer(number),
+                line,
+                column,
+            })
+        }
+    }
 }
 
 impl Stream<Token> for Lexer {
@@ -49,12 +101,54 @@ impl Stream<Token> for Lexer {
             self.skip_whitespace();
             let ch = self.next_char()?;
 
+            let line = self.line;
+            let column = self.column;
+
+            if ch == ';' {
+                self.skip_line_comment();
+                continue;
+            }
+
             if let Some(token_type) = TokenType::from_char(ch) {
                 return Some(Token {
                     token_type,
-                    line: self.line,
-                    column: self.column,
+                    line,
+                    column,
                 });
+            }
+
+            if ch == '>' {
+                let token_type = if let Some('=') = self.stream.peek() {
+                    self.next_char();
+                    LogicalOperator(LogicalOp::Ge)
+                } else {
+                    LogicalOperator(LogicalOp::Gt)
+                };
+
+                return Some(Token {
+                    token_type,
+                    line,
+                    column,
+                });
+            }
+
+            if ch == '<' {
+                let token_type = if let Some('=') = self.stream.peek() {
+                    self.next_char();
+                    LogicalOperator(LogicalOp::Le)
+                } else {
+                    LogicalOperator(LogicalOp::Lt)
+                };
+
+                return Some(Token {
+                    token_type,
+                    line,
+                    column,
+                });
+            }
+
+            if ch.is_digit(10) {
+                return self.scan_number(ch, line, column);
             }
 
             return None;
@@ -69,14 +163,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_scan_parentheses() {
-        let mut lexer = Lexer::new("()");
-        assert_eq!(lexer.next().unwrap().token_type, LeftParen);
-        assert_eq!(lexer.next().unwrap().token_type, RightParen);
-    }
-
-    #[test]
-    fn test_single_char_tokens() {
+    fn test_scan_single_char_tokens() {
         let code = "(){}[]+-*/^%=";
         let mut lexer = Lexer::new(code);
         assert_eq!(lexer.next().unwrap().token_type, LeftParen);
@@ -95,6 +182,54 @@ mod tests {
             lexer.next().unwrap().token_type,
             LogicalOperator(LogicalOp::Eq)
         );
+        assert!(lexer.next().is_none());
+    }
+
+    #[test]
+    fn test_scan_logical_operators() {
+        let code = ">>=<<=";
+        let mut lexer = Lexer::new(code);
+        assert_eq!(
+            lexer.next().unwrap().token_type,
+            LogicalOperator(LogicalOp::Gt)
+        );
+        assert_eq!(
+            lexer.next().unwrap().token_type,
+            LogicalOperator(LogicalOp::Ge)
+        );
+        assert_eq!(
+            lexer.next().unwrap().token_type,
+            LogicalOperator(LogicalOp::Lt)
+        );
+        assert_eq!(
+            lexer.next().unwrap().token_type,
+            LogicalOperator(LogicalOp::Le)
+        );
+        assert!(lexer.next().is_none());
+    }
+
+    #[test]
+    fn test_ignores_line_comments() {
+        let code = "
+        ;; this is a comment
+        (+ ; another comment )
+        ";
+        let mut lexer = Lexer::new(code);
+        assert_eq!(lexer.next().unwrap().token_type, LeftParen);
+        assert_eq!(lexer.next().unwrap().token_type, Operator(Op::Plus));
+        assert!(lexer.next().is_none());
+    }
+
+    #[test]
+    fn test_scan_numbers() {
+        let code = "(+ 41 1,0 1.000.000)";
+        let mut lexer = Lexer::new(code);
+        assert_eq!(lexer.next().unwrap().token_type, LeftParen);
+        assert_eq!(lexer.next().unwrap().token_type, Operator(Op::Plus));
+        assert_eq!(lexer.next().unwrap().token_type, Integer(41));
+        assert_eq!(lexer.next().unwrap().token_type, Real(1.0));
+        assert_eq!(lexer.next().unwrap().token_type, Integer(1_000_000));
+        assert_eq!(lexer.next().unwrap().token_type, RightParen);
         assert!(lexer.next().is_none());
     }
 }
