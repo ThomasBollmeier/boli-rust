@@ -44,7 +44,7 @@ pub enum TokenType {
     Cond,
     Let,
     ModuleSep,
-    Unknown,
+    Error(String),
 }
 
 impl TokenType {
