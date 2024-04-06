@@ -73,11 +73,7 @@ impl Lexer {
             _ => unreachable!(),
         };
 
-        Some(Token {
-            token_type,
-            line,
-            column,
-        })
+        Some(Token::new(token_type, line, column))
     }
 
     fn scan_number(&mut self, first_char: char, line: usize, column: usize) -> Option<Token> {
@@ -109,18 +105,10 @@ impl Lexer {
                 }
             }
             let number = number.parse::<f64>().unwrap();
-            Some(Token {
-                token_type: Real(number),
-                line,
-                column,
-            })
+            Some(Token::new_real(number, line, column))
         } else {
             let number = number.parse::<i64>().unwrap();
-            Some(Token {
-                token_type: Integer(number),
-                line,
-                column,
-            })
+            Some(Token::new_int(number, line, column))
         }
     }
 
@@ -143,17 +131,9 @@ impl Lexer {
         }
 
         if terminated {
-            Some(Token {
-                token_type: Str(string),
-                line,
-                column,
-            })
+            Some(Token::new_str(string, line, column))
         } else {
-            Some(Token {
-                token_type: Error(string),
-                line,
-                column,
-            })
+            Some(Token::new_error(string, line, column))
         }
     }
 
@@ -177,25 +157,21 @@ impl Lexer {
             }
         }
 
-        let token_type = match identifier.as_str() {
-            "def" => Def,
-            "def-struct" => DefStruct,
-            "if" => If,
-            "lambda" | "λ" => Lambda,
-            "nil" => Nil,
-            "block" => Block,
-            "cond" => Cond,
-            "let" => Let,
-            "#f" | "#false" => Bool(false),
-            "#t" | "#true" => Bool(true),
-            _ => Identifier(identifier),
+        let token = match identifier.as_str() {
+            "def" => Token::new(Def, line, column),
+            "def-struct" => Token::new(DefStruct, line, column),
+            "if" => Token::new(If, line, column),
+            "lambda" | "λ" => Token::new(Lambda, line, column),
+            "nil" => Token::new(Nil, line, column),
+            "block" => Token::new(Block, line, column),
+            "cond" => Token::new(Cond, line, column),
+            "let" => Token::new(Let, line, column),
+            "#f" | "#false" => Token::new_bool(false, line, column),
+            "#t" | "#true" => Token::new_bool(true, line, column),
+            _ => Token::new_identifier(identifier, line, column),
         };
 
-        Some(Token {
-            token_type,
-            line,
-            column,
-        })
+        Some(token)
     }
 }
 
@@ -214,11 +190,7 @@ impl Stream<Token> for Lexer {
             }
 
             if let Some(token_type) = TokenType::from_char(ch) {
-                return Some(Token {
-                    token_type,
-                    line,
-                    column,
-                });
+                return Some(Token::new(token_type, line, column));
             }
 
             if ch == '>' || ch == '<' {
@@ -237,18 +209,14 @@ impl Stream<Token> for Lexer {
                 return Some(token);
             }
 
-            return Some(Token {
-                token_type: Error(ch.to_string()),
-                line,
-                column,
-            });
+            return Some(Token::new_error(ch.to_string(), line, column));
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::frontend::lexer::tokens::{LogicalOp, Op};
+    use crate::frontend::lexer::tokens::{LogicalOp, Op, TokenValue};
 
     use super::*;
 
@@ -316,9 +284,19 @@ mod tests {
         let mut lexer = Lexer::new(code);
         assert_eq!(lexer.next().unwrap().token_type, LeftParen);
         assert_eq!(lexer.next().unwrap().token_type, Operator(Op::Plus));
-        assert_eq!(lexer.next().unwrap().token_type, Integer(41));
-        assert_eq!(lexer.next().unwrap().token_type, Real(1.0));
-        assert_eq!(lexer.next().unwrap().token_type, Integer(1_000_000));
+
+        let int_token = lexer.next().unwrap();
+        assert_eq!(int_token.token_type, Integer);
+        assert_eq!(int_token.token_value, Some(TokenValue::Integer(41)));
+
+        let real_token = lexer.next().unwrap();
+        assert_eq!(real_token.token_type, Real);
+        assert_eq!(real_token.token_value, Some(TokenValue::Real(1.0)));
+
+        let int_token = lexer.next().unwrap();
+        assert_eq!(int_token.token_type, Integer);
+        assert_eq!(int_token.token_value, Some(TokenValue::Integer(1_000_000)));
+
         assert_eq!(lexer.next().unwrap().token_type, RightParen);
         assert!(lexer.next().is_none());
     }
@@ -329,14 +307,21 @@ mod tests {
         let mut lexer = Lexer::new(code);
         assert_eq!(lexer.next().unwrap().token_type, LeftParen);
         assert_eq!(lexer.next().unwrap().token_type, Operator(Op::Plus));
+
+        let str_token = lexer.next().unwrap();
+        assert_eq!(str_token.token_type, Str);
         assert_eq!(
-            lexer.next().unwrap().token_type,
-            Str("hello, world".to_string())
+            str_token.token_value,
+            Some(TokenValue::Str("hello, world".to_string()))
         );
+
+        let str_token = lexer.next().unwrap();
+        assert_eq!(str_token.token_type, Str);
         assert_eq!(
-            lexer.next().unwrap().token_type,
-            Str(r#"hello "world"#.to_string())
+            str_token.token_value,
+            Some(TokenValue::Str(r#"hello "world"#.to_string()))
         );
+
         assert_eq!(lexer.next().unwrap().token_type, RightParen);
         assert!(lexer.next().is_none());
     }
@@ -348,17 +333,20 @@ mod tests {
             nil block cond let let-alone #f #false #t #true"#;
         let mut lexer = Lexer::new(code);
         assert_eq!(
-            lexer.next().unwrap().token_type,
-            Identifier("an-identifier".to_string())
+            lexer.next().unwrap().token_value,
+            Some(TokenValue::Identifier("an-identifier".to_string()))
         );
         assert_eq!(
-            lexer.next().unwrap().token_type,
-            Identifier("defined?".to_string())
+            lexer.next().unwrap().token_value,
+            Some(TokenValue::Identifier("defined?".to_string()))
         );
-        assert_eq!(lexer.next().unwrap().token_type, Error(":".to_string()));
         assert_eq!(
-            lexer.next().unwrap().token_type,
-            Identifier("legal".to_string())
+            lexer.next().unwrap().token_value,
+            Some(TokenValue::Error(":".to_string()))
+        );
+        assert_eq!(
+            lexer.next().unwrap().token_value,
+            Some(TokenValue::Identifier("legal".to_string()))
         );
         assert_eq!(lexer.next().unwrap().token_type, Def);
         assert_eq!(lexer.next().unwrap().token_type, DefStruct);
@@ -370,13 +358,25 @@ mod tests {
         assert_eq!(lexer.next().unwrap().token_type, Cond);
         assert_eq!(lexer.next().unwrap().token_type, Let);
         assert_eq!(
-            lexer.next().unwrap().token_type,
-            Identifier("let-alone".to_string())
+            lexer.next().unwrap().token_value,
+            Some(TokenValue::Identifier("let-alone".to_string()))
         );
-        assert_eq!(lexer.next().unwrap().token_type, Bool(false));
-        assert_eq!(lexer.next().unwrap().token_type, Bool(false));
-        assert_eq!(lexer.next().unwrap().token_type, Bool(true));
-        assert_eq!(lexer.next().unwrap().token_type, Bool(true));
+        assert_eq!(
+            lexer.next().unwrap().token_value,
+            Some(TokenValue::Bool(false))
+        );
+        assert_eq!(
+            lexer.next().unwrap().token_value,
+            Some(TokenValue::Bool(false))
+        );
+        assert_eq!(
+            lexer.next().unwrap().token_value,
+            Some(TokenValue::Bool(true))
+        );
+        assert_eq!(
+            lexer.next().unwrap().token_value,
+            Some(TokenValue::Bool(true))
+        );
         assert!(lexer.next().is_none());
     }
 }

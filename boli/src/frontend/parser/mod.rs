@@ -22,7 +22,7 @@ impl Parser {
 
     fn program(&self, stream: &mut BufferedStream<Token>) -> Result<ast::Program, ParseError> {
         let mut children = Vec::new();
-        while let Ok(child) = self.expression(stream) {
+        while let Ok(child) = self.expression(stream, true) {
             children.push(child);
         }
 
@@ -32,18 +32,29 @@ impl Parser {
     fn expression(
         &self,
         stream: &mut BufferedStream<Token>,
+        define_allowed: bool,
     ) -> Result<Box<dyn ast::Ast>, ParseError> {
         let token = stream
             .next()
             .ok_or(ParseError::new("Unexpected end of input"))?;
 
         match token.token_type {
-            Integer(i) => Ok(Box::new(ast::Integer { value: i })),
-            Real(r) => Ok(Box::new(ast::Real { value: r })),
-            Bool(b) => Ok(Box::new(ast::Bool { value: b })),
-            Str(s) => Ok(Box::new(ast::Str { value: s })),
-            LeftParen | LeftBrace | LeftBracket => self.symbolic_expression(&token, stream),
-            _ => Err(ParseError::new("Unexpected token")),
+            Integer => Ok(Box::new(ast::Integer {
+                value: token.get_int_value().unwrap(),
+            })),
+            Real => Ok(Box::new(ast::Real {
+                value: token.get_real_value().unwrap(),
+            })),
+            Bool => Ok(Box::new(ast::Bool {
+                value: token.get_bool_value().unwrap(),
+            })),
+            Str => Ok(Box::new(ast::Str {
+                value: token.get_string_value().unwrap(),
+            })),
+            LeftParen | LeftBrace | LeftBracket => {
+                self.symbolic_expression(&token, stream, define_allowed)
+            }
+            _ => Err(ParseError::with_token("Unexpected token", token)),
         }
     }
 
@@ -51,6 +62,7 @@ impl Parser {
         &self,
         start_token: &Token,
         stream: &mut BufferedStream<Token>,
+        define_allowed: bool,
     ) -> Result<Box<dyn ast::Ast>, ParseError> {
         let end_token_type = match start_token.token_type {
             LeftParen => RightParen,
@@ -64,7 +76,13 @@ impl Parser {
             .ok_or(ParseError::new("Unexpected end of input"))?;
 
         match token.token_type {
-            Def => self.definition(stream, end_token_type),
+            Def => {
+                if define_allowed {
+                    self.definition(stream, end_token_type)
+                } else {
+                    Err(ParseError::new("Definition not allowed here"))
+                }
+            }
             _ => Err(ParseError::new("Unexpected token")),
         }
     }
@@ -79,11 +97,11 @@ impl Parser {
             .ok_or(ParseError::new("Unexpected end of input"))?;
 
         let name = match token.token_type {
-            Identifier(name) => name,
+            Identifier => token.get_string_value().unwrap(),
             _ => return Err(ParseError::new("Expected identifier")),
         };
 
-        let value = self.expression(stream)?;
+        let value = self.expression(stream, false)?;
         if downcast_ast::<ast::Definition>(&value).is_some() {
             return Err(ParseError::new("Definition not allowed in definition"));
         }
@@ -102,12 +120,21 @@ impl Parser {
 #[derive(Debug)]
 pub struct ParseError {
     pub message: String,
+    pub token: Option<Token>,
 }
 
 impl ParseError {
     pub fn new(message: &str) -> Self {
         Self {
             message: message.to_string(),
+            token: None,
+        }
+    }
+
+    pub fn with_token(message: &str, token: Token) -> Self {
+        Self {
+            message: message.to_string(),
+            token: Some(token),
         }
     }
 }

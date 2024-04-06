@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Op {
     Plus,
     Minus,
@@ -8,7 +8,7 @@ pub enum Op {
     Percent,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum LogicalOp {
     Eq,
     Gt,
@@ -17,7 +17,7 @@ pub enum LogicalOp {
     Le,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TokenType {
     LeftParen,
     RightParen,
@@ -25,13 +25,13 @@ pub enum TokenType {
     RightBrace,
     LeftBracket,
     RightBracket,
-    Identifier(String),
-    Symbol(String),
+    Identifier,
+    Symbol,
     Quote,
-    Integer(i64),
-    Real(f64),
-    Bool(bool),
-    Str(String),
+    Integer,
+    Real,
+    Bool,
+    Str,
     Def,
     DefStruct,
     If,
@@ -44,7 +44,7 @@ pub enum TokenType {
     Cond,
     Let,
     ModuleSep,
-    Error(String),
+    Error,
 }
 
 impl TokenType {
@@ -68,9 +68,21 @@ impl TokenType {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum TokenValue {
+    Integer(i64),
+    Real(f64),
+    Bool(bool),
+    Str(String),
+    Symbol(String),
+    Identifier(String),
+    Error(String),
+}
+
 #[derive(Debug, Clone)]
 pub struct Token {
     pub token_type: TokenType,
+    pub token_value: Option<TokenValue>,
     pub line: usize,
     pub column: usize,
 }
@@ -79,8 +91,103 @@ impl Token {
     pub fn new(token_type: TokenType, line: usize, column: usize) -> Self {
         Self {
             token_type,
+            token_value: None,
             line,
             column,
+        }
+    }
+
+    pub fn new_int(value: i64, line: usize, column: usize) -> Self {
+        Self {
+            token_type: TokenType::Integer,
+            token_value: Some(TokenValue::Integer(value)),
+            line,
+            column,
+        }
+    }
+
+    pub fn new_real(value: f64, line: usize, column: usize) -> Self {
+        Self {
+            token_type: TokenType::Real,
+            token_value: Some(TokenValue::Real(value)),
+            line,
+            column,
+        }
+    }
+
+    pub fn new_bool(value: bool, line: usize, column: usize) -> Self {
+        Self {
+            token_type: TokenType::Bool,
+            token_value: Some(TokenValue::Bool(value)),
+            line,
+            column,
+        }
+    }
+
+    pub fn new_str(value: String, line: usize, column: usize) -> Self {
+        Self {
+            token_type: TokenType::Str,
+            token_value: Some(TokenValue::Str(value)),
+            line,
+            column,
+        }
+    }
+
+    pub fn new_symbol(value: String, line: usize, column: usize) -> Self {
+        Self {
+            token_type: TokenType::Symbol,
+            token_value: Some(TokenValue::Symbol(value)),
+            line,
+            column,
+        }
+    }
+
+    pub fn new_identifier(value: String, line: usize, column: usize) -> Self {
+        Self {
+            token_type: TokenType::Identifier,
+            token_value: Some(TokenValue::Identifier(value)),
+            line,
+            column,
+        }
+    }
+
+    pub fn new_error(value: String, line: usize, column: usize) -> Self {
+        Self {
+            token_type: TokenType::Error,
+            token_value: Some(TokenValue::Error(value)),
+            line,
+            column,
+        }
+    }
+
+    pub fn get_int_value(&self) -> Option<i64> {
+        match self.token_value {
+            Some(TokenValue::Integer(value)) => Some(value),
+            _ => None,
+        }
+    }
+
+    pub fn get_real_value(&self) -> Option<f64> {
+        match self.token_value {
+            Some(TokenValue::Real(value)) => Some(value),
+            _ => None,
+        }
+    }
+
+    pub fn get_bool_value(&self) -> Option<bool> {
+        match self.token_value {
+            Some(TokenValue::Bool(value)) => Some(value),
+            _ => None,
+        }
+    }
+
+    pub fn get_string_value(&self) -> Option<String> {
+        match self.token_value {
+            Some(TokenValue::Str(ref value)) => Some(value.to_string()),
+            Some(TokenValue::Identifier(ref value)) => Some(value.to_string()),
+            Some(TokenValue::Symbol(ref value)) => Some(value.to_string()),
+            Some(TokenValue::Error(ref value)) => Some(value.to_string()),
+            _ => None,
         }
     }
 }
