@@ -7,6 +7,7 @@ use super::lexer::tokens::{Token, TokenType, TokenType::*};
 use super::lexer::Lexer;
 
 pub mod ast;
+pub mod visitor;
 
 pub struct Parser {}
 
