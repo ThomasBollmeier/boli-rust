@@ -1,7 +1,5 @@
 use std::error::Error;
 
-use crate::frontend::parser::ast::downcast_ast;
-
 use super::lexer::stream::BufferedStream;
 use super::lexer::tokens::{Token, TokenType, TokenType::*};
 use super::lexer::Lexer;
@@ -21,6 +19,24 @@ impl Parser {
         self.program(&mut stream)
     }
 
+    fn next_token(
+        stream: &mut BufferedStream<Token>,
+        expected_types: &Vec<TokenType>,
+    ) -> Result<Token, ParseError> {
+        let token = stream
+            .next()
+            .ok_or(ParseError::new("Unexpected end of input"))?;
+        for expected_type in expected_types {
+            if token.token_type == *expected_type {
+                return Ok(token);
+            }
+        }
+        if !expected_types.is_empty() {
+            return Err(ParseError::with_token("Unexpected token", token));
+        }
+        Ok(token)
+    }
+
     fn program(&self, stream: &mut BufferedStream<Token>) -> Result<ast::Program, ParseError> {
         let mut children = Vec::new();
         while let Ok(child) = self.expression(stream, true) {
@@ -35,9 +51,7 @@ impl Parser {
         stream: &mut BufferedStream<Token>,
         define_allowed: bool,
     ) -> Result<Box<dyn ast::Ast>, ParseError> {
-        let token = stream
-            .next()
-            .ok_or(ParseError::new("Unexpected end of input"))?;
+        let token = Self::next_token(stream, &vec![])?;
 
         match token.token_type {
             Integer => Ok(Box::new(ast::Integer {
@@ -72,9 +86,7 @@ impl Parser {
             _ => unreachable!(),
         };
 
-        let token = stream
-            .next()
-            .ok_or(ParseError::new("Unexpected end of input"))?;
+        let token = Self::next_token(stream, &vec![])?;
 
         match token.token_type {
             Def => {
@@ -84,8 +96,27 @@ impl Parser {
                     Err(ParseError::new("Definition not allowed here"))
                 }
             }
+            If => self.if_expression(stream, end_token_type),
             _ => Err(ParseError::new("Unexpected token")),
         }
+    }
+
+    fn if_expression(
+        &self,
+        stream: &mut BufferedStream<Token>,
+        end_token_type: TokenType,
+    ) -> Result<Box<dyn ast::Ast>, ParseError> {
+        let condition = self.expression(stream, false)?;
+        let consequent = self.expression(stream, false)?;
+        let alternate = self.expression(stream, false)?;
+
+        Self::next_token(stream, &vec![end_token_type])?; // consume closing token
+
+        Ok(Box::new(ast::IfExpression {
+            condition,
+            consequent,
+            alternate,
+        }))
     }
 
     fn definition(
@@ -93,26 +124,12 @@ impl Parser {
         stream: &mut BufferedStream<Token>,
         end_token_type: TokenType,
     ) -> Result<Box<dyn ast::Ast>, ParseError> {
-        let token = stream
-            .next()
-            .ok_or(ParseError::new("Unexpected end of input"))?;
-
-        let name = match token.token_type {
-            Identifier => token.get_string_value().unwrap(),
-            _ => return Err(ParseError::new("Expected identifier")),
-        };
+        let name_token = Self::next_token(stream, &vec![Identifier])?;
+        let name = name_token.get_string_value().unwrap();
 
         let value = self.expression(stream, false)?;
-        if downcast_ast::<ast::Definition>(&value).is_some() {
-            return Err(ParseError::new("Definition not allowed in definition"));
-        }
 
-        let end_token = stream
-            .next()
-            .ok_or(ParseError::new("Unexpected end of input"))?;
-        if end_token.token_type != end_token_type {
-            return Err(ParseError::new("Expected closing token"));
-        }
+        Self::next_token(stream, &vec![end_token_type])?; // consume closing token
 
         Ok(Box::new(ast::Definition { name, value }))
     }
@@ -166,11 +183,14 @@ mod tests {
             #true
             "Thomas"
             (def answer 42)
+            (if #t
+                123
+                456)
         "#;
         let program = parser.parse(code);
         assert!(program.is_ok());
         let program = program.unwrap();
-        assert_eq!(program.children.len(), 5);
+        assert_eq!(program.children.len(), 6);
 
         let integer = downcast_ast::<Integer>(&program.children[0]).unwrap();
         assert_eq!(integer.value, 123);
@@ -189,5 +209,13 @@ mod tests {
 
         let integer = downcast_ast::<Integer>(&definition.value).unwrap();
         assert_eq!(integer.value, 42);
+
+        let if_expr = downcast_ast::<IfExpression>(&program.children[5]).unwrap();
+        let condition = downcast_ast::<Bool>(&if_expr.condition).unwrap();
+        assert_eq!(condition.value, true);
+        let consequent = downcast_ast::<Integer>(&if_expr.consequent).unwrap();
+        assert_eq!(consequent.value, 123);
+        let alternate = downcast_ast::<Integer>(&if_expr.alternate).unwrap();
+        assert_eq!(alternate.value, 456);
     }
 }

@@ -55,6 +55,13 @@ impl Display for JsonData {
     }
 }
 
+impl From<Program> for JsonData {
+    fn from(program: Program) -> Self {
+        let mut visitor = AstToJsonVisitor::new();
+        visitor.to_json(&program)
+    }
+}
+
 pub struct AstToJsonVisitor {
     stack: Vec<JsonData>,
 }
@@ -128,6 +135,25 @@ impl AstVisitor for AstToJsonVisitor {
 
         self.stack.push(JsonData::Object(data));
     }
+
+    fn visit_if(&mut self, if_expr: &IfExpression) {
+        let mut data = HashMap::new();
+        data.insert(
+            "type".to_string(),
+            JsonData::String("IfExpression".to_string()),
+        );
+
+        if_expr.condition.accept(self);
+        data.insert("condition".to_string(), self.stack.pop().unwrap());
+
+        if_expr.consequent.accept(self);
+        data.insert("consequent".to_string(), self.stack.pop().unwrap());
+
+        if_expr.alternate.accept(self);
+        data.insert("alternate".to_string(), self.stack.pop().unwrap());
+
+        self.stack.push(JsonData::Object(data));
+    }
 }
 
 #[cfg(test)]
@@ -135,17 +161,21 @@ mod tests {
     use crate::frontend::parser::Parser;
 
     #[test]
-    fn test_ast_to_json() {
+    fn test_json_from_ast() {
         use super::*;
 
-        let code = r#"42 3,14 #true "Hello, World!" (def answer 42)"#;
+        let code = r#"
+            42 
+            3,14 
+            #true 
+            "Hello, World!" 
+            (def answer 42)
+            (if #true 42 23)
+        "#;
         let parser = Parser::new();
         let program = parser.parse(code).unwrap();
 
-        let mut visitor = AstToJsonVisitor::new();
-        let actual = visitor.to_json(&program);
-
-        println!("{}", actual);
+        let actual = JsonData::from(program);
 
         let expected = JsonData::Object({
             let mut data = HashMap::new();
@@ -196,6 +226,50 @@ mod tests {
                                     JsonData::String("Integer".to_string()),
                                 );
                                 data.insert("value".to_string(), JsonData::Number(42.0));
+                                data
+                            }),
+                        );
+                        data
+                    }),
+                    JsonData::Object({
+                        let mut data = HashMap::new();
+                        data.insert(
+                            "type".to_string(),
+                            JsonData::String("IfExpression".to_string()),
+                        );
+                        data.insert(
+                            "condition".to_string(),
+                            JsonData::Object({
+                                let mut data = HashMap::new();
+                                data.insert(
+                                    "type".to_string(),
+                                    JsonData::String("Boolean".to_string()),
+                                );
+                                data.insert("value".to_string(), JsonData::Bool(true));
+                                data
+                            }),
+                        );
+                        data.insert(
+                            "consequent".to_string(),
+                            JsonData::Object({
+                                let mut data = HashMap::new();
+                                data.insert(
+                                    "type".to_string(),
+                                    JsonData::String("Integer".to_string()),
+                                );
+                                data.insert("value".to_string(), JsonData::Number(42.0));
+                                data
+                            }),
+                        );
+                        data.insert(
+                            "alternate".to_string(),
+                            JsonData::Object({
+                                let mut data = HashMap::new();
+                                data.insert(
+                                    "type".to_string(),
+                                    JsonData::String("Integer".to_string()),
+                                );
+                                data.insert("value".to_string(), JsonData::Number(23.0));
                                 data
                             }),
                         );

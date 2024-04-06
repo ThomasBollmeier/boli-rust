@@ -14,6 +14,7 @@ pub trait AstVisitor {
     fn visit_bool(&mut self, bool: &Bool);
     fn visit_str(&mut self, str: &Str);
     fn visit_def(&mut self, def: &Definition);
+    fn visit_if(&mut self, if_expr: &IfExpression);
 }
 
 pub struct Program {
@@ -93,6 +94,22 @@ pub struct Definition {
 impl Ast for Definition {
     fn accept(&self, visitor: &mut dyn AstVisitor) {
         visitor.visit_def(self);
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+pub struct IfExpression {
+    pub condition: Box<dyn Ast>,
+    pub consequent: Box<dyn Ast>,
+    pub alternate: Box<dyn Ast>,
+}
+
+impl Ast for IfExpression {
+    fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_if(self);
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
