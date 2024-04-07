@@ -323,17 +323,11 @@ mod tests {
         let parser = super::Parser::new();
         let code = r#"
             (cond
-                (1 "Adult")
-                (2 "Teenager")
-                (#t "Child"))
+                [1 "Adult"]
+                [2 "Teenager"]
+                [#t "Child"])
         "#;
         let program = parser.parse(code);
-        assert!(program.is_ok());
-        let program = program.unwrap();
-
-        print!(
-            "{}",
-            crate::frontend::parser::visitor::JsonData::from(program)
-        );
+        assert!(program.is_ok(), "{}", program.err().unwrap());
     }
 }

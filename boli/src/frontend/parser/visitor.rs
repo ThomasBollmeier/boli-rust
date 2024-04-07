@@ -14,45 +14,57 @@ pub enum JsonData {
     Object(HashMap<String, JsonData>, Vec<String>),
 }
 
-impl Display for JsonData {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        match self {
-            JsonData::Null => write!(f, "null"),
-            JsonData::Bool(value) => write!(f, "{}", value),
-            JsonData::Number(value) => write!(f, "{}", value),
-            JsonData::String(value) => write!(f, "\"{}\"", value),
-            JsonData::Array(elements) => {
-                let mut value = String::from("[");
-                let mut first = true;
+impl JsonData {
+    fn pretty_print(&self) -> String {
+        let mut result = String::new();
+        self.pretty_print_internal(&mut result, 0);
+        result
+    }
 
-                for element in elements {
-                    if !first {
-                        value.push(char::from(','));
-                    } else {
-                        first = false;
+    fn pretty_print_internal(&self, result: &mut String, indent: usize) {
+        match self {
+            JsonData::Null => result.push_str("null"),
+            JsonData::Bool(value) => result.push_str(&format!("{}", value)),
+            JsonData::Number(value) => result.push_str(&format!("{}", value)),
+            JsonData::String(value) => result.push_str(&format!("\"{}\"", value)),
+            JsonData::Array(elements) => {
+                result.push(char::from('['));
+                if !elements.is_empty() {
+                    result.push(char::from('\n'));
+                    for element in elements {
+                        result.push_str(&" ".repeat(indent + 2));
+                        element.pretty_print_internal(result, indent + 2);
+                        result.push(char::from(','));
+                        result.push(char::from('\n'));
                     }
-                    value.push_str(&format!("{}", element));
+                    result.push_str(&" ".repeat(indent));
                 }
-                value.push(char::from(']'));
-                write!(f, "{}", value)
+                result.push(char::from(']'));
             }
             JsonData::Object(data, fields) => {
-                let mut value = String::from("{");
-                let mut first = true;
-
-                for field in fields {
-                    let (key, val) = data.get_key_value(field).unwrap();
-                    if !first {
-                        value.push(char::from(','));
-                    } else {
-                        first = false;
+                result.push(char::from('{'));
+                if !fields.is_empty() {
+                    result.push(char::from('\n'));
+                    for field in fields {
+                        result.push_str(&" ".repeat(indent + 2));
+                        result.push_str(&format!("\"{}\": ", field));
+                        data.get(field)
+                            .unwrap()
+                            .pretty_print_internal(result, indent + 2);
+                        result.push(char::from(','));
+                        result.push(char::from('\n'));
                     }
-                    value.push_str(&format!("\"{}\": {}", key, val));
+                    result.push_str(&" ".repeat(indent));
                 }
-                value.push(char::from('}'));
-                write!(f, "{}", value)
+                result.push(char::from('}'));
             }
         }
+    }
+}
+
+impl Display for JsonData {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.pretty_print())
     }
 }
 
