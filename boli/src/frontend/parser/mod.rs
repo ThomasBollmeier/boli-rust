@@ -37,10 +37,26 @@ impl Parser {
         Ok(token)
     }
 
+    fn peek_token(
+        stream: &mut BufferedStream<Token>,
+        expected_types: &Vec<TokenType>,
+    ) -> Option<Token> {
+        let token = stream.peek()?;
+        for expected_type in expected_types {
+            if token.token_type == *expected_type {
+                return Some(token);
+            }
+        }
+        if !expected_types.is_empty() {
+            return None;
+        }
+        Some(token)
+    }
+
     fn program(&self, stream: &mut BufferedStream<Token>) -> Result<ast::Program, ParseError> {
         let mut children = Vec::new();
-        while let Ok(child) = self.expression(stream, true) {
-            children.push(child);
+        while let Some(_) = Self::peek_token(stream, &vec![]) {
+            children.push(self.expression(stream, true)?);
         }
 
         Ok(ast::Program { children })
@@ -73,18 +89,22 @@ impl Parser {
         }
     }
 
+    fn closing_token_type(opening_token_type: &TokenType) -> TokenType {
+        match opening_token_type {
+            LeftParen => RightParen,
+            LeftBrace => RightBrace,
+            LeftBracket => RightBracket,
+            _ => unreachable!(),
+        }
+    }
+
     fn symbolic_expression(
         &self,
         start_token: &Token,
         stream: &mut BufferedStream<Token>,
         define_allowed: bool,
     ) -> Result<Box<dyn ast::Ast>, ParseError> {
-        let end_token_type = match start_token.token_type {
-            LeftParen => RightParen,
-            LeftBrace => RightBrace,
-            LeftBracket => RightBracket,
-            _ => unreachable!(),
-        };
+        let end_token_type = Self::closing_token_type(&start_token.token_type);
 
         let token = Self::next_token(stream, &vec![])?;
 
@@ -97,8 +117,65 @@ impl Parser {
                 }
             }
             If => self.if_expression(stream, end_token_type),
+            Cond => self.cond_expression(stream, end_token_type),
             _ => Err(ParseError::new("Unexpected token")),
         }
+    }
+
+    fn cond_expression(
+        &self,
+        stream: &mut BufferedStream<Token>,
+        end_token_type: TokenType,
+    ) -> Result<Box<dyn ast::Ast>, ParseError> {
+        let mut clauses = Vec::new();
+
+        while let Some(_) = Self::peek_token(stream, &vec![LeftParen, LeftBrace, LeftBracket]) {
+            let (condition, consequent) = self.cond_clause(stream)?;
+            clauses.push((condition, consequent));
+        }
+
+        if clauses.is_empty() {
+            return Err(ParseError::new("At least one clause required"));
+        }
+
+        Self::next_token(stream, &vec![end_token_type])?; // consume closing token
+
+        Ok(self.create_if_expr_from_cond_clauses(&mut clauses))
+    }
+
+    fn create_if_expr_from_cond_clauses(
+        &self,
+        clauses: &mut Vec<(Box<dyn ast::Ast>, Box<dyn ast::Ast>)>,
+    ) -> Box<dyn ast::Ast> {
+        if clauses.is_empty() {
+            return Box::new(ast::Nil {});
+        }
+
+        let (condition, consequent) = clauses.remove(0);
+
+        let if_expr = Box::new(ast::IfExpression {
+            condition,
+            consequent,
+            alternate: self.create_if_expr_from_cond_clauses(clauses),
+        });
+        if_expr
+    }
+
+    fn cond_clause(
+        &self,
+        stream: &mut BufferedStream<Token>,
+    ) -> Result<(Box<dyn ast::Ast>, Box<dyn ast::Ast>), ParseError> {
+        let opening_token = Self::next_token(stream, &vec![LeftParen, LeftBrace, LeftBracket])?;
+
+        let condition = self.expression(stream, false)?;
+        let consequent = self.expression(stream, false)?;
+
+        Self::next_token(
+            stream,
+            &vec![Self::closing_token_type(&opening_token.token_type)],
+        )?; // consume closing token
+
+        Ok((condition, consequent))
     }
 
     fn if_expression(
@@ -182,15 +259,11 @@ mod tests {
             3,14 
             #true
             "Thomas"
-            (def answer 42)
-            (if #t
-                123
-                456)
         "#;
         let program = parser.parse(code);
         assert!(program.is_ok());
         let program = program.unwrap();
-        assert_eq!(program.children.len(), 6);
+        assert_eq!(program.children.len(), 4);
 
         let integer = downcast_ast::<Integer>(&program.children[0]).unwrap();
         assert_eq!(integer.value, 123);
@@ -203,19 +276,64 @@ mod tests {
 
         let string = downcast_ast::<Str>(&program.children[3]).unwrap();
         assert_eq!(string.value, "Thomas");
+    }
 
-        let definition = downcast_ast::<Definition>(&program.children[4]).unwrap();
+    #[test]
+    fn test_definition() {
+        let parser = super::Parser::new();
+        let code = r#"
+            (def answer 42)
+        "#;
+        let program = parser.parse(code);
+        assert!(program.is_ok());
+        let program = program.unwrap();
+        assert_eq!(program.children.len(), 1);
+
+        let definition = downcast_ast::<Definition>(&program.children[0]).unwrap();
         assert_eq!(definition.name, "answer");
 
         let integer = downcast_ast::<Integer>(&definition.value).unwrap();
         assert_eq!(integer.value, 42);
+    }
 
-        let if_expr = downcast_ast::<IfExpression>(&program.children[5]).unwrap();
+    #[test]
+    fn test_if_expression() {
+        let parser = super::Parser::new();
+        let code = r#"
+            (if #t
+                123
+                456)
+        "#;
+        let program = parser.parse(code);
+        assert!(program.is_ok());
+        let program = program.unwrap();
+        assert_eq!(program.children.len(), 1);
+
+        let if_expr = downcast_ast::<IfExpression>(&program.children[0]).unwrap();
         let condition = downcast_ast::<Bool>(&if_expr.condition).unwrap();
         assert_eq!(condition.value, true);
         let consequent = downcast_ast::<Integer>(&if_expr.consequent).unwrap();
         assert_eq!(consequent.value, 123);
         let alternate = downcast_ast::<Integer>(&if_expr.alternate).unwrap();
         assert_eq!(alternate.value, 456);
+    }
+
+    #[test]
+    fn test_cond_expression() {
+        let parser = super::Parser::new();
+        let code = r#"
+            (cond
+                (1 "Adult")
+                (2 "Teenager")
+                (#t "Child"))
+        "#;
+        let program = parser.parse(code);
+        assert!(program.is_ok());
+        let program = program.unwrap();
+
+        print!(
+            "{}",
+            crate::frontend::parser::visitor::JsonData::from(program)
+        );
     }
 }

@@ -11,7 +11,7 @@ pub enum JsonData {
     Number(f64),
     String(String),
     Array(Vec<JsonData>),
-    Object(HashMap<String, JsonData>),
+    Object(HashMap<String, JsonData>, Vec<String>),
 }
 
 impl Display for JsonData {
@@ -36,11 +36,12 @@ impl Display for JsonData {
                 value.push(char::from(']'));
                 write!(f, "{}", value)
             }
-            JsonData::Object(data) => {
+            JsonData::Object(data, fields) => {
                 let mut value = String::from("{");
                 let mut first = true;
 
-                for (key, val) in data {
+                for field in fields {
+                    let (key, val) = data.get_key_value(field).unwrap();
                     if !first {
                         value.push(char::from(','));
                     } else {
@@ -71,215 +72,241 @@ impl AstToJsonVisitor {
         Self { stack: Vec::new() }
     }
 
-    pub fn to_json(&mut self, program: &Program) -> JsonData {
-        self.visit_program(program);
+    pub fn to_json(&mut self, ast: &dyn Ast) -> JsonData {
+        ast.accept(self);
         self.stack.pop().unwrap()
+    }
+
+    fn new_object_content() -> (HashMap<String, JsonData>, Vec<String>) {
+        (HashMap::new(), Vec::new())
+    }
+
+    fn add_field(
+        name: &str,
+        value: JsonData,
+        data: &mut HashMap<String, JsonData>,
+        fields: &mut Vec<String>,
+    ) {
+        data.insert(name.to_string(), value);
+        fields.push(name.to_string());
     }
 }
 
 impl AstVisitor for AstToJsonVisitor {
     fn visit_program(&mut self, program: &Program) {
-        let mut data = HashMap::new();
+        let (mut data, mut fields) = Self::new_object_content();
         let mut children: Vec<JsonData> = Vec::new();
 
-        data.insert("type".to_string(), JsonData::String("Program".to_string()));
+        Self::add_field(
+            "type",
+            JsonData::String("Program".to_string()),
+            &mut data,
+            &mut fields,
+        );
 
         for child in &program.children {
             child.accept(self);
             children.push(self.stack.pop().unwrap());
         }
 
-        data.insert("children".to_string(), JsonData::Array(children));
+        Self::add_field(
+            "children",
+            JsonData::Array(children),
+            &mut data,
+            &mut fields,
+        );
 
-        self.stack.push(JsonData::Object(data));
+        self.stack.push(JsonData::Object(data, fields));
     }
 
     fn visit_integer(&mut self, integer: &Integer) {
-        let mut data = HashMap::new();
-        data.insert("type".to_string(), JsonData::String("Integer".to_string()));
-        data.insert("value".to_string(), JsonData::Number(integer.value as f64));
-        self.stack.push(JsonData::Object(data));
+        let (mut data, mut fields) = Self::new_object_content();
+        Self::add_field(
+            "type",
+            JsonData::String("Integer".to_string()),
+            &mut data,
+            &mut fields,
+        );
+        Self::add_field(
+            "value",
+            JsonData::Number(integer.value as f64),
+            &mut data,
+            &mut fields,
+        );
+        self.stack.push(JsonData::Object(data, fields));
     }
 
     fn visit_real(&mut self, real: &Real) {
-        let mut data = HashMap::new();
-        data.insert("type".to_string(), JsonData::String("Real".to_string()));
-        data.insert("value".to_string(), JsonData::Number(real.value));
-        self.stack.push(JsonData::Object(data));
+        let (mut data, mut fields) = Self::new_object_content();
+        Self::add_field(
+            "type",
+            JsonData::String("Real".to_string()),
+            &mut data,
+            &mut fields,
+        );
+        Self::add_field(
+            "value",
+            JsonData::Number(real.value),
+            &mut data,
+            &mut fields,
+        );
+        self.stack.push(JsonData::Object(data, fields));
     }
 
     fn visit_bool(&mut self, bool: &Bool) {
-        let mut data = HashMap::new();
-        data.insert("type".to_string(), JsonData::String("Boolean".to_string()));
-        data.insert("value".to_string(), JsonData::Bool(bool.value));
-        self.stack.push(JsonData::Object(data));
+        let (mut data, mut fields) = Self::new_object_content();
+        Self::add_field(
+            "type",
+            JsonData::String("Boolean".to_string()),
+            &mut data,
+            &mut fields,
+        );
+        Self::add_field("value", JsonData::Bool(bool.value), &mut data, &mut fields);
+        self.stack.push(JsonData::Object(data, fields));
     }
 
     fn visit_str(&mut self, str: &Str) {
-        let mut data = HashMap::new();
-        data.insert("type".to_string(), JsonData::String("String".to_string()));
-        data.insert("value".to_string(), JsonData::String(str.value.clone()));
-        self.stack.push(JsonData::Object(data));
+        let (mut data, mut fields) = Self::new_object_content();
+        Self::add_field(
+            "type",
+            JsonData::String("String".to_string()),
+            &mut data,
+            &mut fields,
+        );
+        Self::add_field(
+            "value",
+            JsonData::String(str.value.clone()),
+            &mut data,
+            &mut fields,
+        );
+        self.stack.push(JsonData::Object(data, fields));
+    }
+
+    fn visit_nil(&mut self) {
+        let (mut data, mut fields) = Self::new_object_content();
+        Self::add_field(
+            "type",
+            JsonData::String("Nil".to_string()),
+            &mut data,
+            &mut fields,
+        );
+        self.stack.push(JsonData::Object(data, fields));
     }
 
     fn visit_def(&mut self, def: &Definition) {
-        let mut data = HashMap::new();
-        data.insert(
-            "type".to_string(),
+        let (mut data, mut fields) = Self::new_object_content();
+        Self::add_field(
+            "type",
             JsonData::String("Definition".to_string()),
+            &mut data,
+            &mut fields,
         );
-        data.insert("name".to_string(), JsonData::String(def.name.clone()));
+        Self::add_field(
+            "name",
+            JsonData::String(def.name.clone()),
+            &mut data,
+            &mut fields,
+        );
 
         def.value.accept(self);
-        data.insert("value".to_string(), self.stack.pop().unwrap());
-
-        self.stack.push(JsonData::Object(data));
+        Self::add_field("value", self.stack.pop().unwrap(), &mut data, &mut fields);
+        self.stack.push(JsonData::Object(data, fields));
     }
 
     fn visit_if(&mut self, if_expr: &IfExpression) {
-        let mut data = HashMap::new();
-        data.insert(
-            "type".to_string(),
+        let (mut data, mut fields) = Self::new_object_content();
+        Self::add_field(
+            "type",
             JsonData::String("IfExpression".to_string()),
+            &mut data,
+            &mut fields,
         );
 
         if_expr.condition.accept(self);
-        data.insert("condition".to_string(), self.stack.pop().unwrap());
+        Self::add_field(
+            "condition",
+            self.stack.pop().unwrap(),
+            &mut data,
+            &mut fields,
+        );
 
         if_expr.consequent.accept(self);
-        data.insert("consequent".to_string(), self.stack.pop().unwrap());
+        Self::add_field(
+            "consequent",
+            self.stack.pop().unwrap(),
+            &mut data,
+            &mut fields,
+        );
 
         if_expr.alternate.accept(self);
-        data.insert("alternate".to_string(), self.stack.pop().unwrap());
+        Self::add_field(
+            "alternate",
+            self.stack.pop().unwrap(),
+            &mut data,
+            &mut fields,
+        );
 
-        self.stack.push(JsonData::Object(data));
+        self.stack.push(JsonData::Object(data, fields));
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::frontend::parser::Parser;
+
+    use super::super::ast::*;
+    use super::*;
 
     #[test]
-    fn test_json_from_ast() {
-        use super::*;
+    fn test_integer() {
+        let integer = Integer { value: 42 };
+        let mut visitor = AstToJsonVisitor::new();
+        let json = visitor.to_json(&integer);
 
-        let code = r#"
-            42 
-            3,14 
-            #true 
-            "Hello, World!" 
-            (def answer 42)
-            (if #true 42 23)
-        "#;
-        let parser = Parser::new();
-        let program = parser.parse(code).unwrap();
+        assert_eq!(
+            json,
+            JsonData::Object(
+                vec![
+                    ("type".to_string(), JsonData::String("Integer".to_string())),
+                    ("value".to_string(), JsonData::Number(42.0)),
+                ]
+                .into_iter()
+                .collect(),
+                vec!["type".to_string(), "value".to_string()]
+            )
+        );
+    }
 
-        let actual = JsonData::from(program);
+    #[test]
+    fn test_program() {
+        let integer = Integer { value: 42 };
+        let program = Program {
+            children: vec![Box::new(integer)],
+        };
+        let mut visitor = AstToJsonVisitor::new();
+        let json = visitor.to_json(&program);
 
-        let expected = JsonData::Object({
-            let mut data = HashMap::new();
-            data.insert("type".to_string(), JsonData::String("Program".to_string()));
-            data.insert(
-                "children".to_string(),
-                JsonData::Array(vec![
-                    JsonData::Object({
-                        let mut data = HashMap::new();
-                        data.insert("type".to_string(), JsonData::String("Integer".to_string()));
-                        data.insert("value".to_string(), JsonData::Number(42.0));
-                        data
-                    }),
-                    JsonData::Object({
-                        let mut data = HashMap::new();
-                        data.insert("type".to_string(), JsonData::String("Real".to_string()));
-                        data.insert("value".to_string(), JsonData::Number(3.14));
-                        data
-                    }),
-                    JsonData::Object({
-                        let mut data = HashMap::new();
-                        data.insert("type".to_string(), JsonData::String("Boolean".to_string()));
-                        data.insert("value".to_string(), JsonData::Bool(true));
-                        data
-                    }),
-                    JsonData::Object({
-                        let mut data = HashMap::new();
-                        data.insert("type".to_string(), JsonData::String("String".to_string()));
-                        data.insert(
-                            "value".to_string(),
-                            JsonData::String("Hello, World!".to_string()),
-                        );
-                        data
-                    }),
-                    JsonData::Object({
-                        let mut data = HashMap::new();
-                        data.insert(
-                            "type".to_string(),
-                            JsonData::String("Definition".to_string()),
-                        );
-                        data.insert("name".to_string(), JsonData::String("answer".to_string()));
-                        data.insert(
-                            "value".to_string(),
-                            JsonData::Object({
-                                let mut data = HashMap::new();
-                                data.insert(
-                                    "type".to_string(),
-                                    JsonData::String("Integer".to_string()),
-                                );
-                                data.insert("value".to_string(), JsonData::Number(42.0));
-                                data
-                            }),
-                        );
-                        data
-                    }),
-                    JsonData::Object({
-                        let mut data = HashMap::new();
-                        data.insert(
-                            "type".to_string(),
-                            JsonData::String("IfExpression".to_string()),
-                        );
-                        data.insert(
-                            "condition".to_string(),
-                            JsonData::Object({
-                                let mut data = HashMap::new();
-                                data.insert(
-                                    "type".to_string(),
-                                    JsonData::String("Boolean".to_string()),
-                                );
-                                data.insert("value".to_string(), JsonData::Bool(true));
-                                data
-                            }),
-                        );
-                        data.insert(
-                            "consequent".to_string(),
-                            JsonData::Object({
-                                let mut data = HashMap::new();
-                                data.insert(
-                                    "type".to_string(),
-                                    JsonData::String("Integer".to_string()),
-                                );
-                                data.insert("value".to_string(), JsonData::Number(42.0));
-                                data
-                            }),
-                        );
-                        data.insert(
-                            "alternate".to_string(),
-                            JsonData::Object({
-                                let mut data = HashMap::new();
-                                data.insert(
-                                    "type".to_string(),
-                                    JsonData::String("Integer".to_string()),
-                                );
-                                data.insert("value".to_string(), JsonData::Number(23.0));
-                                data
-                            }),
-                        );
-                        data
-                    }),
-                ]),
-            );
-            data
-        });
-
-        assert_eq!(actual, expected);
+        assert_eq!(
+            json,
+            JsonData::Object(
+                vec![
+                    ("type".to_string(), JsonData::String("Program".to_string())),
+                    (
+                        "children".to_string(),
+                        JsonData::Array(vec![JsonData::Object(
+                            vec![
+                                ("type".to_string(), JsonData::String("Integer".to_string())),
+                                ("value".to_string(), JsonData::Number(42.0)),
+                            ]
+                            .into_iter()
+                            .collect(),
+                            vec!["type".to_string(), "value".to_string()]
+                        )])
+                    ),
+                ]
+                .into_iter()
+                .collect(),
+                vec!["type".to_string(), "children".to_string()]
+            )
+        );
     }
 }

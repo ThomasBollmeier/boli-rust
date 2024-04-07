@@ -13,6 +13,7 @@ pub trait AstVisitor {
     fn visit_real(&mut self, real: &Real);
     fn visit_bool(&mut self, bool: &Bool);
     fn visit_str(&mut self, str: &Str);
+    fn visit_nil(&mut self);
     fn visit_def(&mut self, def: &Definition);
     fn visit_if(&mut self, if_expr: &IfExpression);
 }
@@ -79,6 +80,18 @@ pub struct Str {
 impl Ast for Str {
     fn accept(&self, visitor: &mut dyn AstVisitor) {
         visitor.visit_str(self);
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+pub struct Nil {}
+
+impl Ast for Nil {
+    fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_nil();
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
