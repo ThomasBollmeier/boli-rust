@@ -35,6 +35,8 @@ pub enum TokenType {
     Def,
     DefStruct,
     If,
+    Conjunction,
+    Disjunction,
     Lambda,
     Operator(Op),
     LogicalOperator(LogicalOp),

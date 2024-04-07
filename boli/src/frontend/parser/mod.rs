@@ -1,3 +1,4 @@
+use core::str;
 use std::error::Error;
 
 use super::lexer::stream::BufferedStream;
@@ -39,11 +40,11 @@ impl Parser {
 
     fn peek_token(
         stream: &mut BufferedStream<Token>,
-        expected_types: &Vec<TokenType>,
+        expected_types: &Vec<&TokenType>,
     ) -> Option<Token> {
         let token = stream.peek()?;
         for expected_type in expected_types {
-            if token.token_type == *expected_type {
+            if token.token_type == **expected_type {
                 return Some(token);
             }
         }
@@ -82,6 +83,9 @@ impl Parser {
             Str => Ok(Box::new(ast::Str {
                 value: token.get_string_value().unwrap(),
             })),
+            Identifier => Ok(Box::new(ast::Identifier {
+                value: token.get_string_value().unwrap(),
+            })),
             LeftParen | LeftBrace | LeftBracket => {
                 self.symbolic_expression(&token, stream, define_allowed)
             }
@@ -118,8 +122,94 @@ impl Parser {
             }
             If => self.if_expression(stream, end_token_type),
             Cond => self.cond_expression(stream, end_token_type),
+            Conjunction => self.conjunction(stream, end_token_type),
+            Disjunction => self.disjunction(stream, end_token_type),
             _ => Err(ParseError::new("Unexpected token")),
         }
+    }
+
+    fn disjunction(
+        &self,
+        stream: &mut BufferedStream<Token>,
+        end_token_type: TokenType,
+    ) -> Result<Box<dyn ast::Ast>, ParseError> {
+        let mut children = Vec::new();
+
+        while Self::peek_token(stream, &vec![&end_token_type]).is_none() {
+            children.push(self.expression(stream, false)?);
+        }
+
+        if children.is_empty() {
+            return Err(ParseError::new("At least one expression required"));
+        }
+
+        Self::next_token(stream, &vec![end_token_type])?; // consume closing token
+
+        Ok(self.create_if_expr_from_disjunction(&mut children))
+    }
+
+    fn create_if_expr_from_disjunction(
+        &self,
+        elements: &mut Vec<Box<dyn ast::Ast>>,
+    ) -> Box<dyn ast::Ast> {
+        if elements.is_empty() {
+            return Box::new(ast::Bool { value: false });
+        }
+
+        let condition = elements.remove(0);
+
+        let if_expr = Box::new(ast::IfExpression {
+            condition,
+            consequent: Box::new(ast::Bool { value: true }),
+            alternate: if elements.is_empty() {
+                Box::new(ast::Bool { value: false })
+            } else {
+                self.create_if_expr_from_disjunction(elements)
+            },
+        });
+        if_expr
+    }
+
+    fn conjunction(
+        &self,
+        stream: &mut BufferedStream<Token>,
+        end_token_type: TokenType,
+    ) -> Result<Box<dyn ast::Ast>, ParseError> {
+        let mut children = Vec::new();
+
+        while Self::peek_token(stream, &vec![&end_token_type]).is_none() {
+            children.push(self.expression(stream, false)?);
+        }
+
+        if children.is_empty() {
+            return Err(ParseError::new("At least one expression required"));
+        }
+
+        Self::next_token(stream, &vec![end_token_type])?; // consume closing token
+
+        Ok(self.create_if_expr_from_conjunction(&mut children))
+    }
+
+    fn create_if_expr_from_conjunction(
+        &self,
+        elements: &mut Vec<Box<dyn ast::Ast>>,
+    ) -> Box<dyn ast::Ast> {
+        if elements.is_empty() {
+            return Box::new(ast::Bool { value: true });
+        }
+
+        let condition = elements.remove(0);
+
+        let if_expr = Box::new(ast::IfExpression {
+            condition,
+            consequent: if elements.is_empty() {
+                Box::new(ast::Bool { value: true })
+            } else {
+                self.create_if_expr_from_conjunction(elements)
+            },
+            alternate: Box::new(ast::Bool { value: false }),
+        });
+        if_expr
     }
 
     fn cond_expression(
@@ -129,7 +219,7 @@ impl Parser {
     ) -> Result<Box<dyn ast::Ast>, ParseError> {
         let mut clauses = Vec::new();
 
-        while let Some(_) = Self::peek_token(stream, &vec![LeftParen, LeftBrace, LeftBracket]) {
+        while let Some(_) = Self::peek_token(stream, &vec![&LeftParen, &LeftBrace, &LeftBracket]) {
             let (condition, consequent) = self.cond_clause(stream)?;
             clauses.push((condition, consequent));
         }
@@ -329,5 +419,40 @@ mod tests {
         "#;
         let program = parser.parse(code);
         assert!(program.is_ok(), "{}", program.err().unwrap());
+    }
+
+    #[test]
+    fn test_conjunction() {
+        let parser = super::Parser::new();
+        let code = r#"
+            (and 1 2 3)
+        "#;
+        let program = parser.parse(code);
+        assert!(program.is_ok(), "{}", program.err().unwrap());
+    }
+
+    #[test]
+    fn test_disjunction() {
+        let parser = super::Parser::new();
+        let code = r#"
+            (or 1 2 3)
+        "#;
+        let program = parser.parse(code);
+        assert!(program.is_ok(), "{}", program.err().unwrap());
+    }
+
+    #[test]
+    fn test_identifier() {
+        let parser = super::Parser::new();
+        let code = r#"
+            (def answer 42)
+            answer
+        "#;
+        let program = parser.parse(code);
+        assert!(program.is_ok(), "{}", program.err().unwrap());
+
+        let program = program.unwrap();
+        let ident = downcast_ast::<Identifier>(&program.children[1]).unwrap();
+        assert_eq!(ident.value, "answer");
     }
 }

@@ -161,6 +161,8 @@ impl Lexer {
             "def" => Token::new(Def, line, column),
             "def-struct" => Token::new(DefStruct, line, column),
             "if" => Token::new(If, line, column),
+            "and" => Token::new(Conjunction, line, column),
+            "or" => Token::new(Disjunction, line, column),
             "lambda" | "λ" => Token::new(Lambda, line, column),
             "nil" => Token::new(Nil, line, column),
             "block" => Token::new(Block, line, column),
@@ -329,7 +331,7 @@ mod tests {
     #[test]
     fn test_scan_identifiers() {
         let code = r#"an-identifier defined? :legal 
-            def def-struct if lambda λ 
+            def def-struct if and or lambda λ 
             nil block cond let let-alone #f #false #t #true"#;
         let mut lexer = Lexer::new(code);
         assert_eq!(
@@ -351,6 +353,8 @@ mod tests {
         assert_eq!(lexer.next().unwrap().token_type, Def);
         assert_eq!(lexer.next().unwrap().token_type, DefStruct);
         assert_eq!(lexer.next().unwrap().token_type, If);
+        assert_eq!(lexer.next().unwrap().token_type, Conjunction);
+        assert_eq!(lexer.next().unwrap().token_type, Disjunction);
         assert_eq!(lexer.next().unwrap().token_type, Lambda);
         assert_eq!(lexer.next().unwrap().token_type, Lambda);
         assert_eq!(lexer.next().unwrap().token_type, Nil);
