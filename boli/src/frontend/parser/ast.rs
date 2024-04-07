@@ -1,9 +1,11 @@
+use std::rc::Rc;
+
 pub trait Ast {
     fn accept(&self, visitor: &mut dyn AstVisitor);
     fn as_any(&self) -> &dyn std::any::Any;
 }
 
-pub fn downcast_ast<T: 'static>(ast: &Box<dyn Ast>) -> Option<&T> {
+pub fn downcast_ast<T: 'static>(ast: &Rc<dyn Ast>) -> Option<&T> {
     ast.as_any().downcast_ref::<T>()
 }
 
@@ -20,7 +22,7 @@ pub trait AstVisitor {
 }
 
 pub struct Program {
-    pub children: Vec<Box<dyn Ast>>,
+    pub children: Vec<Rc<dyn Ast>>,
 }
 
 impl Ast for Program {
@@ -116,7 +118,7 @@ impl Ast for Identifier {
 
 pub struct Definition {
     pub name: String,
-    pub value: Box<dyn Ast>,
+    pub value: Rc<dyn Ast>,
 }
 
 impl Ast for Definition {
@@ -130,9 +132,9 @@ impl Ast for Definition {
 }
 
 pub struct IfExpression {
-    pub condition: Box<dyn Ast>,
-    pub consequent: Box<dyn Ast>,
-    pub alternate: Box<dyn Ast>,
+    pub condition: Rc<dyn Ast>,
+    pub consequent: Rc<dyn Ast>,
+    pub alternate: Rc<dyn Ast>,
 }
 
 impl Ast for IfExpression {

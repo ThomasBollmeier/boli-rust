@@ -1,5 +1,6 @@
 use core::str;
 use std::error::Error;
+use std::rc::Rc;
 
 use super::lexer::stream::BufferedStream;
 use super::lexer::tokens::{Token, TokenType, TokenType::*};
@@ -67,23 +68,23 @@ impl Parser {
         &self,
         stream: &mut BufferedStream<Token>,
         define_allowed: bool,
-    ) -> Result<Box<dyn ast::Ast>, ParseError> {
+    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
         let token = Self::next_token(stream, &vec![])?;
 
         match token.token_type {
-            Integer => Ok(Box::new(ast::Integer {
+            Integer => Ok(Rc::new(ast::Integer {
                 value: token.get_int_value().unwrap(),
             })),
-            Real => Ok(Box::new(ast::Real {
+            Real => Ok(Rc::new(ast::Real {
                 value: token.get_real_value().unwrap(),
             })),
-            Bool => Ok(Box::new(ast::Bool {
+            Bool => Ok(Rc::new(ast::Bool {
                 value: token.get_bool_value().unwrap(),
             })),
-            Str => Ok(Box::new(ast::Str {
+            Str => Ok(Rc::new(ast::Str {
                 value: token.get_string_value().unwrap(),
             })),
-            Identifier => Ok(Box::new(ast::Identifier {
+            Identifier => Ok(Rc::new(ast::Identifier {
                 value: token.get_string_value().unwrap(),
             })),
             LeftParen | LeftBrace | LeftBracket => {
@@ -107,7 +108,7 @@ impl Parser {
         start_token: &Token,
         stream: &mut BufferedStream<Token>,
         define_allowed: bool,
-    ) -> Result<Box<dyn ast::Ast>, ParseError> {
+    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
         let end_token_type = Self::closing_token_type(&start_token.token_type);
 
         let token = Self::next_token(stream, &vec![])?;
@@ -132,7 +133,7 @@ impl Parser {
         &self,
         stream: &mut BufferedStream<Token>,
         end_token_type: TokenType,
-    ) -> Result<Box<dyn ast::Ast>, ParseError> {
+    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
         let mut children = Vec::new();
 
         while Self::peek_token(stream, &vec![&end_token_type]).is_none() {
@@ -150,19 +151,19 @@ impl Parser {
 
     fn create_if_expr_from_disjunction(
         &self,
-        elements: &mut Vec<Box<dyn ast::Ast>>,
-    ) -> Box<dyn ast::Ast> {
+        elements: &mut Vec<Rc<dyn ast::Ast>>,
+    ) -> Rc<dyn ast::Ast> {
         if elements.is_empty() {
-            return Box::new(ast::Bool { value: false });
+            return Rc::new(ast::Bool { value: false });
         }
 
         let condition = elements.remove(0);
 
-        let if_expr = Box::new(ast::IfExpression {
-            condition,
-            consequent: Box::new(ast::Bool { value: true }),
+        let if_expr = Rc::new(ast::IfExpression {
+            condition: condition.clone(),
+            consequent: condition,
             alternate: if elements.is_empty() {
-                Box::new(ast::Bool { value: false })
+                Rc::new(ast::Bool { value: false })
             } else {
                 self.create_if_expr_from_disjunction(elements)
             },
@@ -174,7 +175,7 @@ impl Parser {
         &self,
         stream: &mut BufferedStream<Token>,
         end_token_type: TokenType,
-    ) -> Result<Box<dyn ast::Ast>, ParseError> {
+    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
         let mut children = Vec::new();
 
         while Self::peek_token(stream, &vec![&end_token_type]).is_none() {
@@ -192,22 +193,22 @@ impl Parser {
 
     fn create_if_expr_from_conjunction(
         &self,
-        elements: &mut Vec<Box<dyn ast::Ast>>,
-    ) -> Box<dyn ast::Ast> {
+        elements: &mut Vec<Rc<dyn ast::Ast>>,
+    ) -> Rc<dyn ast::Ast> {
         if elements.is_empty() {
-            return Box::new(ast::Bool { value: true });
+            return Rc::new(ast::Bool { value: true });
         }
 
         let condition = elements.remove(0);
 
-        let if_expr = Box::new(ast::IfExpression {
-            condition,
+        let if_expr = Rc::new(ast::IfExpression {
+            condition: condition.clone(),
             consequent: if elements.is_empty() {
-                Box::new(ast::Bool { value: true })
+                condition
             } else {
                 self.create_if_expr_from_conjunction(elements)
             },
-            alternate: Box::new(ast::Bool { value: false }),
+            alternate: Rc::new(ast::Bool { value: false }),
         });
         if_expr
     }
@@ -216,7 +217,7 @@ impl Parser {
         &self,
         stream: &mut BufferedStream<Token>,
         end_token_type: TokenType,
-    ) -> Result<Box<dyn ast::Ast>, ParseError> {
+    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
         let mut clauses = Vec::new();
 
         while let Some(_) = Self::peek_token(stream, &vec![&LeftParen, &LeftBrace, &LeftBracket]) {
@@ -235,15 +236,15 @@ impl Parser {
 
     fn create_if_expr_from_cond_clauses(
         &self,
-        clauses: &mut Vec<(Box<dyn ast::Ast>, Box<dyn ast::Ast>)>,
-    ) -> Box<dyn ast::Ast> {
+        clauses: &mut Vec<(Rc<dyn ast::Ast>, Rc<dyn ast::Ast>)>,
+    ) -> Rc<dyn ast::Ast> {
         if clauses.is_empty() {
-            return Box::new(ast::Nil {});
+            return Rc::new(ast::Nil {});
         }
 
         let (condition, consequent) = clauses.remove(0);
 
-        let if_expr = Box::new(ast::IfExpression {
+        let if_expr = Rc::new(ast::IfExpression {
             condition,
             consequent,
             alternate: self.create_if_expr_from_cond_clauses(clauses),
@@ -254,7 +255,7 @@ impl Parser {
     fn cond_clause(
         &self,
         stream: &mut BufferedStream<Token>,
-    ) -> Result<(Box<dyn ast::Ast>, Box<dyn ast::Ast>), ParseError> {
+    ) -> Result<(Rc<dyn ast::Ast>, Rc<dyn ast::Ast>), ParseError> {
         let opening_token = Self::next_token(stream, &vec![LeftParen, LeftBrace, LeftBracket])?;
 
         let condition = self.expression(stream, false)?;
@@ -272,14 +273,14 @@ impl Parser {
         &self,
         stream: &mut BufferedStream<Token>,
         end_token_type: TokenType,
-    ) -> Result<Box<dyn ast::Ast>, ParseError> {
+    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
         let condition = self.expression(stream, false)?;
         let consequent = self.expression(stream, false)?;
         let alternate = self.expression(stream, false)?;
 
         Self::next_token(stream, &vec![end_token_type])?; // consume closing token
 
-        Ok(Box::new(ast::IfExpression {
+        Ok(Rc::new(ast::IfExpression {
             condition,
             consequent,
             alternate,
@@ -290,7 +291,7 @@ impl Parser {
         &self,
         stream: &mut BufferedStream<Token>,
         end_token_type: TokenType,
-    ) -> Result<Box<dyn ast::Ast>, ParseError> {
+    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
         let name_token = Self::next_token(stream, &vec![Identifier])?;
         let name = name_token.get_string_value().unwrap();
 
@@ -298,7 +299,7 @@ impl Parser {
 
         Self::next_token(stream, &vec![end_token_type])?; // consume closing token
 
-        Ok(Box::new(ast::Definition { name, value }))
+        Ok(Rc::new(ast::Definition { name, value }))
     }
 }
 

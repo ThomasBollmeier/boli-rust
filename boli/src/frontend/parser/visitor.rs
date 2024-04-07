@@ -282,6 +282,8 @@ impl AstVisitor for AstToJsonVisitor {
 #[cfg(test)]
 mod tests {
 
+    use std::rc::Rc;
+
     use super::super::ast::*;
     use super::*;
 
@@ -309,7 +311,7 @@ mod tests {
     fn test_program() {
         let integer = Integer { value: 42 };
         let program = Program {
-            children: vec![Box::new(integer)],
+            children: vec![Rc::new(integer)],
         };
         let mut visitor = AstToJsonVisitor::new();
         let json = visitor.to_json(&program);
