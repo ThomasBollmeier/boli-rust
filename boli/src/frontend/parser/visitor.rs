@@ -31,10 +31,13 @@ impl JsonData {
                 result.push(char::from('['));
                 if !elements.is_empty() {
                     result.push(char::from('\n'));
-                    for element in elements {
+                    let last = elements.len() - 1;
+                    for (i, element) in elements.iter().enumerate() {
                         result.push_str(&" ".repeat(indent + 2));
                         element.pretty_print_internal(result, indent + 2);
-                        result.push(char::from(','));
+                        if i != last {
+                            result.push(char::from(','));
+                        }
                         result.push(char::from('\n'));
                     }
                     result.push_str(&" ".repeat(indent));
@@ -45,13 +48,16 @@ impl JsonData {
                 result.push(char::from('{'));
                 if !fields.is_empty() {
                     result.push(char::from('\n'));
-                    for field in fields {
+                    let last = fields.len() - 1;
+                    for (i, field) in fields.iter().enumerate() {
                         result.push_str(&" ".repeat(indent + 2));
                         result.push_str(&format!("\"{}\": ", field));
                         data.get(field)
                             .unwrap()
                             .pretty_print_internal(result, indent + 2);
-                        result.push(char::from(','));
+                        if i != last {
+                            result.push(char::from(','));
+                        }
                         result.push(char::from('\n'));
                     }
                     result.push_str(&" ".repeat(indent));
