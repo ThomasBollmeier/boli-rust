@@ -125,8 +125,28 @@ impl Parser {
             Cond => self.cond_expression(stream, end_token_type),
             Conjunction => self.conjunction(stream, end_token_type),
             Disjunction => self.disjunction(stream, end_token_type),
-            _ => Err(ParseError::new("Unexpected token")),
+            _ => {
+                stream.push_back(token);
+                self.call(stream, end_token_type)
+            }
         }
+    }
+
+    fn call(
+        &self,
+        stream: &mut BufferedStream<Token>,
+        end_token_type: TokenType,
+    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+        let callee = self.expression(stream, false)?;
+        let mut arguments = Vec::new();
+
+        while Self::peek_token(stream, &vec![&end_token_type]).is_none() {
+            arguments.push(self.expression(stream, false)?);
+        }
+
+        Self::next_token(stream, &vec![end_token_type])?; // consume closing token
+
+        Ok(Rc::new(ast::Call { callee, arguments }))
     }
 
     fn disjunction(
@@ -455,5 +475,21 @@ mod tests {
         let program = program.unwrap();
         let ident = downcast_ast::<Identifier>(&program.children[1]).unwrap();
         assert_eq!(ident.value, "answer");
+    }
+
+    #[test]
+    fn test_call() {
+        let parser = super::Parser::new();
+        let code = r#"
+            (add 1 2)
+        "#;
+        let program = parser.parse(code);
+        assert!(program.is_ok(), "{}", program.err().unwrap());
+
+        let program = program.unwrap();
+        let call = downcast_ast::<Call>(&program.children[0]).unwrap();
+        let callee = downcast_ast::<Identifier>(&call.callee).unwrap();
+        assert_eq!(callee.value, "add");
+        assert_eq!(call.arguments.len(), 2);
     }
 }

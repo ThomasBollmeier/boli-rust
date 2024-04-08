@@ -58,6 +58,10 @@ impl<T: Clone> BufferedStream<T> {
         self.buffer.iter().take(n as usize).cloned().collect()
     }
 
+    pub fn push_back(&mut self, token: T) {
+        self.buffer.push_front(token);
+    }
+
     fn fill_buffer(&mut self, max_size: i32) {
         while self.buffer.len() < max_size as usize {
             if let Some(token) = self.stream.next() {

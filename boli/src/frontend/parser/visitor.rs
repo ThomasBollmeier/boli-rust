@@ -277,6 +277,34 @@ impl AstVisitor for AstToJsonVisitor {
 
         self.stack.push(JsonData::Object(data, fields));
     }
+
+    fn visit_call(&mut self, call: &Call) {
+        let (mut data, mut fields) = Self::new_object_content();
+        Self::add_field(
+            "type",
+            JsonData::String("Call".to_string()),
+            &mut data,
+            &mut fields,
+        );
+
+        call.callee.accept(self);
+        Self::add_field("callee", self.stack.pop().unwrap(), &mut data, &mut fields);
+
+        let mut arguments: Vec<JsonData> = Vec::new();
+        for argument in &call.arguments {
+            argument.accept(self);
+            arguments.push(self.stack.pop().unwrap());
+        }
+
+        Self::add_field(
+            "arguments",
+            JsonData::Array(arguments),
+            &mut data,
+            &mut fields,
+        );
+
+        self.stack.push(JsonData::Object(data, fields));
+    }
 }
 
 #[cfg(test)]
