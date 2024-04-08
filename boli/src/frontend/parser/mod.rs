@@ -23,13 +23,13 @@ impl Parser {
 
     fn next_token(
         stream: &mut BufferedStream<Token>,
-        expected_types: &Vec<TokenType>,
+        expected_types: &Vec<&TokenType>,
     ) -> Result<Token, ParseError> {
         let token = stream
             .next()
             .ok_or(ParseError::new("Unexpected end of input"))?;
         for expected_type in expected_types {
-            if token.token_type == *expected_type {
+            if token.token_type == **expected_type {
                 return Ok(token);
             }
         }
@@ -125,11 +125,38 @@ impl Parser {
             Cond => self.cond_expression(stream, end_token_type),
             Conjunction => self.conjunction(stream, end_token_type),
             Disjunction => self.disjunction(stream, end_token_type),
+            Lambda => self.lambda(stream, end_token_type),
             _ => {
                 stream.push_back(token);
                 self.call(stream, end_token_type)
             }
         }
+    }
+
+    fn lambda(
+        &self,
+        stream: &mut BufferedStream<Token>,
+        end_token_type: TokenType,
+    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+        let opening_token = Self::next_token(stream, &vec![&LeftParen, &LeftBrace, &LeftBracket])?;
+        let closing_token_type = Self::closing_token_type(&opening_token.token_type);
+
+        let mut parameters = Vec::new();
+        while let Some(_) = Self::peek_token(stream, &vec![&Identifier]) {
+            let token = Self::next_token(stream, &vec![&Identifier])?;
+            parameters.push(token.get_string_value().unwrap());
+        }
+
+        Self::next_token(stream, &vec![&closing_token_type])?;
+
+        let mut body = Vec::new();
+        while Self::peek_token(stream, &vec![&end_token_type]).is_none() {
+            body.push(self.expression(stream, false)?);
+        }
+
+        Self::next_token(stream, &vec![&end_token_type])?; // consume closing token
+
+        Ok(Rc::new(ast::Lambda { parameters, body }))
     }
 
     fn call(
@@ -144,7 +171,7 @@ impl Parser {
             arguments.push(self.expression(stream, false)?);
         }
 
-        Self::next_token(stream, &vec![end_token_type])?; // consume closing token
+        Self::next_token(stream, &vec![&end_token_type])?; // consume closing token
 
         Ok(Rc::new(ast::Call { callee, arguments }))
     }
@@ -164,7 +191,7 @@ impl Parser {
             return Err(ParseError::new("At least one expression required"));
         }
 
-        Self::next_token(stream, &vec![end_token_type])?; // consume closing token
+        Self::next_token(stream, &vec![&end_token_type])?; // consume closing token
 
         Ok(self.create_if_expr_from_disjunction(&mut children))
     }
@@ -206,7 +233,7 @@ impl Parser {
             return Err(ParseError::new("At least one expression required"));
         }
 
-        Self::next_token(stream, &vec![end_token_type])?; // consume closing token
+        Self::next_token(stream, &vec![&end_token_type])?; // consume closing token
 
         Ok(self.create_if_expr_from_conjunction(&mut children))
     }
@@ -249,7 +276,7 @@ impl Parser {
             return Err(ParseError::new("At least one clause required"));
         }
 
-        Self::next_token(stream, &vec![end_token_type])?; // consume closing token
+        Self::next_token(stream, &vec![&end_token_type])?; // consume closing token
 
         Ok(self.create_if_expr_from_cond_clauses(&mut clauses))
     }
@@ -276,14 +303,14 @@ impl Parser {
         &self,
         stream: &mut BufferedStream<Token>,
     ) -> Result<(Rc<dyn ast::Ast>, Rc<dyn ast::Ast>), ParseError> {
-        let opening_token = Self::next_token(stream, &vec![LeftParen, LeftBrace, LeftBracket])?;
+        let opening_token = Self::next_token(stream, &vec![&LeftParen, &LeftBrace, &LeftBracket])?;
 
         let condition = self.expression(stream, false)?;
         let consequent = self.expression(stream, false)?;
 
         Self::next_token(
             stream,
-            &vec![Self::closing_token_type(&opening_token.token_type)],
+            &vec![&Self::closing_token_type(&opening_token.token_type)],
         )?; // consume closing token
 
         Ok((condition, consequent))
@@ -298,7 +325,7 @@ impl Parser {
         let consequent = self.expression(stream, false)?;
         let alternate = self.expression(stream, false)?;
 
-        Self::next_token(stream, &vec![end_token_type])?; // consume closing token
+        Self::next_token(stream, &vec![&end_token_type])?; // consume closing token
 
         Ok(Rc::new(ast::IfExpression {
             condition,
@@ -312,8 +339,59 @@ impl Parser {
         stream: &mut BufferedStream<Token>,
         end_token_type: TokenType,
     ) -> Result<Rc<dyn ast::Ast>, ParseError> {
-        let name_token = Self::next_token(stream, &vec![Identifier])?;
+        let token = Self::peek_token(
+            stream,
+            &vec![&Identifier, &LeftParen, &LeftBrace, &LeftBracket],
+        )
+        .ok_or(ParseError::new("Unexpected token in definition"))?;
+
+        match token.token_type {
+            Identifier => self.definition_with_name(stream, &token, &end_token_type),
+            _ => self.definition_with_lambda(stream, &token, &end_token_type),
+        }
+    }
+
+    fn definition_with_lambda(
+        &self,
+        stream: &mut BufferedStream<Token>,
+        opening_token: &Token,
+        def_end_token_type: &TokenType,
+    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+        let closing_token_type = Self::closing_token_type(&opening_token.token_type);
+        Self::next_token(stream, &vec![])?;
+
+        let name_token = Self::next_token(stream, &vec![&Identifier])?;
         let name = name_token.get_string_value().unwrap();
+
+        let mut parameters = Vec::new();
+        while let Some(_) = Self::peek_token(stream, &vec![&Identifier]) {
+            let token = Self::next_token(stream, &vec![&Identifier])?;
+            parameters.push(token.get_string_value().unwrap());
+        }
+
+        Self::next_token(stream, &vec![&closing_token_type])?; // consume closing token for parameters
+
+        let mut body = Vec::new();
+        while Self::peek_token(stream, &vec![&def_end_token_type]).is_none() {
+            body.push(self.expression(stream, false)?);
+        }
+
+        Self::next_token(stream, &vec![&def_end_token_type])?; // consume closing token
+
+        Ok(Rc::new(ast::Definition {
+            name,
+            value: Rc::new(ast::Lambda { parameters, body }),
+        }))
+    }
+
+    fn definition_with_name(
+        &self,
+        stream: &mut BufferedStream<Token>,
+        name_token: &Token,
+        end_token_type: &TokenType,
+    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+        let name = name_token.get_string_value().unwrap();
+        Self::next_token(stream, &vec![&Identifier])?; // consume opening token (name)
 
         let value = self.expression(stream, false)?;
 
@@ -405,6 +483,40 @@ mod tests {
 
         let integer = downcast_ast::<Integer>(&definition.value).unwrap();
         assert_eq!(integer.value, 42);
+    }
+
+    #[test]
+    fn test_function_definition() {
+        let parser = super::Parser::new();
+        let code = r#"
+            (def (do-something a b) (some-library-function a b))  
+        "#;
+        let program = parser.parse(code);
+        assert!(program.is_ok());
+        let program = program.unwrap();
+
+        let definition = downcast_ast::<Definition>(&program.children[0]).unwrap();
+        assert_eq!(definition.name, "do-something");
+
+        let Lambda {
+            parameters,
+            body: _,
+        } = downcast_ast::<Lambda>(&definition.value).unwrap();
+        assert_eq!(*parameters, vec!["a".to_string(), "b".to_string()]);
+    }
+
+    #[test]
+    fn test_lambda() {
+        let parser = super::Parser::new();
+        let code = r#"
+            (lambda (a b) (add a b))
+        "#;
+        let program = parser.parse(code);
+        assert!(program.is_ok());
+        let program = program.unwrap();
+
+        let lambda = downcast_ast::<Lambda>(&program.children[0]).unwrap();
+        assert_eq!(*lambda.parameters, vec!["a".to_string(), "b".to_string()]);
     }
 
     #[test]

@@ -19,6 +19,7 @@ pub trait AstVisitor {
     fn visit_identifier(&mut self, identifier: &Identifier);
     fn visit_def(&mut self, def: &Definition);
     fn visit_if(&mut self, if_expr: &IfExpression);
+    fn visit_lambda(&mut self, lambda: &Lambda);
     fn visit_call(&mut self, call: &Call);
 }
 
@@ -141,6 +142,21 @@ pub struct IfExpression {
 impl Ast for IfExpression {
     fn accept(&self, visitor: &mut dyn AstVisitor) {
         visitor.visit_if(self);
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+pub struct Lambda {
+    pub parameters: Vec<String>,
+    pub body: Vec<Rc<dyn Ast>>,
+}
+
+impl Ast for Lambda {
+    fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_lambda(self);
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
