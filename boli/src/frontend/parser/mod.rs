@@ -88,7 +88,7 @@ impl Parser {
                 value: token.get_string_value().unwrap(),
             })),
             LeftParen | LeftBrace | LeftBracket => {
-                self.symbolic_expression(&token, stream, define_allowed)
+                self.symbolic_expression(stream, &token, define_allowed)
             }
             _ => Err(ParseError::with_token("Unexpected token", token)),
         }
@@ -105,8 +105,8 @@ impl Parser {
 
     fn symbolic_expression(
         &self,
-        start_token: &Token,
         stream: &mut BufferedStream<Token>,
+        start_token: &Token,
         define_allowed: bool,
     ) -> Result<Rc<dyn ast::Ast>, ParseError> {
         let end_token_type = Self::closing_token_type(&start_token.token_type);
