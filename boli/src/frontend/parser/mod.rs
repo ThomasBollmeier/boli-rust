@@ -1,6 +1,7 @@
 use core::str;
 use std::error::Error;
 use std::rc::Rc;
+use std::vec;
 
 use super::lexer::stream::BufferedStream;
 use super::lexer::tokens::{Token, TokenType, TokenType::*};
@@ -87,8 +88,18 @@ impl Parser {
             Identifier => Ok(Rc::new(ast::Identifier {
                 value: token.get_string_value().unwrap(),
             })),
-            LeftParen | LeftBrace | LeftBracket => {
-                self.symbolic_expression(stream, &token, define_allowed)
+            Symbol => Ok(Rc::new(ast::Symbol {
+                value: token.get_string_value().unwrap(),
+            })),
+            Operator(op) => Ok(Rc::new(ast::Operator { value: op.clone() })),
+            LogicalOperator(op) => Ok(Rc::new(ast::LogicalOperator { value: op.clone() })),
+            LeftParen | LeftBrace | LeftBracket => self.symbolic_expression(
+                stream,
+                Self::closing_token_type(&token.token_type),
+                define_allowed,
+            ),
+            QuoteParen | QuoteBrace | QuoteBracket => {
+                self.quoted_expression(stream, Self::closing_token_type(&token.token_type))
             }
             _ => Err(ParseError::with_token("Unexpected token", token)),
         }
@@ -96,21 +107,66 @@ impl Parser {
 
     fn closing_token_type(opening_token_type: &TokenType) -> TokenType {
         match opening_token_type {
-            LeftParen => RightParen,
-            LeftBrace => RightBrace,
-            LeftBracket => RightBracket,
+            LeftParen | QuoteParen => RightParen,
+            LeftBrace | QuoteBrace => RightBrace,
+            LeftBracket | QuoteBracket => RightBracket,
             _ => unreachable!(),
+        }
+    }
+
+    fn quoted_expression(
+        &self,
+        stream: &mut BufferedStream<Token>,
+        end_token_type: TokenType,
+    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+        let mut elements = Vec::new();
+        while Self::peek_token(stream, &vec![&end_token_type]).is_none() {
+            let element = self.get_quoted_element(stream)?;
+            elements.push(element);
+        }
+        Self::next_token(stream, &vec![&end_token_type])?; // consume closing token
+        Ok(Rc::new(ast::List { elements }))
+    }
+
+    fn get_quoted_element(
+        &self,
+        stream: &mut BufferedStream<Token>,
+    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+        let token = Self::next_token(stream, &vec![])?;
+        match token.token_type {
+            Integer => Ok(Rc::new(ast::Integer {
+                value: token.get_int_value().unwrap(),
+            })),
+            Real => Ok(Rc::new(ast::Real {
+                value: token.get_real_value().unwrap(),
+            })),
+            Bool => Ok(Rc::new(ast::Bool {
+                value: token.get_bool_value().unwrap(),
+            })),
+            Str => Ok(Rc::new(ast::Str {
+                value: token.get_string_value().unwrap(),
+            })),
+            Symbol => Ok(Rc::new(ast::Symbol {
+                value: token.get_string_value().unwrap(),
+            })),
+            LeftParen | LeftBrace | LeftBracket => {
+                self.quoted_expression(stream, Self::closing_token_type(&token.token_type))
+            }
+            QuoteParen | QuoteBrace | QuoteBracket => {
+                Err(ParseError::new("Quotation nesting not allowed"))
+            }
+            _ => Ok(Rc::new(ast::Quote {
+                value: token.clone(),
+            })),
         }
     }
 
     fn symbolic_expression(
         &self,
         stream: &mut BufferedStream<Token>,
-        start_token: &Token,
+        end_token_type: TokenType,
         define_allowed: bool,
     ) -> Result<Rc<dyn ast::Ast>, ParseError> {
-        let end_token_type = Self::closing_token_type(&start_token.token_type);
-
         let token = Self::next_token(stream, &vec![])?;
 
         match token.token_type {
@@ -438,6 +494,8 @@ impl Error for ParseError {
 #[cfg(test)]
 mod tests {
 
+    use crate::frontend::lexer::tokens::{Op, TokenType};
+
     use super::ast::*;
 
     #[test]
@@ -590,18 +648,56 @@ mod tests {
     }
 
     #[test]
+    fn test_symbol() {
+        let parser = super::Parser::new();
+        let code = r#"
+            'answer
+        "#;
+        let program = parser.parse(code);
+        assert!(program.is_ok(), "{}", program.err().unwrap());
+
+        let program = program.unwrap();
+        let symbol = downcast_ast::<Symbol>(&program.children[0]).unwrap();
+        assert_eq!(symbol.value, "'answer");
+    }
+
+    #[test]
     fn test_call() {
         let parser = super::Parser::new();
         let code = r#"
-            (add 1 2)
+            (+ 1 2)
         "#;
         let program = parser.parse(code);
         assert!(program.is_ok(), "{}", program.err().unwrap());
 
         let program = program.unwrap();
         let call = downcast_ast::<Call>(&program.children[0]).unwrap();
-        let callee = downcast_ast::<Identifier>(&call.callee).unwrap();
-        assert_eq!(callee.value, "add");
+        let callee = downcast_ast::<Operator>(&call.callee).unwrap();
+        assert_eq!(callee.value, Op::Plus);
         assert_eq!(call.arguments.len(), 2);
+    }
+
+    #[test]
+    fn test_quotation() {
+        let parser = super::Parser::new();
+        let code = r#"
+            '(1 2 a)
+        "#;
+        let program = parser.parse(code);
+        assert!(program.is_ok(), "{}", program.err().unwrap());
+
+        let program = program.unwrap();
+        let list = downcast_ast::<List>(&program.children[0]).unwrap();
+        assert_eq!(list.elements.len(), 3);
+
+        let integer = downcast_ast::<Integer>(&list.elements[0]).unwrap();
+        assert_eq!(integer.value, 1);
+
+        let integer = downcast_ast::<Integer>(&list.elements[1]).unwrap();
+        assert_eq!(integer.value, 2);
+
+        let ident = downcast_ast::<Quote>(&list.elements[2]).unwrap();
+        assert_eq!(ident.value.token_type, TokenType::Identifier);
+        assert_eq!(ident.value.get_string_value().unwrap(), "a");
     }
 }

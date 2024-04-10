@@ -228,6 +228,101 @@ impl AstVisitor for AstToJsonVisitor {
         self.stack.push(JsonData::Object(data, fields));
     }
 
+    fn visit_symbol(&mut self, symbol: &Symbol) {
+        let (mut data, mut fields) = Self::new_object_content();
+        Self::add_field(
+            "type",
+            JsonData::String("Symbol".to_string()),
+            &mut data,
+            &mut fields,
+        );
+        Self::add_field(
+            "value",
+            JsonData::String(symbol.value.clone()),
+            &mut data,
+            &mut fields,
+        );
+        self.stack.push(JsonData::Object(data, fields));
+    }
+
+    fn visit_quote(&mut self, quote: &Quote) {
+        let (mut data, mut fields) = Self::new_object_content();
+        Self::add_field(
+            "type",
+            JsonData::String("Quote".to_string()),
+            &mut data,
+            &mut fields,
+        );
+
+        Self::add_field(
+            "value",
+            JsonData::String(quote.value.to_string()),
+            &mut data,
+            &mut fields,
+        );
+        self.stack.push(JsonData::Object(data, fields));
+    }
+
+    fn visit_operator(&mut self, operator: &Operator) {
+        let (mut data, mut fields) = Self::new_object_content();
+        Self::add_field(
+            "type",
+            JsonData::String("Operator".to_string()),
+            &mut data,
+            &mut fields,
+        );
+
+        Self::add_field(
+            "value",
+            JsonData::String(format!("{:?}", operator.value)),
+            &mut data,
+            &mut fields,
+        );
+        self.stack.push(JsonData::Object(data, fields));
+    }
+
+    fn visit_logical_operator(&mut self, operator: &LogicalOperator) {
+        let (mut data, mut fields) = Self::new_object_content();
+        Self::add_field(
+            "type",
+            JsonData::String("LogicalOperator".to_string()),
+            &mut data,
+            &mut fields,
+        );
+
+        Self::add_field(
+            "value",
+            JsonData::String(format!("{:?}", operator.value)),
+            &mut data,
+            &mut fields,
+        );
+        self.stack.push(JsonData::Object(data, fields));
+    }
+
+    fn visit_list(&mut self, list: &List) {
+        let (mut data, mut fields) = Self::new_object_content();
+        Self::add_field(
+            "type",
+            JsonData::String("List".to_string()),
+            &mut data,
+            &mut fields,
+        );
+
+        let mut elements: Vec<JsonData> = Vec::new();
+        for element in &list.elements {
+            element.accept(self);
+            elements.push(self.stack.pop().unwrap());
+        }
+
+        Self::add_field(
+            "elements",
+            JsonData::Array(elements),
+            &mut data,
+            &mut fields,
+        );
+        self.stack.push(JsonData::Object(data, fields));
+    }
+
     fn visit_def(&mut self, def: &Definition) {
         let (mut data, mut fields) = Self::new_object_content();
         Self::add_field(

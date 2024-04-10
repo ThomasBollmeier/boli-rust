@@ -1,3 +1,4 @@
+use crate::frontend::lexer::tokens::{self, Token};
 use std::rc::Rc;
 
 pub trait Ast {
@@ -17,6 +18,11 @@ pub trait AstVisitor {
     fn visit_str(&mut self, str: &Str);
     fn visit_nil(&mut self);
     fn visit_identifier(&mut self, identifier: &Identifier);
+    fn visit_symbol(&mut self, symbol: &Symbol);
+    fn visit_quote(&mut self, quote: &Quote);
+    fn visit_operator(&mut self, operator: &Operator);
+    fn visit_logical_operator(&mut self, operator: &LogicalOperator);
+    fn visit_list(&mut self, list: &List);
     fn visit_def(&mut self, def: &Definition);
     fn visit_if(&mut self, if_expr: &IfExpression);
     fn visit_lambda(&mut self, lambda: &Lambda);
@@ -111,6 +117,76 @@ pub struct Identifier {
 impl Ast for Identifier {
     fn accept(&self, visitor: &mut dyn AstVisitor) {
         visitor.visit_identifier(self);
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+pub struct Symbol {
+    pub value: String,
+}
+
+impl Ast for Symbol {
+    fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_symbol(self);
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+pub struct Quote {
+    pub value: Token,
+}
+
+impl Ast for Quote {
+    fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_quote(self);
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+pub struct Operator {
+    pub value: tokens::Op,
+}
+
+impl Ast for Operator {
+    fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_operator(self);
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+pub struct LogicalOperator {
+    pub value: tokens::LogicalOp,
+}
+
+impl Ast for LogicalOperator {
+    fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_logical_operator(self);
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+pub struct List {
+    pub elements: Vec<Rc<dyn Ast>>,
+}
+
+impl Ast for List {
+    fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_list(self);
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

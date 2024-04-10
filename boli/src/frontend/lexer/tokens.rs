@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Op {
     Plus,
@@ -27,7 +29,9 @@ pub enum TokenType {
     RightBracket,
     Identifier,
     Symbol,
-    Quote,
+    QuoteParen,
+    QuoteBrace,
+    QuoteBracket,
     Integer,
     Real,
     Bool,
@@ -190,6 +194,25 @@ impl Token {
             Some(TokenValue::Symbol(ref value)) => Some(value.to_string()),
             Some(TokenValue::Error(ref value)) => Some(value.to_string()),
             _ => None,
+        }
+    }
+}
+
+impl Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.token_value {
+            Some(TokenValue::Integer(value)) => {
+                write!(f, "Token: {:?}({})", self.token_type, value)
+            }
+            Some(TokenValue::Real(value)) => write!(f, "Token: {:?}({})", self.token_type, value),
+            Some(TokenValue::Bool(value)) => write!(f, "Token: {:?}({})", self.token_type, value),
+            Some(TokenValue::Str(value)) => write!(f, "Token: {:?}({})", self.token_type, value),
+            Some(TokenValue::Symbol(value)) => write!(f, "Token: {:?}({})", self.token_type, value),
+            Some(TokenValue::Identifier(value)) => {
+                write!(f, "Token: {:?}({})", self.token_type, value)
+            }
+            Some(TokenValue::Error(value)) => write!(f, "Token, {:?}({})", self.token_type, value),
+            None => write!(f, "Token: {:?}", self.token_type),
         }
     }
 }

@@ -19,7 +19,7 @@ impl Lexer {
         Self {
             stream: BufferedStream::new(Box::new(CharsStream::new(code))),
             line: 1,
-            column: 1,
+            column: 0,
         }
     }
 
@@ -27,7 +27,7 @@ impl Lexer {
         let c = self.stream.next();
         if c == Some('\n') {
             self.line += 1;
-            self.column = 1;
+            self.column = 0;
         } else {
             self.column += 1;
         }
@@ -175,6 +175,27 @@ impl Lexer {
 
         Some(token)
     }
+
+    fn scan_quote(&mut self, ch: char, line: usize, column: usize) -> Option<Token> {
+        let next_char = match self.next_char() {
+            Some(c) => c,
+            None => return Some(Token::new_error(ch.to_string(), line, column)),
+        };
+
+        match next_char {
+            '(' => Some(Token::new(QuoteParen, line, column)),
+            '{' => Some(Token::new(QuoteBrace, line, column)),
+            '[' => Some(Token::new(QuoteBracket, line, column)),
+            _ => {
+                if let Some(ident) = self.scan_identifier(next_char, line, column) {
+                    let symbol = format!("{}{}", ch, ident.get_string_value().unwrap());
+                    Some(Token::new_symbol(symbol, line, column))
+                } else {
+                    Some(Token::new_error(ch.to_string(), line, column))
+                }
+            }
+        }
+    }
 }
 
 impl Stream<Token> for Lexer {
@@ -205,6 +226,10 @@ impl Stream<Token> for Lexer {
 
             if ch == '"' {
                 return self.scan_string(line, column);
+            }
+
+            if ch == '\'' {
+                return self.scan_quote(ch, line, column);
             }
 
             if let Some(token) = self.scan_identifier(ch, line, column) {
@@ -381,6 +406,39 @@ mod tests {
             lexer.next().unwrap().token_value,
             Some(TokenValue::Bool(true))
         );
+        assert!(lexer.next().is_none());
+    }
+
+    #[test]
+    fn test_quotation() {
+        let code = r#"'a '{1 2 3}"#;
+        let mut lexer = Lexer::new(code);
+
+        let symbol_token = lexer.next().unwrap();
+        assert_eq!(symbol_token.token_type, Symbol);
+        assert_eq!(
+            symbol_token.token_value,
+            Some(TokenValue::Symbol("'a".to_string()))
+        );
+
+        let quote_token = lexer.next().unwrap();
+        assert_eq!(quote_token.token_type, QuoteBrace);
+
+        let int_token = lexer.next().unwrap();
+        assert_eq!(int_token.token_type, Integer);
+        assert_eq!(int_token.token_value, Some(TokenValue::Integer(1)));
+
+        let int_token = lexer.next().unwrap();
+        assert_eq!(int_token.token_type, Integer);
+        assert_eq!(int_token.token_value, Some(TokenValue::Integer(2)));
+
+        let int_token = lexer.next().unwrap();
+        assert_eq!(int_token.token_type, Integer);
+        assert_eq!(int_token.token_value, Some(TokenValue::Integer(3)));
+
+        let paren_token = lexer.next().unwrap();
+        assert_eq!(paren_token.token_type, RightBrace);
+
         assert!(lexer.next().is_none());
     }
 }
