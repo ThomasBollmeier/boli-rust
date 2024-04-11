@@ -12,6 +12,7 @@ pub fn downcast_ast<T: 'static>(ast: &Rc<dyn Ast>) -> Option<&T> {
 
 pub trait AstVisitor {
     fn visit_program(&mut self, program: &Program);
+    fn visit_block(&mut self, block: &Block);
     fn visit_integer(&mut self, integer: &Integer);
     fn visit_real(&mut self, real: &Real);
     fn visit_bool(&mut self, bool: &Bool);
@@ -37,6 +38,20 @@ pub struct Program {
 impl Ast for Program {
     fn accept(&self, visitor: &mut dyn AstVisitor) {
         visitor.visit_program(self);
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+pub struct Block {
+    pub children: Vec<Rc<dyn Ast>>,
+}
+
+impl Ast for Block {
+    fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_block(self);
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

@@ -189,11 +189,69 @@ impl Parser {
             Conjunction => self.conjunction(stream, end_token_type),
             Disjunction => self.disjunction(stream, end_token_type),
             Lambda => self.lambda(stream, end_token_type),
+            Block => self.block(stream, end_token_type),
+            Let => self.let_expression(stream, end_token_type),
             _ => {
                 stream.push_back(token);
                 self.call(stream, end_token_type)
             }
         }
+    }
+
+    fn block(
+        &self,
+        stream: &mut BufferedStream<Token>,
+        end_token_type: TokenType,
+    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+        let mut children = Vec::new();
+        while Self::peek_token(stream, &vec![&end_token_type]).is_none() {
+            children.push(self.expression(stream, true)?);
+        }
+
+        Self::next_token(stream, &vec![&end_token_type])?; // consume closing token
+
+        Ok(Rc::new(ast::Block { children }))
+    }
+
+    fn let_expression(
+        &self,
+        stream: &mut BufferedStream<Token>,
+        end_token_type: TokenType,
+    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+        let opening_def = Self::next_token(stream, &vec![&LeftParen, &LeftBrace, &LeftBracket])?;
+        let closing_def_type = Self::closing_token_type(&opening_def.token_type);
+
+        let mut children = Vec::new();
+        while Self::peek_token(stream, &vec![&closing_def_type]).is_none() {
+            children.push(self.let_definition(stream)?);
+        }
+
+        Self::next_token(stream, &vec![&closing_def_type])?; // consume closing token
+
+        while Self::peek_token(stream, &vec![&end_token_type]).is_none() {
+            children.push(self.expression(stream, true)?);
+        }
+
+        Self::next_token(stream, &vec![&end_token_type])?; // consume closing token
+
+        Ok(Rc::new(ast::Block { children }))
+    }
+
+    fn let_definition(
+        &self,
+        stream: &mut BufferedStream<Token>,
+    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+        let opening = Self::next_token(stream, &vec![&LeftParen, &LeftBrace, &LeftBracket])?;
+        let closing_type = Self::closing_token_type(&opening.token_type);
+
+        let name_token = Self::next_token(stream, &vec![&Identifier])?;
+        let name = name_token.get_string_value().unwrap();
+
+        let value = self.expression(stream, false)?;
+
+        Self::next_token(stream, &vec![&closing_type])?; // consume closing token
+
+        Ok(Rc::new(ast::Definition { name, value }))
     }
 
     fn lambda(
@@ -749,5 +807,20 @@ mod tests {
         let ident = downcast_ast::<Quote>(&list.elements[2]).unwrap();
         assert_eq!(ident.value.token_type, TokenType::Identifier);
         assert_eq!(ident.value.get_string_value().unwrap(), "a");
+    }
+
+    #[test]
+    fn test_let_expression() {
+        let parser = super::Parser::new();
+        let code = r#"
+            (let ((a 1) (b 2))
+                (+ a b))
+        "#;
+        let program = parser.parse(code);
+        assert!(program.is_ok(), "{}", program.err().unwrap());
+        let program = program.unwrap();
+
+        let block = downcast_ast::<Block>(&program.children[0]).unwrap();
+        assert_eq!(block.children.len(), 3);
     }
 }

@@ -137,6 +137,32 @@ impl AstVisitor for AstToJsonVisitor {
         self.stack.push(JsonData::Object(data, fields));
     }
 
+    fn visit_block(&mut self, block: &Block) {
+        let (mut data, mut fields) = Self::new_object_content();
+        let mut children: Vec<JsonData> = Vec::new();
+
+        Self::add_field(
+            "type",
+            JsonData::String("Block".to_string()),
+            &mut data,
+            &mut fields,
+        );
+
+        for child in &block.children {
+            child.accept(self);
+            children.push(self.stack.pop().unwrap());
+        }
+
+        Self::add_field(
+            "children",
+            JsonData::Array(children),
+            &mut data,
+            &mut fields,
+        );
+
+        self.stack.push(JsonData::Object(data, fields));
+    }
+
     fn visit_integer(&mut self, integer: &Integer) {
         let (mut data, mut fields) = Self::new_object_content();
         Self::add_field(
