@@ -177,6 +177,13 @@ impl Parser {
                     Err(ParseError::new("Definition not allowed here"))
                 }
             }
+            DefStruct => {
+                if define_allowed {
+                    self.struct_definition(stream, end_token_type)
+                } else {
+                    Err(ParseError::new("Definition not allowed here"))
+                }
+            }
             If => self.if_expression(stream, end_token_type),
             Cond => self.cond_expression(stream, end_token_type),
             Conjunction => self.conjunction(stream, end_token_type),
@@ -455,6 +462,30 @@ impl Parser {
 
         Ok(Rc::new(ast::Definition { name, value }))
     }
+
+    fn struct_definition(
+        &self,
+        stream: &mut BufferedStream<Token>,
+        end_token_type: TokenType,
+    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+        let token = Self::next_token(stream, &vec![&Identifier])?;
+        let name = token.get_string_value().unwrap();
+
+        let opening_token = Self::next_token(stream, &vec![&LeftParen, &LeftBrace, &LeftBracket])?;
+        let closing_token_type = Self::closing_token_type(&opening_token.token_type);
+
+        let mut fields = Vec::new();
+        while Self::peek_token(stream, &vec![&closing_token_type]).is_none() {
+            let token = Self::next_token(stream, &vec![&Identifier])?;
+            fields.push(token.get_string_value().unwrap());
+        }
+
+        Self::next_token(stream, &vec![&closing_token_type])?;
+
+        Self::next_token(stream, &vec![&end_token_type])?; // consume closing token
+
+        Ok(Rc::new(ast::StructDefinition { name, fields }))
+    }
 }
 
 #[derive(Debug)]
@@ -541,6 +572,25 @@ mod tests {
 
         let integer = downcast_ast::<Integer>(&definition.value).unwrap();
         assert_eq!(integer.value, 42);
+    }
+
+    #[test]
+    fn test_struct_definition() {
+        let parser = super::Parser::new();
+        let code = r#"
+            (def-struct person [name age])
+        "#;
+        let program = parser.parse(code);
+        assert!(program.is_ok());
+        let program = program.unwrap();
+        assert_eq!(program.children.len(), 1);
+
+        let struct_def = downcast_ast::<StructDefinition>(&program.children[0]).unwrap();
+        assert_eq!(struct_def.name, "person");
+        assert_eq!(
+            struct_def.fields,
+            vec!["name".to_string(), "age".to_string()]
+        );
     }
 
     #[test]

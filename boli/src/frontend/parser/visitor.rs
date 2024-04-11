@@ -343,6 +343,35 @@ impl AstVisitor for AstToJsonVisitor {
         self.stack.push(JsonData::Object(data, fields));
     }
 
+    fn visit_struct_def(&mut self, struct_def: &StructDefinition) {
+        let (mut data, mut fields) = Self::new_object_content();
+        Self::add_field(
+            "type",
+            JsonData::String("StructDefinition".to_string()),
+            &mut data,
+            &mut fields,
+        );
+        Self::add_field(
+            "name",
+            JsonData::String(struct_def.name.clone()),
+            &mut data,
+            &mut fields,
+        );
+
+        let mut struct_fields: Vec<JsonData> = Vec::new();
+        for field in &struct_def.fields {
+            struct_fields.push(JsonData::String(field.clone()));
+        }
+
+        Self::add_field(
+            "fields",
+            JsonData::Array(struct_fields),
+            &mut data,
+            &mut fields,
+        );
+        self.stack.push(JsonData::Object(data, fields));
+    }
+
     fn visit_if(&mut self, if_expr: &IfExpression) {
         let (mut data, mut fields) = Self::new_object_content();
         Self::add_field(

@@ -24,6 +24,7 @@ pub trait AstVisitor {
     fn visit_logical_operator(&mut self, operator: &LogicalOperator);
     fn visit_list(&mut self, list: &List);
     fn visit_def(&mut self, def: &Definition);
+    fn visit_struct_def(&mut self, struct_def: &StructDefinition);
     fn visit_if(&mut self, if_expr: &IfExpression);
     fn visit_lambda(&mut self, lambda: &Lambda);
     fn visit_call(&mut self, call: &Call);
@@ -202,6 +203,21 @@ pub struct Definition {
 impl Ast for Definition {
     fn accept(&self, visitor: &mut dyn AstVisitor) {
         visitor.visit_def(self);
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+pub struct StructDefinition {
+    pub name: String,
+    pub fields: Vec<String>,
+}
+
+impl Ast for StructDefinition {
+    fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_struct_def(self);
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
