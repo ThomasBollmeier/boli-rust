@@ -146,12 +146,32 @@ impl Lexer {
 
         let mut identifier = String::new();
         identifier.push(first_char);
+        let mut is_absolute_name = false;
 
         let invalid_chars = HashSet::<char>::from_iter("\"(){}[]/.:".chars());
 
-        while let Some(c) = self.stream.peek() {
-            if !c.is_whitespace() && !invalid_chars.contains(&c) {
-                identifier.push(self.next_char()?);
+        loop {
+            while let Some(c) = self.stream.peek() {
+                if !c.is_whitespace() && !invalid_chars.contains(&c) {
+                    identifier.push(self.next_char()?);
+                } else {
+                    break;
+                }
+            }
+
+            let next_chars = self.stream.peek_many(3).iter().collect::<String>();
+            if next_chars.len() < 3 {
+                break;
+            }
+
+            if &next_chars.chars().take(2).collect::<String>() == "::"
+                && !invalid_chars.contains(&next_chars.chars().nth(2).unwrap())
+            {
+                is_absolute_name = true;
+                self.next_char();
+                self.next_char();
+                self.next_char();
+                identifier.push_str(&next_chars);
             } else {
                 break;
             }
@@ -170,7 +190,13 @@ impl Lexer {
             "let" => Token::new(Let, line, column),
             "#f" | "#false" => Token::new_bool(false, line, column),
             "#t" | "#true" => Token::new_bool(true, line, column),
-            _ => Token::new_identifier(identifier, line, column),
+            _ => {
+                if !is_absolute_name {
+                    Token::new_identifier(identifier, line, column)
+                } else {
+                    Token::new_absolute_name(identifier, line, column)
+                }
+            }
         };
 
         Some(token)
@@ -243,6 +269,7 @@ impl Stream<Token> for Lexer {
 
 #[cfg(test)]
 mod tests {
+
     use crate::frontend::lexer::tokens::{LogicalOp, Op, TokenValue};
 
     use super::*;
@@ -407,6 +434,33 @@ mod tests {
             Some(TokenValue::Bool(true))
         );
         assert!(lexer.next().is_none());
+    }
+
+    #[test]
+    fn test_scan_absolute_name() {
+        let code = r#"my-module::a-function"#;
+        let mut lexer = Lexer::new(code);
+
+        let abs_name_token = lexer.next().unwrap();
+        assert_eq!(abs_name_token.token_type, AbsoluteName);
+
+        assert!(lexer.next().is_none());
+    }
+
+    #[test]
+    fn test_scan_invalid_absolute_name() {
+        let code = r#"my-module::"#;
+        let mut lexer = Lexer::new(code);
+
+        let ident_token = lexer.next().unwrap();
+        assert_eq!(ident_token.token_type, Identifier);
+
+        let error_token = lexer.next().unwrap();
+        assert_eq!(error_token.token_type, Error);
+        assert_eq!(
+            error_token.token_value,
+            Some(TokenValue::Error(":".to_string()))
+        );
     }
 
     #[test]

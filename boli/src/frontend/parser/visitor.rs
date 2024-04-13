@@ -254,6 +254,29 @@ impl AstVisitor for AstToJsonVisitor {
         self.stack.push(JsonData::Object(data, fields));
     }
 
+    fn visit_absolute_name(&mut self, absolute_name: &AbsoluteName) {
+        let (mut data, mut fields) = Self::new_object_content();
+        Self::add_field(
+            "type",
+            JsonData::String("AbsoluteName".to_string()),
+            &mut data,
+            &mut fields,
+        );
+
+        let mut segments: Vec<JsonData> = Vec::new();
+        for segment in &absolute_name.segments {
+            segments.push(JsonData::String(segment.clone()));
+        }
+
+        Self::add_field(
+            "segments",
+            JsonData::Array(segments),
+            &mut data,
+            &mut fields,
+        );
+        self.stack.push(JsonData::Object(data, fields));
+    }
+
     fn visit_symbol(&mut self, symbol: &Symbol) {
         let (mut data, mut fields) = Self::new_object_content();
         Self::add_field(

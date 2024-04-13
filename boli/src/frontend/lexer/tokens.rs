@@ -28,6 +28,7 @@ pub enum TokenType {
     LeftBracket,
     RightBracket,
     Identifier,
+    AbsoluteName,
     Symbol,
     QuoteParen,
     QuoteBrace,
@@ -49,7 +50,6 @@ pub enum TokenType {
     Block,
     Cond,
     Let,
-    ModuleSep,
     Error,
 }
 
@@ -82,6 +82,7 @@ pub enum TokenValue {
     Str(String),
     Symbol(String),
     Identifier(String),
+    AbsoluteName(String),
     Error(String),
 }
 
@@ -157,6 +158,15 @@ impl Token {
         }
     }
 
+    pub fn new_absolute_name(value: String, line: usize, column: usize) -> Self {
+        Self {
+            token_type: TokenType::AbsoluteName,
+            token_value: Some(TokenValue::AbsoluteName(value)),
+            line,
+            column,
+        }
+    }
+
     pub fn new_error(value: String, line: usize, column: usize) -> Self {
         Self {
             token_type: TokenType::Error,
@@ -191,6 +201,7 @@ impl Token {
         match self.token_value {
             Some(TokenValue::Str(ref value)) => Some(value.to_string()),
             Some(TokenValue::Identifier(ref value)) => Some(value.to_string()),
+            Some(TokenValue::AbsoluteName(ref value)) => Some(value.to_string()),
             Some(TokenValue::Symbol(ref value)) => Some(value.to_string()),
             Some(TokenValue::Error(ref value)) => Some(value.to_string()),
             _ => None,
@@ -209,6 +220,9 @@ impl Display for Token {
             Some(TokenValue::Str(value)) => write!(f, "Token: {:?}({})", self.token_type, value),
             Some(TokenValue::Symbol(value)) => write!(f, "Token: {:?}({})", self.token_type, value),
             Some(TokenValue::Identifier(value)) => {
+                write!(f, "Token: {:?}({})", self.token_type, value)
+            }
+            Some(TokenValue::AbsoluteName(value)) => {
                 write!(f, "Token: {:?}({})", self.token_type, value)
             }
             Some(TokenValue::Error(value)) => write!(f, "Token, {:?}({})", self.token_type, value),

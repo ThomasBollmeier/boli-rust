@@ -88,6 +88,7 @@ impl Parser {
             Identifier => Ok(Rc::new(ast::Identifier {
                 value: token.get_string_value().unwrap(),
             })),
+            AbsoluteName => self.absolute_name(&token),
             Symbol => Ok(Rc::new(ast::Symbol {
                 value: token.get_string_value().unwrap(),
             })),
@@ -103,6 +104,19 @@ impl Parser {
             }
             _ => Err(ParseError::with_token("Unexpected token", token)),
         }
+    }
+
+    fn absolute_name(&self, token: &Token) -> Result<Rc<dyn ast::Ast>, ParseError> {
+        let value = token
+            .get_string_value()
+            .ok_or(ParseError::new("Invalid absolute name"))?;
+        let segments = value
+            .split("::")
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        Ok(Rc::new(ast::AbsoluteName { segments }))
     }
 
     fn closing_token_type(opening_token_type: &TokenType) -> TokenType {
@@ -595,11 +609,13 @@ mod tests {
             3,14 
             #true
             "Thomas"
+            an-identifier
+            absolute::name
         "#;
         let program = parser.parse(code);
         assert!(program.is_ok());
         let program = program.unwrap();
-        assert_eq!(program.children.len(), 4);
+        assert_eq!(program.children.len(), 6);
 
         let integer = downcast_ast::<Integer>(&program.children[0]).unwrap();
         assert_eq!(integer.value, 123);
@@ -612,6 +628,15 @@ mod tests {
 
         let string = downcast_ast::<Str>(&program.children[3]).unwrap();
         assert_eq!(string.value, "Thomas");
+
+        let ident = downcast_ast::<Identifier>(&program.children[4]).unwrap();
+        assert_eq!(ident.value, "an-identifier");
+
+        let absname = downcast_ast::<AbsoluteName>(&program.children[5]).unwrap();
+        assert_eq!(
+            absname.segments,
+            vec!["absolute".to_string(), "name".to_string()]
+        );
     }
 
     #[test]

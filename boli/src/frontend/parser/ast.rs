@@ -19,6 +19,7 @@ pub trait AstVisitor {
     fn visit_str(&mut self, str: &Str);
     fn visit_nil(&mut self);
     fn visit_identifier(&mut self, identifier: &Identifier);
+    fn visit_absolute_name(&mut self, absolute_name: &AbsoluteName);
     fn visit_symbol(&mut self, symbol: &Symbol);
     fn visit_quote(&mut self, quote: &Quote);
     fn visit_operator(&mut self, operator: &Operator);
@@ -133,6 +134,20 @@ pub struct Identifier {
 impl Ast for Identifier {
     fn accept(&self, visitor: &mut dyn AstVisitor) {
         visitor.visit_identifier(self);
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+pub struct AbsoluteName {
+    pub segments: Vec<String>,
+}
+
+impl Ast for AbsoluteName {
+    fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_absolute_name(self);
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
