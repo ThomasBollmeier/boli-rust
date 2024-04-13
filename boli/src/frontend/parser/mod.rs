@@ -92,6 +92,9 @@ impl Parser {
             Symbol => Ok(Rc::new(ast::Symbol {
                 value: token.get_string_value().unwrap(),
             })),
+            Dot3 => Ok(Rc::new(ast::SpreadExpr {
+                expr: self.expression(stream, false)?,
+            })),
             Operator(op) => Ok(Rc::new(ast::Operator { value: op.clone() })),
             LogicalOperator(op) => Ok(Rc::new(ast::LogicalOperator { value: op.clone() })),
             LeftParen | LeftBrace | LeftBracket => self.symbolic_expression(
@@ -275,11 +278,18 @@ impl Parser {
     ) -> Result<Rc<dyn ast::Ast>, ParseError> {
         let opening_token = Self::next_token(stream, &vec![&LeftParen, &LeftBrace, &LeftBracket])?;
         let closing_token_type = Self::closing_token_type(&opening_token.token_type);
+        let mut variadic: Option<String> = None;
 
         let mut parameters = Vec::new();
-        while let Some(_) = Self::peek_token(stream, &vec![&Identifier]) {
+        while Self::peek_token(stream, &vec![&Identifier]).is_some() {
             let token = Self::next_token(stream, &vec![&Identifier])?;
-            parameters.push(token.get_string_value().unwrap());
+            if Self::peek_token(stream, &vec![&Dot3]).is_none() {
+                parameters.push(token.get_string_value().unwrap());
+            } else {
+                Self::next_token(stream, &vec![&Dot3])?; // consume variadic token
+                variadic = Some(token.get_string_value().unwrap());
+                break;
+            }
         }
 
         Self::next_token(stream, &vec![&closing_token_type])?;
@@ -291,7 +301,11 @@ impl Parser {
 
         Self::next_token(stream, &vec![&end_token_type])?; // consume closing token
 
-        Ok(Rc::new(ast::Lambda { parameters, body }))
+        Ok(Rc::new(ast::Lambda {
+            parameters,
+            variadic,
+            body,
+        }))
     }
 
     fn call(
@@ -497,10 +511,16 @@ impl Parser {
 
         let name_token = Self::next_token(stream, &vec![&Identifier])?;
         let name = name_token.get_string_value().unwrap();
+        let mut variadic: Option<String> = None;
 
         let mut parameters = Vec::new();
         while let Some(_) = Self::peek_token(stream, &vec![&Identifier]) {
             let token = Self::next_token(stream, &vec![&Identifier])?;
+            if let Some(_) = Self::peek_token(stream, &vec![&Dot3]) {
+                Self::next_token(stream, &vec![&Dot3])?; // consume variadic token
+                variadic = Some(token.get_string_value().unwrap());
+                break;
+            }
             parameters.push(token.get_string_value().unwrap());
         }
 
@@ -515,7 +535,11 @@ impl Parser {
 
         Ok(Rc::new(ast::Definition {
             name,
-            value: Rc::new(ast::Lambda { parameters, body }),
+            value: Rc::new(ast::Lambda {
+                parameters,
+                variadic,
+                body,
+            }),
         }))
     }
 
@@ -691,6 +715,7 @@ mod tests {
 
         let Lambda {
             parameters,
+            variadic: _,
             body: _,
         } = downcast_ast::<Lambda>(&definition.value).unwrap();
         assert_eq!(*parameters, vec!["a".to_string(), "b".to_string()]);
@@ -847,5 +872,20 @@ mod tests {
 
         let block = downcast_ast::<Block>(&program.children[0]).unwrap();
         assert_eq!(block.children.len(), 3);
+    }
+
+    #[test]
+    fn test_var_param() {
+        let parser = super::Parser::new();
+        let code = r#"
+            (def (add numbers...) 
+                (+ ...numbers))
+        "#;
+        let program = parser.parse(code);
+        assert!(program.is_ok(), "{}", program.err().unwrap());
+        let program = program.unwrap();
+        let def = downcast_ast::<Definition>(&program.children[0]).unwrap();
+        let lambda = downcast_ast::<Lambda>(&def.value).unwrap();
+        assert_eq!(lambda.variadic, Some("numbers".to_string()));
     }
 }

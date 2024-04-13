@@ -165,7 +165,7 @@ impl Lexer {
             }
 
             if &next_chars.chars().take(2).collect::<String>() == "::"
-                && !invalid_chars.contains(&next_chars.chars().nth(2).unwrap())
+                && !invalid_start.contains(&next_chars.chars().nth(2).unwrap())
             {
                 is_absolute_name = true;
                 self.next_char();
@@ -222,6 +222,17 @@ impl Lexer {
             }
         }
     }
+
+    fn scan_dot3(&mut self, line: usize, column: usize) -> Option<Token> {
+        let next_chars = self.stream.peek_many(2).iter().collect::<String>();
+        if next_chars == ".." {
+            self.next_char();
+            self.next_char();
+            Some(Token::new(Dot3, line, column))
+        } else {
+            None
+        }
+    }
 }
 
 impl Stream<Token> for Lexer {
@@ -256,6 +267,12 @@ impl Stream<Token> for Lexer {
 
             if ch == '\'' {
                 return self.scan_quote(ch, line, column);
+            }
+
+            if ch == '.' {
+                if let Some(token) = self.scan_dot3(line, column) {
+                    return Some(token);
+                }
             }
 
             if let Some(token) = self.scan_identifier(ch, line, column) {
@@ -493,6 +510,25 @@ mod tests {
         let paren_token = lexer.next().unwrap();
         assert_eq!(paren_token.token_type, RightBrace);
 
+        assert!(lexer.next().is_none());
+    }
+
+    #[test]
+    fn test_var_param() {
+        let code = r#"(calc-sum numbers...)"#;
+        let mut lexer = Lexer::new(code);
+
+        assert_eq!(lexer.next().unwrap().token_type, LeftParen);
+        assert_eq!(
+            lexer.next().unwrap().token_value,
+            Some(TokenValue::Identifier("calc-sum".to_string()))
+        );
+        assert_eq!(
+            lexer.next().unwrap().token_value,
+            Some(TokenValue::Identifier("numbers".to_string()))
+        );
+        assert_eq!(lexer.next().unwrap().token_type, Dot3);
+        assert_eq!(lexer.next().unwrap().token_type, RightParen);
         assert!(lexer.next().is_none());
     }
 }

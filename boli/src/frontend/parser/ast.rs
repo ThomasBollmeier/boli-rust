@@ -30,6 +30,7 @@ pub trait AstVisitor {
     fn visit_if(&mut self, if_expr: &IfExpression);
     fn visit_lambda(&mut self, lambda: &Lambda);
     fn visit_call(&mut self, call: &Call);
+    fn visit_spread_expr(&mut self, spread_expr: &SpreadExpr);
 }
 
 pub struct Program {
@@ -273,6 +274,7 @@ impl Ast for IfExpression {
 
 pub struct Lambda {
     pub parameters: Vec<String>,
+    pub variadic: Option<String>,
     pub body: Vec<Rc<dyn Ast>>,
 }
 
@@ -294,6 +296,20 @@ pub struct Call {
 impl Ast for Call {
     fn accept(&self, visitor: &mut dyn AstVisitor) {
         visitor.visit_call(self);
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+pub struct SpreadExpr {
+    pub expr: Rc<dyn Ast>,
+}
+
+impl Ast for SpreadExpr {
+    fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_spread_expr(self);
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

@@ -478,6 +478,16 @@ impl AstVisitor for AstToJsonVisitor {
             &mut fields,
         );
 
+        Self::add_field(
+            "variadic",
+            match &lambda.variadic {
+                Some(variadic) => JsonData::String(variadic.clone()),
+                None => JsonData::Null,
+            },
+            &mut data,
+            &mut fields,
+        );
+
         let mut body: Vec<JsonData> = Vec::new();
         for expr in &lambda.body {
             expr.accept(self);
@@ -513,6 +523,21 @@ impl AstVisitor for AstToJsonVisitor {
             &mut data,
             &mut fields,
         );
+
+        self.stack.push(JsonData::Object(data, fields));
+    }
+
+    fn visit_spread_expr(&mut self, spread_expr: &SpreadExpr) {
+        let (mut data, mut fields) = Self::new_object_content();
+        Self::add_field(
+            "type",
+            JsonData::String("SpreadExpr".to_string()),
+            &mut data,
+            &mut fields,
+        );
+
+        spread_expr.expr.accept(self);
+        Self::add_field("expr", self.stack.pop().unwrap(), &mut data, &mut fields);
 
         self.stack.push(JsonData::Object(data, fields));
     }
