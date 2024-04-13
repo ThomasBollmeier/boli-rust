@@ -297,7 +297,7 @@ impl Parser {
 
         let mut body = Vec::new();
         while Self::peek_token(stream, &vec![&end_token_type]).is_none() {
-            body.push(self.expression(stream, false)?);
+            body.push(self.expression(stream, true)?);
         }
 
         Self::next_token(stream, &vec![&end_token_type])?; // consume closing token
@@ -529,7 +529,7 @@ impl Parser {
 
         let mut body = Vec::new();
         while Self::peek_token(stream, &vec![&def_end_token_type]).is_none() {
-            body.push(self.expression(stream, false)?);
+            body.push(self.expression(stream, true)?);
         }
 
         Self::next_token(stream, &vec![&def_end_token_type])?; // consume closing token
