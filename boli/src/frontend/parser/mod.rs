@@ -85,6 +85,7 @@ impl Parser {
             Str => Ok(Rc::new(ast::Str {
                 value: token.get_string_value().unwrap(),
             })),
+            Nil => Ok(Rc::new(ast::Nil {})),
             Identifier => Ok(Rc::new(ast::Identifier {
                 value: token.get_string_value().unwrap(),
             })),
@@ -635,11 +636,12 @@ mod tests {
             "Thomas"
             an-identifier
             absolute::name
+            nil
         "#;
         let program = parser.parse(code);
         assert!(program.is_ok());
         let program = program.unwrap();
-        assert_eq!(program.children.len(), 6);
+        assert_eq!(program.children.len(), 7);
 
         let integer = downcast_ast::<Integer>(&program.children[0]).unwrap();
         assert_eq!(integer.value, 123);
@@ -661,6 +663,9 @@ mod tests {
             absname.segments,
             vec!["absolute".to_string(), "name".to_string()]
         );
+
+        let nil = downcast_ast::<Nil>(&program.children[6]);
+        assert!(nil.is_some());
     }
 
     #[test]
