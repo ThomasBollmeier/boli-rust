@@ -7,11 +7,11 @@ use std::rc::Rc;
 use crate::frontend::lexer::tokens::Op;
 use crate::frontend::parser::{ast::*, Parser};
 use environment::Environment;
-use std::error::Error;
+
 use values::*;
 
 pub struct Interpreter {
-    pub stack: Vec<Rc<dyn Value>>,
+    pub stack: Vec<EvalResult>,
     pub env: Environment,
 }
 
@@ -23,42 +23,62 @@ impl Interpreter {
         }
     }
 
-    pub fn eval(&mut self, code: &str) -> Result<Rc<dyn Value>, InterpreterError> {
+    pub fn eval(&mut self, code: &str) -> EvalResult {
         let parser = Parser::new();
-        let program = parser
-            .parse(code)
-            .map_err(|e| InterpreterError::new(&e.message))?;
+        let program: Rc<dyn Ast> = Rc::new(
+            parser
+                .parse(code)
+                .map_err(|e| InterpreterError::new(&e.message))?,
+        );
 
-        let mut result: Rc<dyn Value> = Rc::new(NilValue {});
+        self.eval_ast(&program)
+    }
 
-        for child in program.children {
-            child.accept(self);
-            if let Some(value) = self.stack.pop() {
-                result = value;
+    fn new_eval_error(&mut self, message: &str) -> EvalResult {
+        Err(InterpreterError::new(message))
+    }
+
+    fn eval_ast(&mut self, ast: &Rc<dyn Ast>) -> EvalResult {
+        ast.accept(self);
+        self.stack
+            .pop()
+            .unwrap_or(self.new_eval_error("No value on the stack"))
+    }
+
+    fn eval_block(&mut self, children: &Vec<Rc<dyn Ast>>) -> EvalResult {
+        let mut result: EvalResult = Ok(Rc::new(NilValue {}));
+
+        for child in children {
+            result = self.eval_ast(child);
+            if result.is_err() {
+                return result;
             }
         }
 
-        Ok(result)
+        result
     }
 }
 
 impl AstVisitor for Interpreter {
     fn visit_program(&mut self, program: &Program) {
-        todo!()
+        let result = self.eval_block(&program.children);
+        self.stack.push(result);
     }
 
     fn visit_block(&mut self, block: &Block) {
-        todo!()
+        let result = self.eval_block(&block.children);
+        self.stack.push(result);
     }
 
     fn visit_integer(&mut self, integer: &Integer) {
-        self.stack.push(Rc::new(IntValue {
+        self.stack.push(Ok(Rc::new(IntValue {
             value: integer.value,
-        }));
+        })));
     }
 
     fn visit_real(&mut self, real: &Real) {
-        todo!()
+        self.stack
+            .push(Ok(Rc::new(RealValue { value: real.value })));
     }
 
     fn visit_bool(&mut self, bool: &Bool) {
@@ -93,7 +113,7 @@ impl AstVisitor for Interpreter {
         match operator.value {
             Op::Plus => {
                 let add = self.env.get("+").unwrap();
-                self.stack.push(add.clone());
+                self.stack.push(Ok(add.clone()));
             }
             _ => todo!(),
         }
@@ -124,47 +144,42 @@ impl AstVisitor for Interpreter {
     }
 
     fn visit_call(&mut self, call: &Call) {
-        call.callee.accept(self);
-        let value = self.stack.pop().unwrap();
-        let callee = downcast_value::<BuiltInFunction>(&value).unwrap();
+        let callee = self.eval_ast(&call.callee);
+        if callee.is_err() {
+            self.stack.push(callee);
+            return;
+        }
+        let callee = callee.unwrap();
+        let callee_type = callee.get_type();
+
+        let callee: &dyn Callable = match callee_type {
+            ValueType::BuiltInFunction => callee
+                .as_any()
+                .downcast_ref::<BuiltInFunctionValue>()
+                .unwrap(),
+            _ => {
+                let err = self.new_eval_error("Callee is not a function");
+                self.stack.push(err);
+                return;
+            }
+        };
 
         let mut args = vec![];
         for arg in &call.arguments {
-            arg.accept(self);
-            args.push(self.stack.pop().unwrap());
+            let arg = self.eval_ast(arg);
+            if arg.is_err() {
+                self.stack.push(arg);
+                return;
+            }
+            args.push(arg.unwrap());
         }
 
-        let result = callee.function.call(args);
+        let result = callee.call(&args);
         self.stack.push(result);
     }
 
     fn visit_spread_expr(&mut self, spread_expr: &SpreadExpr) {
         todo!()
-    }
-}
-
-#[derive(Debug)]
-pub struct InterpreterError {
-    pub message: String,
-}
-
-impl InterpreterError {
-    pub fn new(message: &str) -> Self {
-        Self {
-            message: message.to_string(),
-        }
-    }
-}
-
-impl std::fmt::Display for InterpreterError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.message)
-    }
-}
-
-impl Error for InterpreterError {
-    fn description(&self) -> &str {
-        &self.message
     }
 }
 
@@ -176,13 +191,22 @@ mod tests {
     fn test_eval_integer() {
         let mut interpreter = Interpreter::new();
         let result = interpreter.eval("42").unwrap();
+        assert_eq!(result.get_type(), ValueType::Int);
         assert_eq!(result.to_string(), "42");
+    }
+
+    #[test]
+    fn test_eval_real() {
+        let mut interpreter = Interpreter::new();
+        let result = interpreter.eval("42,0").unwrap();
+        assert_eq!(result.get_type(), ValueType::Real);
+        assert_eq!(result.to_string(), "42,0");
     }
 
     #[test]
     fn test_eval_addition() {
         let mut interpreter = Interpreter::new();
-        let result = interpreter.eval("(+ 1 2)").unwrap();
-        assert_eq!(result.to_string(), "3");
+        let result = interpreter.eval("(+ 1 2 3 4)").unwrap();
+        assert_eq!(result.to_string(), "10");
     }
 }

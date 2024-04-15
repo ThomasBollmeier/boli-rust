@@ -1,5 +1,5 @@
+use super::builtins::*;
 use super::values::*;
-use super::{builtins::*, BuiltInFunction};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -43,14 +43,13 @@ impl Environment {
     }
 
     fn init_builtins(&mut self) {
-        let add: Rc<dyn Callable> = Rc::new(Add {});
-        self.set_builtins("+", &add);
+        self.set_builtins("+", &Rc::new(Add::new()));
     }
 
-    fn set_builtins(&mut self, name: &str, function: &Rc<dyn Callable>) {
+    fn set_builtins<T: Callable + 'static>(&mut self, name: &str, function: &Rc<T>) {
         self.set(
             name.to_string(),
-            Rc::new(BuiltInFunction {
+            Rc::new(BuiltInFunctionValue {
                 name: name.to_string(),
                 function: function.clone(),
             }),
