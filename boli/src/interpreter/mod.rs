@@ -1,8 +1,10 @@
+pub mod builtins;
 pub mod environment;
 pub mod values;
 
 use std::rc::Rc;
 
+use crate::frontend::lexer::tokens::Op;
 use crate::frontend::parser::{ast::*, Parser};
 use environment::Environment;
 use std::error::Error;
@@ -88,7 +90,13 @@ impl AstVisitor for Interpreter {
     }
 
     fn visit_operator(&mut self, operator: &Operator) {
-        todo!()
+        match operator.value {
+            Op::Plus => {
+                let add = self.env.get("+").unwrap();
+                self.stack.push(add.clone());
+            }
+            _ => todo!(),
+        }
     }
 
     fn visit_logical_operator(&mut self, operator: &LogicalOperator) {
@@ -116,7 +124,18 @@ impl AstVisitor for Interpreter {
     }
 
     fn visit_call(&mut self, call: &Call) {
-        todo!()
+        call.callee.accept(self);
+        let value = self.stack.pop().unwrap();
+        let callee = downcast_value::<BuiltInFunction>(&value).unwrap();
+
+        let mut args = vec![];
+        for arg in &call.arguments {
+            arg.accept(self);
+            args.push(self.stack.pop().unwrap());
+        }
+
+        let result = callee.function.call(args);
+        self.stack.push(result);
     }
 
     fn visit_spread_expr(&mut self, spread_expr: &SpreadExpr) {
@@ -158,5 +177,12 @@ mod tests {
         let mut interpreter = Interpreter::new();
         let result = interpreter.eval("42").unwrap();
         assert_eq!(result.to_string(), "42");
+    }
+
+    #[test]
+    fn test_eval_addition() {
+        let mut interpreter = Interpreter::new();
+        let result = interpreter.eval("(+ 1 2)").unwrap();
+        assert_eq!(result.to_string(), "3");
     }
 }
