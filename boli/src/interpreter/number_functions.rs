@@ -85,6 +85,76 @@ impl Callable for Rem {
     }
 }
 
+pub struct Eq {}
+
+impl Eq {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for Eq {
+    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+        all_values(|a, b| a.eq(b), args)
+    }
+}
+
+pub struct Gt {}
+
+impl Gt {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for Gt {
+    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+        all_values(|a, b| a.gt(b), args)
+    }
+}
+
+pub struct Ge {}
+
+impl Ge {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for Ge {
+    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+        all_values(|a, b| a.ge(b), args)
+    }
+}
+
+pub struct Lt {}
+
+impl Lt {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for Lt {
+    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+        all_values(|a, b| a.lt(b), args)
+    }
+}
+
+pub struct Le {}
+
+impl Le {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for Le {
+    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+        all_values(|a, b| a.le(b), args)
+    }
+}
+
 fn calculate_value<F>(op: F, values: &Vec<Rc<dyn Value>>, left_associative: bool) -> EvalResult
 where
     F: Fn(&Number, &Number) -> Number,
@@ -122,6 +192,51 @@ where
         }
         result
     }
+}
+
+fn all_values<F>(op: F, values: &Vec<Rc<dyn Value>>) -> EvalResult
+where
+    F: Fn(&Number, &Number) -> bool,
+{
+    let numbers = match values_to_numbers(values) {
+        Ok(numbers) => numbers,
+        Err(e) => return Err(e),
+    };
+
+    let op_result = all_numbers(op, &numbers);
+
+    Ok(Rc::new(BoolValue { value: op_result }))
+}
+
+fn all_numbers<F>(op: F, numbers: &Vec<Number>) -> bool
+where
+    F: Fn(&Number, &Number) -> bool,
+{
+    if numbers.is_empty() {
+        return false;
+    }
+
+    if numbers.len() == 1 {
+        return true;
+    }
+
+    let mut iter = numbers.iter();
+    let mut a = iter.next().unwrap();
+
+    loop {
+        let b = match iter.next() {
+            Some(b) => b,
+            None => break,
+        };
+
+        if !op(a, b) {
+            return false;
+        }
+
+        a = b;
+    }
+
+    true
 }
 
 fn values_to_numbers(vals: &Vec<Rc<dyn Value>>) -> Result<Vec<Number>, InterpreterError> {
@@ -203,6 +318,51 @@ impl Number {
             (Number::Int(a), Number::Float(b)) => Number::Float(*a as f64 % b),
             (Number::Float(a), Number::Int(b)) => Number::Float(a % *b as f64),
             (Number::Float(a), Number::Float(b)) => Number::Float(a % b),
+        }
+    }
+
+    fn eq(&self, other: &Number) -> bool {
+        match (self, other) {
+            (Number::Int(a), Number::Int(b)) => a == b,
+            (Number::Int(a), Number::Float(b)) => (*a as f64 - b).abs() < f64::EPSILON,
+            (Number::Float(a), Number::Int(b)) => (a - *b as f64).abs() < f64::EPSILON,
+            (Number::Float(a), Number::Float(b)) => (a - b).abs() < f64::EPSILON,
+        }
+    }
+
+    fn gt(&self, other: &Number) -> bool {
+        match (self, other) {
+            (Number::Int(a), Number::Int(b)) => a > b,
+            (Number::Int(a), Number::Float(b)) => *a as f64 > *b,
+            (Number::Float(a), Number::Int(b)) => *a > *b as f64,
+            (Number::Float(a), Number::Float(b)) => a > b,
+        }
+    }
+
+    fn ge(&self, other: &Number) -> bool {
+        match (self, other) {
+            (Number::Int(a), Number::Int(b)) => a >= b,
+            (Number::Int(a), Number::Float(b)) => *a as f64 >= *b,
+            (Number::Float(a), Number::Int(b)) => *a >= *b as f64,
+            (Number::Float(a), Number::Float(b)) => a >= b,
+        }
+    }
+
+    fn lt(&self, other: &Number) -> bool {
+        match (self, other) {
+            (Number::Int(a), Number::Int(b)) => a < b,
+            (Number::Int(a), Number::Float(b)) => (*a as f64) < *b,
+            (Number::Float(a), Number::Int(b)) => *a < *b as f64,
+            (Number::Float(a), Number::Float(b)) => a < b,
+        }
+    }
+
+    fn le(&self, other: &Number) -> bool {
+        match (self, other) {
+            (Number::Int(a), Number::Int(b)) => a <= b,
+            (Number::Int(a), Number::Float(b)) => *a as f64 <= *b,
+            (Number::Float(a), Number::Int(b)) => *a <= *b as f64,
+            (Number::Float(a), Number::Float(b)) => a <= b,
         }
     }
 }

@@ -1,10 +1,10 @@
-pub mod builtins;
 pub mod environment;
+pub mod number_functions;
 pub mod values;
 
 use std::rc::Rc;
 
-use crate::frontend::lexer::tokens::Op;
+use crate::frontend::lexer::tokens::{LogicalOp, Op};
 use crate::frontend::parser::{ast::*, Parser};
 use environment::Environment;
 
@@ -57,6 +57,20 @@ impl Interpreter {
 
         result
     }
+
+    fn is_truthy(&self, value: &Rc<dyn Value>) -> bool {
+        match value.get_type() {
+            ValueType::Bool => {
+                let bool_value = downcast_value::<BoolValue>(value).unwrap();
+                bool_value.value
+            }
+            ValueType::Int => {
+                let int_value = downcast_value::<IntValue>(value).unwrap();
+                int_value.value != 0
+            }
+            _ => true,
+        }
+    }
 }
 
 impl AstVisitor for Interpreter {
@@ -82,7 +96,8 @@ impl AstVisitor for Interpreter {
     }
 
     fn visit_bool(&mut self, bool: &Bool) {
-        todo!()
+        self.stack
+            .push(Ok(Rc::new(BoolValue { value: bool.value })));
     }
 
     fn visit_str(&mut self, str: &Str) {
@@ -139,7 +154,28 @@ impl AstVisitor for Interpreter {
     }
 
     fn visit_logical_operator(&mut self, operator: &LogicalOperator) {
-        todo!()
+        match operator.value {
+            LogicalOp::Eq => {
+                let eq = self.env.get("=").unwrap();
+                self.stack.push(Ok(eq.clone()));
+            }
+            LogicalOp::Gt => {
+                let gt = self.env.get(">").unwrap();
+                self.stack.push(Ok(gt.clone()));
+            }
+            LogicalOp::Ge => {
+                let ge = self.env.get(">=").unwrap();
+                self.stack.push(Ok(ge.clone()));
+            }
+            LogicalOp::Lt => {
+                let lt = self.env.get("<").unwrap();
+                self.stack.push(Ok(lt.clone()));
+            }
+            LogicalOp::Le => {
+                let le = self.env.get("<=").unwrap();
+                self.stack.push(Ok(le.clone()));
+            }
+        }
     }
 
     fn visit_list(&mut self, list: &List) {
@@ -155,7 +191,20 @@ impl AstVisitor for Interpreter {
     }
 
     fn visit_if(&mut self, if_expr: &IfExpression) {
-        todo!()
+        let condition = self.eval_ast(&if_expr.condition);
+        if condition.is_err() {
+            self.stack.push(condition);
+            return;
+        }
+        let condition = condition.unwrap();
+
+        let result = if self.is_truthy(&condition) {
+            self.eval_ast(&if_expr.consequent)
+        } else {
+            self.eval_ast(&if_expr.alternate)
+        };
+
+        self.stack.push(result);
     }
 
     fn visit_lambda(&mut self, lambda: &Lambda) {
@@ -202,6 +251,14 @@ impl AstVisitor for Interpreter {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_eval_bool() {
+        let mut interpreter = Interpreter::new();
+        let result = interpreter.eval("#t").unwrap();
+        assert_eq!(result.get_type(), ValueType::Bool);
+        assert_eq!(result.to_string(), "#true");
+    }
 
     #[test]
     fn test_eval_integer() {
@@ -263,6 +320,58 @@ mod tests {
     fn test_eval_modulo() {
         let mut interpreter = Interpreter::new();
         let result = interpreter.eval("(% 85 43)").unwrap();
+        assert_eq!(result.get_type(), ValueType::Int);
+        assert_eq!(result.to_string(), "42");
+    }
+
+    #[test]
+    fn test_eval_eq() {
+        let mut interpreter = Interpreter::new();
+        let result = interpreter.eval("(= 42 (- 43 1))").unwrap();
+        assert_eq!(result.get_type(), ValueType::Bool);
+        assert_eq!(result.to_string(), "#true");
+    }
+
+    #[test]
+    fn test_eval_gt() {
+        let mut interpreter = Interpreter::new();
+        let result = interpreter.eval("(> 43 42 41,0)").unwrap();
+        assert_eq!(result.get_type(), ValueType::Bool);
+        assert_eq!(result.to_string(), "#true");
+    }
+
+    #[test]
+    fn test_eval_ge() {
+        let mut interpreter = Interpreter::new();
+        let result = interpreter.eval("(>= 43 42 42)").unwrap();
+        assert_eq!(result.get_type(), ValueType::Bool);
+        assert_eq!(result.to_string(), "#true");
+    }
+
+    #[test]
+    fn test_eval_lt() {
+        let mut interpreter = Interpreter::new();
+        let result = interpreter.eval("(< 41,0 42 43)").unwrap();
+        assert_eq!(result.get_type(), ValueType::Bool);
+        assert_eq!(result.to_string(), "#true");
+    }
+
+    #[test]
+    fn test_eval_le() {
+        let mut interpreter = Interpreter::new();
+        let result = interpreter.eval("(<= 42 42 43)").unwrap();
+        assert_eq!(result.get_type(), ValueType::Bool);
+        assert_eq!(result.to_string(), "#true");
+    }
+
+    #[test]
+    fn test_eval_if() {
+        let mut interpreter = Interpreter::new();
+        let result = interpreter.eval("(if #t 42 43)").unwrap();
+        assert_eq!(result.get_type(), ValueType::Int);
+        assert_eq!(result.to_string(), "42");
+
+        let result = interpreter.eval("(if #f 43 42)").unwrap();
         assert_eq!(result.get_type(), ValueType::Int);
         assert_eq!(result.to_string(), "42");
     }

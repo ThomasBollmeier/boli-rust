@@ -5,6 +5,7 @@ use std::rc::Rc;
 #[derive(PartialEq, Debug)]
 pub enum ValueType {
     Nil,
+    Bool,
     Int,
     Real,
     BuiltInFunction,
@@ -35,6 +36,27 @@ impl Value for NilValue {
 impl Display for NilValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "nil")
+    }
+}
+
+#[derive(Debug)]
+pub struct BoolValue {
+    pub value: bool,
+}
+
+impl Value for BoolValue {
+    fn get_type(&self) -> ValueType {
+        ValueType::Bool
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl Display for BoolValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", if self.value { "#true" } else { "#false" })
     }
 }
 

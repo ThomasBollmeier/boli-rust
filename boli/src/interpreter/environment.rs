@@ -1,4 +1,4 @@
-use super::builtins::*;
+use super::number_functions::*;
 use super::values::*;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -49,6 +49,11 @@ impl Environment {
         self.set_builtins("/", &Rc::new(Div::new()));
         self.set_builtins("^", &Rc::new(Pow::new()));
         self.set_builtins("%", &Rc::new(Rem::new()));
+        self.set_builtins("=", &Rc::new(Eq::new()));
+        self.set_builtins(">", &Rc::new(Gt::new()));
+        self.set_builtins(">=", &Rc::new(Ge::new()));
+        self.set_builtins("<", &Rc::new(Lt::new()));
+        self.set_builtins("<=", &Rc::new(Le::new()));
     }
 
     fn set_builtins<T: Callable + 'static>(&mut self, name: &str, function: &Rc<T>) {
