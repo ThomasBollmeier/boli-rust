@@ -115,7 +115,26 @@ impl AstVisitor for Interpreter {
                 let add = self.env.get("+").unwrap();
                 self.stack.push(Ok(add.clone()));
             }
-            _ => todo!(),
+            Op::Minus => {
+                let sub = self.env.get("-").unwrap();
+                self.stack.push(Ok(sub.clone()));
+            }
+            Op::Asterisk => {
+                let mul = self.env.get("*").unwrap();
+                self.stack.push(Ok(mul.clone()));
+            }
+            Op::Slash => {
+                let div = self.env.get("/").unwrap();
+                self.stack.push(Ok(div.clone()));
+            }
+            Op::Caret => {
+                let pow = self.env.get("^").unwrap();
+                self.stack.push(Ok(pow.clone()));
+            }
+            Op::Percent => {
+                let mod_ = self.env.get("%").unwrap();
+                self.stack.push(Ok(mod_.clone()));
+            }
         }
     }
 
@@ -152,11 +171,8 @@ impl AstVisitor for Interpreter {
         let callee = callee.unwrap();
         let callee_type = callee.get_type();
 
-        let callee: &dyn Callable = match callee_type {
-            ValueType::BuiltInFunction => callee
-                .as_any()
-                .downcast_ref::<BuiltInFunctionValue>()
-                .unwrap(),
+        let callable: &dyn Callable = match callee_type {
+            ValueType::BuiltInFunction => downcast_value::<BuiltInFunctionValue>(&callee).unwrap(),
             _ => {
                 let err = self.new_eval_error("Callee is not a function");
                 self.stack.push(err);
@@ -174,7 +190,7 @@ impl AstVisitor for Interpreter {
             args.push(arg.unwrap());
         }
 
-        let result = callee.call(&args);
+        let result = callable.call(&args);
         self.stack.push(result);
     }
 
@@ -206,7 +222,48 @@ mod tests {
     #[test]
     fn test_eval_addition() {
         let mut interpreter = Interpreter::new();
-        let result = interpreter.eval("(+ 1 2 3 4)").unwrap();
-        assert_eq!(result.to_string(), "10");
+        let result = interpreter.eval("(+ 1 2 3 4,0)").unwrap();
+        assert_eq!(result.get_type(), ValueType::Real);
+        assert_eq!(result.to_string(), "10,0");
+    }
+
+    #[test]
+    fn test_eval_subtraction() {
+        let mut interpreter = Interpreter::new();
+        let result = interpreter.eval("(- 44 1 1)").unwrap();
+        assert_eq!(result.get_type(), ValueType::Int);
+        assert_eq!(result.to_string(), "42");
+    }
+
+    #[test]
+    fn test_eval_multiplication() {
+        let mut interpreter = Interpreter::new();
+        let result = interpreter.eval("(* 2 3 7)").unwrap();
+        assert_eq!(result.get_type(), ValueType::Int);
+        assert_eq!(result.to_string(), "42");
+    }
+
+    #[test]
+    fn test_eval_division() {
+        let mut interpreter = Interpreter::new();
+        let result = interpreter.eval("(/ 84,5 2)").unwrap();
+        assert_eq!(result.get_type(), ValueType::Real);
+        assert_eq!(result.to_string(), "42,25");
+    }
+
+    #[test]
+    fn test_eval_power() {
+        let mut interpreter = Interpreter::new();
+        let result = interpreter.eval("(^ 2 2 3)").unwrap();
+        assert_eq!(result.get_type(), ValueType::Int);
+        assert_eq!(result.to_string(), "256");
+    }
+
+    #[test]
+    fn test_eval_modulo() {
+        let mut interpreter = Interpreter::new();
+        let result = interpreter.eval("(% 85 43)").unwrap();
+        assert_eq!(result.get_type(), ValueType::Int);
+        assert_eq!(result.to_string(), "42");
     }
 }

@@ -44,6 +44,11 @@ impl Environment {
 
     fn init_builtins(&mut self) {
         self.set_builtins("+", &Rc::new(Add::new()));
+        self.set_builtins("-", &Rc::new(Sub::new()));
+        self.set_builtins("*", &Rc::new(Mul::new()));
+        self.set_builtins("/", &Rc::new(Div::new()));
+        self.set_builtins("^", &Rc::new(Pow::new()));
+        self.set_builtins("%", &Rc::new(Rem::new()));
     }
 
     fn set_builtins<T: Callable + 'static>(&mut self, name: &str, function: &Rc<T>) {
