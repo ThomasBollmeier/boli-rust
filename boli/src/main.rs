@@ -15,7 +15,7 @@ use std::{
     about = "BOLI - (B)ollmeier's (O)wn (L)isp (I)nterpreter"
 )]
 struct Options {
-    #[arg(help = "Input file to parse", default_value = "-")]
+    #[arg(help = "Input file or standard input (-)", default_value = "-")]
     input_file: String,
 
     #[command(subcommand)]

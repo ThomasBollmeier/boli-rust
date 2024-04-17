@@ -101,7 +101,9 @@ impl AstVisitor for Interpreter {
     }
 
     fn visit_str(&mut self, str: &Str) {
-        todo!()
+        self.stack.push(Ok(Rc::new(StrValue {
+            value: str.value.clone(),
+        })));
     }
 
     fn visit_nil(&mut self) {
@@ -179,7 +181,18 @@ impl AstVisitor for Interpreter {
     }
 
     fn visit_list(&mut self, list: &List) {
-        todo!()
+        let mut elements = vec![];
+
+        for element in &list.elements {
+            let elem_result = self.eval_ast(element);
+            if elem_result.is_err() {
+                self.stack.push(elem_result);
+                return;
+            }
+            elements.push(elem_result.unwrap());
+        }
+
+        self.stack.push(Ok(Rc::new(ListValue { elements })));
     }
 
     fn visit_def(&mut self, def: &Definition) {
@@ -274,6 +287,22 @@ mod tests {
         let result = interpreter.eval("42,0").unwrap();
         assert_eq!(result.get_type(), ValueType::Real);
         assert_eq!(result.to_string(), "42,0");
+    }
+
+    #[test]
+    fn test_eval_string() {
+        let mut interpreter = Interpreter::new();
+        let result = interpreter.eval("\"Hello, World!\"").unwrap();
+        assert_eq!(result.get_type(), ValueType::Str);
+        assert_eq!(result.to_string(), "\"Hello, World!\"");
+    }
+
+    #[test]
+    fn test_eval_list() {
+        let mut interpreter = Interpreter::new();
+        let result = interpreter.eval("'(1 2 3 (4 5))").unwrap();
+        assert_eq!(result.get_type(), ValueType::List);
+        assert_eq!(result.to_string(), "(list 1 2 3 (list 4 5))");
     }
 
     #[test]

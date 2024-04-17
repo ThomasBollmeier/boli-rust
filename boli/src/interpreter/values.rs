@@ -8,6 +8,8 @@ pub enum ValueType {
     Bool,
     Int,
     Real,
+    Str,
+    List,
     BuiltInFunction,
 }
 
@@ -100,6 +102,49 @@ impl Display for RealValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let value_str = format!("{:?}", self.value).replace(".", ",");
         write!(f, "{value_str}")
+    }
+}
+
+#[derive(Debug)]
+pub struct StrValue {
+    pub value: String,
+}
+
+impl Value for StrValue {
+    fn get_type(&self) -> ValueType {
+        ValueType::Str
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl Display for StrValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "\"{}\"", self.value)
+    }
+}
+
+#[derive(Debug)]
+pub struct ListValue {
+    pub elements: Vec<Rc<dyn Value>>,
+}
+
+impl Value for ListValue {
+    fn get_type(&self) -> ValueType {
+        ValueType::List
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl Display for ListValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let elements_str: Vec<String> = self.elements.iter().map(|e| format!("{}", e)).collect();
+        write!(f, "(list {})", elements_str.join(" "))
     }
 }
 
