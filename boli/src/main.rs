@@ -1,5 +1,8 @@
-use boli::frontend::parser::{ast::Program, visitor::JsonData, ParseError, Parser as BoliParser};
-use clap::Parser;
+use boli::{
+    frontend::parser::{visitor::JsonData, Parser as BoliParser},
+    interpreter::Interpreter,
+};
+use clap::{Parser, Subcommand};
 use std::{
     fs::File,
     io::{stdin, BufReader, Read, Result},
@@ -15,8 +18,16 @@ struct Options {
     #[arg(help = "Input file to parse", default_value = "-")]
     input_file: String,
 
-    #[arg(short, long, help = "Show the AST after parsing")]
-    show_ast: bool,
+    #[command(subcommand)]
+    action: Option<Action>,
+}
+
+#[derive(Debug, Subcommand)]
+enum Action {
+    /// Parse the input file and show the AST
+    Parse,
+    /// Parse the input file and run the interpreter
+    Run,
 }
 
 fn main() -> Result<()> {
@@ -24,21 +35,36 @@ fn main() -> Result<()> {
 
     let code = read_input(options.input_file)?;
 
-    let parser = BoliParser::new();
-    let parse_result = parser.parse(&code);
-
-    if options.show_ast {
-        show_ast(parse_result);
+    if let Some(action) = options.action {
+        match action {
+            Action::Parse => parse(&code),
+            Action::Run => interpret(&code),
+        }
+    } else {
+        interpret(&code);
     }
 
     Ok(())
 }
 
-fn show_ast(parse_result: std::result::Result<Program, ParseError>) {
+fn parse(code: &str) {
+    let parser = BoliParser::new();
+    let parse_result = parser.parse(&code);
+
     if let Ok(ast) = parse_result {
         println!("{}", JsonData::from(ast));
     } else {
         println!("Error: {:?}", parse_result.err().unwrap());
+    }
+}
+
+fn interpret(code: &str) {
+    let mut interpreter = Interpreter::new();
+    let result = interpreter.eval(code);
+
+    match result {
+        Ok(value) => println!("{}", value),
+        Err(err) => println!("Error: {:?}", err),
     }
 }
 
