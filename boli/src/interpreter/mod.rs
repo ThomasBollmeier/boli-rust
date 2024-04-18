@@ -2,6 +2,8 @@ pub mod environment;
 pub mod number_functions;
 pub mod values;
 
+use std::cell::RefCell;
+use std::env;
 use std::rc::Rc;
 
 use crate::frontend::lexer::tokens::{LogicalOp, Op};
@@ -12,14 +14,14 @@ use values::*;
 
 pub struct Interpreter {
     pub stack: Vec<EvalResult>,
-    pub env: Environment,
+    pub env: Rc<RefCell<Environment>>,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
         Self {
             stack: Vec::new(),
-            env: Environment::new(),
+            env: Rc::new(RefCell::new(Environment::new())),
         }
     }
 
@@ -60,6 +62,7 @@ impl Interpreter {
 
     fn is_truthy(&self, value: &Rc<dyn Value>) -> bool {
         match value.get_type() {
+            ValueType::Nil => false,
             ValueType::Bool => {
                 let bool_value = downcast_value::<BoolValue>(value).unwrap();
                 bool_value.value
@@ -67,6 +70,10 @@ impl Interpreter {
             ValueType::Int => {
                 let int_value = downcast_value::<IntValue>(value).unwrap();
                 int_value.value != 0
+            }
+            ValueType::List => {
+                let list_value = downcast_value::<ListValue>(value).unwrap();
+                !list_value.elements.is_empty()
             }
             _ => true,
         }
@@ -80,8 +87,12 @@ impl AstVisitor for Interpreter {
     }
 
     fn visit_block(&mut self, block: &Block) {
+        let env = self.env.clone();
+        self.env = Rc::new(RefCell::new(Environment::with_parent(&self.env)));
+
         let result = self.eval_block(&block.children);
         self.stack.push(result);
+        self.env = env;
     }
 
     fn visit_integer(&mut self, integer: &Integer) {
@@ -107,11 +118,18 @@ impl AstVisitor for Interpreter {
     }
 
     fn visit_nil(&mut self) {
-        todo!()
+        self.stack.push(Ok(Rc::new(NilValue {})));
     }
 
     fn visit_identifier(&mut self, identifier: &Identifier) {
-        todo!()
+        let value = self.env.borrow().get(&identifier.value);
+        if value.is_none() {
+            let err = self.new_eval_error(&format!("Undefined identifier: {}", identifier.value));
+            self.stack.push(err);
+            return;
+        }
+
+        self.stack.push(Ok(value.unwrap().clone()));
     }
 
     fn visit_absolute_name(&mut self, absolute_name: &AbsoluteName) {
@@ -129,27 +147,27 @@ impl AstVisitor for Interpreter {
     fn visit_operator(&mut self, operator: &Operator) {
         match operator.value {
             Op::Plus => {
-                let add = self.env.get("+").unwrap();
+                let add = self.env.borrow().get("+").unwrap();
                 self.stack.push(Ok(add.clone()));
             }
             Op::Minus => {
-                let sub = self.env.get("-").unwrap();
+                let sub = self.env.borrow().get("-").unwrap();
                 self.stack.push(Ok(sub.clone()));
             }
             Op::Asterisk => {
-                let mul = self.env.get("*").unwrap();
+                let mul = self.env.borrow().get("*").unwrap();
                 self.stack.push(Ok(mul.clone()));
             }
             Op::Slash => {
-                let div = self.env.get("/").unwrap();
+                let div = self.env.borrow().get("/").unwrap();
                 self.stack.push(Ok(div.clone()));
             }
             Op::Caret => {
-                let pow = self.env.get("^").unwrap();
+                let pow = self.env.borrow().get("^").unwrap();
                 self.stack.push(Ok(pow.clone()));
             }
             Op::Percent => {
-                let mod_ = self.env.get("%").unwrap();
+                let mod_ = self.env.borrow().get("%").unwrap();
                 self.stack.push(Ok(mod_.clone()));
             }
         }
@@ -158,23 +176,23 @@ impl AstVisitor for Interpreter {
     fn visit_logical_operator(&mut self, operator: &LogicalOperator) {
         match operator.value {
             LogicalOp::Eq => {
-                let eq = self.env.get("=").unwrap();
+                let eq = self.env.borrow().get("=").unwrap();
                 self.stack.push(Ok(eq.clone()));
             }
             LogicalOp::Gt => {
-                let gt = self.env.get(">").unwrap();
+                let gt = self.env.borrow().get(">").unwrap();
                 self.stack.push(Ok(gt.clone()));
             }
             LogicalOp::Ge => {
-                let ge = self.env.get(">=").unwrap();
+                let ge = self.env.borrow().get(">=").unwrap();
                 self.stack.push(Ok(ge.clone()));
             }
             LogicalOp::Lt => {
-                let lt = self.env.get("<").unwrap();
+                let lt = self.env.borrow().get("<").unwrap();
                 self.stack.push(Ok(lt.clone()));
             }
             LogicalOp::Le => {
-                let le = self.env.get("<=").unwrap();
+                let le = self.env.borrow().get("<=").unwrap();
                 self.stack.push(Ok(le.clone()));
             }
         }
@@ -196,7 +214,16 @@ impl AstVisitor for Interpreter {
     }
 
     fn visit_def(&mut self, def: &Definition) {
-        todo!()
+        let name = def.name.clone();
+        let value = self.eval_ast(&def.value);
+
+        if value.is_err() {
+            self.stack.push(value);
+            return;
+        }
+
+        self.env.borrow_mut().set(name, value.unwrap().clone());
+        self.stack.push(Ok(Rc::new(NilValue {})));
     }
 
     fn visit_struct_def(&mut self, struct_def: &StructDefinition) {
@@ -401,6 +428,18 @@ mod tests {
         assert_eq!(result.to_string(), "42");
 
         let result = interpreter.eval("(if #f 43 42)").unwrap();
+        assert_eq!(result.get_type(), ValueType::Int);
+        assert_eq!(result.to_string(), "42");
+    }
+
+    #[test]
+    fn test_eval_identifier() {
+        let mut interpreter = Interpreter::new();
+        let code = r#"
+            (def answer 42)
+            answer
+        "#;
+        let result = interpreter.eval(code).unwrap();
         assert_eq!(result.get_type(), ValueType::Int);
         assert_eq!(result.to_string(), "42");
     }

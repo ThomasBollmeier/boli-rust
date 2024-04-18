@@ -1,11 +1,12 @@
 use super::number_functions::*;
 use super::values::*;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 pub struct Environment {
     pub env: HashMap<String, Rc<dyn Value>>,
-    parent: Option<Rc<Environment>>,
+    parent: Option<Rc<RefCell<Environment>>>,
 }
 
 impl Environment {
@@ -19,11 +20,15 @@ impl Environment {
         result
     }
 
-    pub fn with_parent(parent: &Rc<Environment>) -> Self {
+    pub fn with_parent(parent: &Rc<RefCell<Environment>>) -> Self {
         Self {
             env: HashMap::new(),
             parent: Some(parent.clone()),
         }
+    }
+
+    pub fn get_parent(&self) -> Option<Rc<RefCell<Environment>>> {
+        self.parent.clone()
     }
 
     pub fn get(&self, key: &str) -> Option<Rc<dyn Value>> {
@@ -32,7 +37,7 @@ impl Environment {
         }
 
         if let Some(parent) = &self.parent {
-            return parent.get(key);
+            return parent.borrow().get(key);
         }
 
         None
