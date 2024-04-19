@@ -24,6 +24,13 @@ impl Interpreter {
         }
     }
 
+    pub fn with_environment(env: &Rc<RefCell<Environment>>) -> Self {
+        Self {
+            stack: Vec::new(),
+            env: env.clone(),
+        }
+    }
+
     pub fn eval(&mut self, code: &str) -> EvalResult {
         let parser = Parser::new();
         let program: Rc<dyn Ast> = Rc::new(
