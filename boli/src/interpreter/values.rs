@@ -4,7 +4,7 @@ use std::fmt::{Debug, Display};
 use std::rc::Rc;
 
 use super::environment::Environment;
-use super::Ast;
+use super::{Ast, Interpreter};
 
 #[derive(PartialEq, Debug)]
 pub enum ValueType {
@@ -182,6 +182,47 @@ impl LambdaValue {
             env: env.clone(),
         }
     }
+
+    fn init_call_env(
+        &self,
+        args: &Vec<Rc<dyn Value>>,
+    ) -> Result<Rc<RefCell<Environment>>, InterpreterError> {
+        let num_args = args.len();
+        let num_params = self.parameters.len();
+        if self.variadic.is_none() && num_args != num_params
+            || self.variadic.is_some() && num_args < num_params
+        {
+            return Err(InterpreterError::new(
+                "Number of arguments differs from number of parameters",
+            ));
+        }
+
+        let call_env = Rc::new(RefCell::new(Environment::with_parent(&self.env.clone())));
+
+        for (i, param) in self.parameters.iter().enumerate() {
+            call_env
+                .borrow_mut()
+                .set(param.to_string(), args[i].clone());
+        }
+
+        if let Some(var_param) = &self.variadic {
+            let arg_list = if num_args > num_params {
+                let elements = args
+                    .iter()
+                    .skip(num_params)
+                    .map(|val| val.clone())
+                    .collect();
+                ListValue { elements }
+            } else {
+                ListValue { elements: vec![] }
+            };
+            call_env
+                .borrow_mut()
+                .set(var_param.to_string(), Rc::new(arg_list));
+        }
+
+        Ok(call_env)
+    }
 }
 
 impl Value for LambdaValue {
@@ -196,19 +237,31 @@ impl Value for LambdaValue {
 
 impl Display for LambdaValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "<lambda>")
+        if let Some(name) = &self.name {
+            write!(f, "<lambda {}>", name)
+        } else {
+            write!(f, "<lambda>")
+        }
     }
 }
 
 impl Debug for LambdaValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "<lambda>")
+        if let Some(name) = &self.name {
+            write!(f, "<lambda {}>", name)
+        } else {
+            write!(f, "<lambda>")
+        }
     }
 }
 
 impl Callable for LambdaValue {
-    fn call(&self, _args: &Vec<Rc<dyn Value>>) -> EvalResult {
-        todo!()
+    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+        let call_env = self.init_call_env(args)?;
+        let mut interpreter = Interpreter::with_environment(&call_env);
+
+        self.body.accept(&mut interpreter);
+        interpreter.stack.pop().unwrap()
     }
 }
 

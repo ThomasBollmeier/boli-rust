@@ -298,6 +298,7 @@ impl Parser {
         let body = self.block(stream, &end_token_type)?;
 
         Ok(Rc::new(ast::Lambda {
+            name: None,
             parameters,
             variadic,
             body,
@@ -525,8 +526,9 @@ impl Parser {
         let body = self.block(stream, def_end_token_type)?;
 
         Ok(Rc::new(ast::Definition {
-            name,
+            name: name.clone(),
             value: Rc::new(ast::Lambda {
+                name: Some(name.clone()),
                 parameters,
                 variadic,
                 body,
@@ -709,6 +711,7 @@ mod tests {
         assert_eq!(definition.name, "do-something");
 
         let Lambda {
+            name: _,
             parameters,
             variadic: _,
             body: _,

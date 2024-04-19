@@ -273,6 +273,7 @@ impl Ast for IfExpression {
 }
 
 pub struct Lambda {
+    pub name: Option<String>,
     pub parameters: Vec<String>,
     pub variadic: Option<String>,
     pub body: Rc<dyn Ast>,

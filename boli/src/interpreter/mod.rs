@@ -138,15 +138,15 @@ impl AstVisitor for Interpreter {
         self.stack.push(Ok(value.unwrap().clone()));
     }
 
-    fn visit_absolute_name(&mut self, absolute_name: &AbsoluteName) {
+    fn visit_absolute_name(&mut self, _absolute_name: &AbsoluteName) {
         todo!()
     }
 
-    fn visit_symbol(&mut self, symbol: &Symbol) {
+    fn visit_symbol(&mut self, _symbol: &Symbol) {
         todo!()
     }
 
-    fn visit_quote(&mut self, quote: &Quote) {
+    fn visit_quote(&mut self, _quote: &Quote) {
         todo!()
     }
 
@@ -232,7 +232,7 @@ impl AstVisitor for Interpreter {
         self.stack.push(Ok(Rc::new(NilValue {})));
     }
 
-    fn visit_struct_def(&mut self, struct_def: &StructDefinition) {
+    fn visit_struct_def(&mut self, _struct_def: &StructDefinition) {
         todo!()
     }
 
@@ -254,7 +254,14 @@ impl AstVisitor for Interpreter {
     }
 
     fn visit_lambda(&mut self, lambda: &Lambda) {
-        todo!()
+        let lambda_value = Rc::new(LambdaValue {
+            name: lambda.name.clone(),
+            parameters: lambda.parameters.clone(),
+            variadic: lambda.variadic.clone(),
+            body: lambda.body.clone(),
+            env: self.env.clone(),
+        });
+        self.stack.push(Ok(lambda_value));
     }
 
     fn visit_call(&mut self, call: &Call) {
@@ -267,6 +274,7 @@ impl AstVisitor for Interpreter {
         let callee_type = callee.get_type();
 
         let callable: &dyn Callable = match callee_type {
+            ValueType::Lambda => downcast_value::<LambdaValue>(&callee).unwrap(),
             ValueType::BuiltInFunction => downcast_value::<BuiltInFunctionValue>(&callee).unwrap(),
             _ => {
                 let err = self.new_eval_error("Callee is not a function");
@@ -289,7 +297,7 @@ impl AstVisitor for Interpreter {
         self.stack.push(result);
     }
 
-    fn visit_spread_expr(&mut self, spread_expr: &SpreadExpr) {
+    fn visit_spread_expr(&mut self, _spread_expr: &SpreadExpr) {
         todo!()
     }
 }
@@ -448,5 +456,20 @@ mod tests {
         let result = interpreter.eval(code).unwrap();
         assert_eq!(result.get_type(), ValueType::Int);
         assert_eq!(result.to_string(), "42");
+    }
+
+    #[test]
+    fn test_eval_function_call() {
+        let mut interpreter = Interpreter::new();
+        let code = r#"
+            (def (fac n)
+                (if (= n 0)
+                    1
+                    (* n (fac (- n 1)))))
+            (fac 5)
+        "#;
+        let result = interpreter.eval(code).unwrap();
+        assert_eq!(result.get_type(), ValueType::Int);
+        assert_eq!(result.to_string(), "120");
     }
 }
