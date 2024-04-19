@@ -207,7 +207,7 @@ impl Parser {
             Conjunction => self.conjunction(stream, end_token_type),
             Disjunction => self.disjunction(stream, end_token_type),
             Lambda => self.lambda(stream, end_token_type),
-            Block => self.block(stream, end_token_type),
+            Block => self.block(stream, &end_token_type),
             Let => self.let_expression(stream, end_token_type),
             _ => {
                 stream.push_back(token);
@@ -219,14 +219,14 @@ impl Parser {
     fn block(
         &self,
         stream: &mut BufferedStream<Token>,
-        end_token_type: TokenType,
+        end_token_type: &TokenType,
     ) -> Result<Rc<dyn ast::Ast>, ParseError> {
         let mut children = Vec::new();
-        while Self::peek_token(stream, &vec![&end_token_type]).is_none() {
+        while Self::peek_token(stream, &vec![end_token_type]).is_none() {
             children.push(self.expression(stream, true)?);
         }
 
-        Self::next_token(stream, &vec![&end_token_type])?; // consume closing token
+        Self::next_token(stream, &vec![end_token_type])?; // consume closing token
 
         Ok(Rc::new(ast::Block { children }))
     }
@@ -295,12 +295,7 @@ impl Parser {
 
         Self::next_token(stream, &vec![&closing_token_type])?;
 
-        let mut body = Vec::new();
-        while Self::peek_token(stream, &vec![&end_token_type]).is_none() {
-            body.push(self.expression(stream, true)?);
-        }
-
-        Self::next_token(stream, &vec![&end_token_type])?; // consume closing token
+        let body = self.block(stream, &end_token_type)?;
 
         Ok(Rc::new(ast::Lambda {
             parameters,
@@ -527,12 +522,7 @@ impl Parser {
 
         Self::next_token(stream, &vec![&closing_token_type])?; // consume closing token for parameters
 
-        let mut body = Vec::new();
-        while Self::peek_token(stream, &vec![&def_end_token_type]).is_none() {
-            body.push(self.expression(stream, true)?);
-        }
-
-        Self::next_token(stream, &vec![&def_end_token_type])?; // consume closing token
+        let body = self.block(stream, def_end_token_type)?;
 
         Ok(Rc::new(ast::Definition {
             name,

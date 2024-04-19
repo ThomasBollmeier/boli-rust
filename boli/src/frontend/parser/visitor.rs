@@ -488,13 +488,9 @@ impl AstVisitor for AstToJsonVisitor {
             &mut fields,
         );
 
-        let mut body: Vec<JsonData> = Vec::new();
-        for expr in &lambda.body {
-            expr.accept(self);
-            body.push(self.stack.pop().unwrap());
-        }
+        lambda.body.accept(self);
 
-        Self::add_field("body", JsonData::Array(body), &mut data, &mut fields);
+        Self::add_field("body", self.stack.pop().unwrap(), &mut data, &mut fields);
 
         self.stack.push(JsonData::Object(data, fields));
     }

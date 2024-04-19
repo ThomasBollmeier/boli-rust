@@ -3,7 +3,6 @@ pub mod number_functions;
 pub mod values;
 
 use std::cell::RefCell;
-use std::env;
 use std::rc::Rc;
 
 use crate::frontend::lexer::tokens::{LogicalOp, Op};

@@ -1,6 +1,10 @@
+use std::cell::RefCell;
 use std::error::Error;
 use std::fmt::{Debug, Display};
 use std::rc::Rc;
+
+use super::environment::Environment;
+use super::Ast;
 
 #[derive(PartialEq, Debug)]
 pub enum ValueType {
@@ -10,6 +14,7 @@ pub enum ValueType {
     Real,
     Str,
     List,
+    Lambda,
     BuiltInFunction,
 }
 
@@ -152,6 +157,59 @@ pub type EvalResult = Result<Rc<dyn Value>, InterpreterError>;
 
 pub trait Callable {
     fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult;
+}
+
+pub struct LambdaValue {
+    pub name: Option<String>,
+    pub parameters: Vec<String>,
+    pub variadic: Option<String>,
+    pub body: Rc<dyn Ast>,
+    pub env: Rc<RefCell<Environment>>,
+}
+
+impl LambdaValue {
+    pub fn new(
+        parameters: Vec<String>,
+        variadic: Option<String>,
+        body: &Rc<dyn Ast>,
+        env: &Rc<RefCell<Environment>>,
+    ) -> Self {
+        Self {
+            name: None,
+            parameters,
+            variadic,
+            body: body.clone(),
+            env: env.clone(),
+        }
+    }
+}
+
+impl Value for LambdaValue {
+    fn get_type(&self) -> ValueType {
+        ValueType::Lambda
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl Display for LambdaValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<lambda>")
+    }
+}
+
+impl Debug for LambdaValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<lambda>")
+    }
+}
+
+impl Callable for LambdaValue {
+    fn call(&self, _args: &Vec<Rc<dyn Value>>) -> EvalResult {
+        todo!()
+    }
 }
 
 pub struct BuiltInFunctionValue {
