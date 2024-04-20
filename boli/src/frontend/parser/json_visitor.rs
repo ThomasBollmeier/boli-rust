@@ -123,7 +123,7 @@ impl AstVisitor for AstToJsonVisitor {
         );
 
         for child in &program.children {
-            child.accept(self);
+            child.borrow().accept(self);
             children.push(self.stack.pop().unwrap());
         }
 
@@ -149,7 +149,7 @@ impl AstVisitor for AstToJsonVisitor {
         );
 
         for child in &block.children {
-            child.accept(self);
+            child.borrow().accept(self);
             children.push(self.stack.pop().unwrap());
         }
 
@@ -359,7 +359,7 @@ impl AstVisitor for AstToJsonVisitor {
 
         let mut elements: Vec<JsonData> = Vec::new();
         for element in &list.elements {
-            element.accept(self);
+            element.borrow().accept(self);
             elements.push(self.stack.pop().unwrap());
         }
 
@@ -387,7 +387,7 @@ impl AstVisitor for AstToJsonVisitor {
             &mut fields,
         );
 
-        def.value.accept(self);
+        def.value.borrow().accept(self);
         Self::add_field("value", self.stack.pop().unwrap(), &mut data, &mut fields);
         self.stack.push(JsonData::Object(data, fields));
     }
@@ -430,7 +430,7 @@ impl AstVisitor for AstToJsonVisitor {
             &mut fields,
         );
 
-        if_expr.condition.accept(self);
+        if_expr.condition.borrow().accept(self);
         Self::add_field(
             "condition",
             self.stack.pop().unwrap(),
@@ -438,7 +438,7 @@ impl AstVisitor for AstToJsonVisitor {
             &mut fields,
         );
 
-        if_expr.consequent.accept(self);
+        if_expr.consequent.borrow().accept(self);
         Self::add_field(
             "consequent",
             self.stack.pop().unwrap(),
@@ -446,7 +446,7 @@ impl AstVisitor for AstToJsonVisitor {
             &mut fields,
         );
 
-        if_expr.alternate.accept(self);
+        if_expr.alternate.borrow().accept(self);
         Self::add_field(
             "alternate",
             self.stack.pop().unwrap(),
@@ -462,6 +462,16 @@ impl AstVisitor for AstToJsonVisitor {
         Self::add_field(
             "type",
             JsonData::String("Lambda".to_string()),
+            &mut data,
+            &mut fields,
+        );
+
+        Self::add_field(
+            "name",
+            match &lambda.name {
+                Some(name) => JsonData::String(name.clone()),
+                None => JsonData::Null,
+            },
             &mut data,
             &mut fields,
         );
@@ -488,7 +498,7 @@ impl AstVisitor for AstToJsonVisitor {
             &mut fields,
         );
 
-        lambda.body.accept(self);
+        lambda.body.borrow().accept(self);
 
         Self::add_field("body", self.stack.pop().unwrap(), &mut data, &mut fields);
 
@@ -504,12 +514,19 @@ impl AstVisitor for AstToJsonVisitor {
             &mut fields,
         );
 
-        call.callee.accept(self);
+        Self::add_field(
+            "isTailCall",
+            JsonData::Bool(call.is_tail_call),
+            &mut data,
+            &mut fields,
+        );
+
+        call.callee.borrow().accept(self);
         Self::add_field("callee", self.stack.pop().unwrap(), &mut data, &mut fields);
 
         let mut arguments: Vec<JsonData> = Vec::new();
         for argument in &call.arguments {
-            argument.accept(self);
+            argument.borrow().accept(self);
             arguments.push(self.stack.pop().unwrap());
         }
 
@@ -532,7 +549,7 @@ impl AstVisitor for AstToJsonVisitor {
             &mut fields,
         );
 
-        spread_expr.expr.accept(self);
+        spread_expr.expr.borrow().accept(self);
         Self::add_field("expr", self.stack.pop().unwrap(), &mut data, &mut fields);
 
         self.stack.push(JsonData::Object(data, fields));
@@ -541,8 +558,6 @@ impl AstVisitor for AstToJsonVisitor {
 
 #[cfg(test)]
 mod tests {
-
-    use std::rc::Rc;
 
     use super::super::ast::*;
     use super::*;
@@ -571,7 +586,7 @@ mod tests {
     fn test_program() {
         let integer = Integer { value: 42 };
         let program = Program {
-            children: vec![Rc::new(integer)],
+            children: vec![new_astref(integer)],
         };
         let mut visitor = AstToJsonVisitor::new();
         let json = visitor.to_json(&program);

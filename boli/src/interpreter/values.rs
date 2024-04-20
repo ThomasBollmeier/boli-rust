@@ -1,10 +1,11 @@
+use core::str;
 use std::cell::RefCell;
 use std::error::Error;
 use std::fmt::{Debug, Display};
 use std::rc::Rc;
 
 use super::environment::Environment;
-use super::{Ast, Interpreter};
+use super::{AstRef, Interpreter};
 
 #[derive(PartialEq, Debug)]
 pub enum ValueType {
@@ -16,6 +17,7 @@ pub enum ValueType {
     List,
     Lambda,
     BuiltInFunction,
+    TailCall,
 }
 
 pub trait Value: Display + Debug {
@@ -163,7 +165,7 @@ pub struct LambdaValue {
     pub name: Option<String>,
     pub parameters: Vec<String>,
     pub variadic: Option<String>,
-    pub body: Rc<dyn Ast>,
+    pub body: AstRef,
     pub env: Rc<RefCell<Environment>>,
 }
 
@@ -171,7 +173,7 @@ impl LambdaValue {
     pub fn new(
         parameters: Vec<String>,
         variadic: Option<String>,
-        body: &Rc<dyn Ast>,
+        body: &AstRef,
         env: &Rc<RefCell<Environment>>,
     ) -> Self {
         Self {
@@ -260,7 +262,7 @@ impl Callable for LambdaValue {
         let call_env = self.init_call_env(args)?;
         let mut interpreter = Interpreter::with_environment(&call_env);
 
-        self.body.accept(&mut interpreter);
+        self.body.borrow().accept(&mut interpreter);
         interpreter.stack.pop().unwrap()
     }
 }
@@ -304,6 +306,32 @@ impl Value for BuiltInFunctionValue {
 impl Callable for BuiltInFunctionValue {
     fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
         self.function.call(args)
+    }
+}
+
+pub struct TailCallValue {
+    pub arguments: Vec<Rc<dyn Value>>,
+}
+
+impl Value for TailCallValue {
+    fn get_type(&self) -> ValueType {
+        ValueType::TailCall
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl Display for TailCallValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<tail call>")
+    }
+}
+
+impl Debug for TailCallValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<tail call>")
     }
 }
 

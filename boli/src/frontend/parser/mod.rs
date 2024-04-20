@@ -1,6 +1,5 @@
 use core::str;
 use std::error::Error;
-use std::rc::Rc;
 use std::vec;
 
 use super::lexer::stream::BufferedStream;
@@ -8,7 +7,10 @@ use super::lexer::tokens::{Token, TokenType, TokenType::*};
 use super::lexer::Lexer;
 
 pub mod ast;
-pub mod visitor;
+pub mod json_visitor;
+pub mod tail_call;
+
+use ast::{new_astref, AstRef};
 
 pub struct Parser {}
 
@@ -19,7 +21,13 @@ impl Parser {
 
     pub fn parse(&self, code: &str) -> Result<ast::Program, ParseError> {
         let mut stream = BufferedStream::new(Box::new(Lexer::new(code)));
-        self.program(&mut stream)
+        let mut result = self.program(&mut stream);
+
+        if let Ok(program) = &mut result {
+            tail_call::TailCallFinder::new().mark_tail_calls(program);
+        }
+
+        result
     }
 
     fn next_token(
@@ -62,42 +70,45 @@ impl Parser {
             children.push(self.expression(stream, true)?);
         }
 
-        Ok(ast::Program { children })
+        let mut program = ast::Program { children };
+        tail_call::TailCallFinder::new().mark_tail_calls(&mut program);
+
+        Ok(program)
     }
 
     fn expression(
         &self,
         stream: &mut BufferedStream<Token>,
         define_allowed: bool,
-    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+    ) -> Result<AstRef, ParseError> {
         let token = Self::next_token(stream, &vec![])?;
 
         match token.token_type {
-            Integer => Ok(Rc::new(ast::Integer {
+            Integer => Ok(new_astref(ast::Integer {
                 value: token.get_int_value().unwrap(),
             })),
-            Real => Ok(Rc::new(ast::Real {
+            Real => Ok(new_astref(ast::Real {
                 value: token.get_real_value().unwrap(),
             })),
-            Bool => Ok(Rc::new(ast::Bool {
+            Bool => Ok(new_astref(ast::Bool {
                 value: token.get_bool_value().unwrap(),
             })),
-            Str => Ok(Rc::new(ast::Str {
+            Str => Ok(new_astref(ast::Str {
                 value: token.get_string_value().unwrap(),
             })),
-            Nil => Ok(Rc::new(ast::Nil {})),
-            Identifier => Ok(Rc::new(ast::Identifier {
+            Nil => Ok(new_astref(ast::Nil {})),
+            Identifier => Ok(new_astref(ast::Identifier {
                 value: token.get_string_value().unwrap(),
             })),
             AbsoluteName => self.absolute_name(&token),
-            Symbol => Ok(Rc::new(ast::Symbol {
+            Symbol => Ok(new_astref(ast::Symbol {
                 value: token.get_string_value().unwrap(),
             })),
-            Dot3 => Ok(Rc::new(ast::SpreadExpr {
+            Dot3 => Ok(new_astref(ast::SpreadExpr {
                 expr: self.expression(stream, false)?,
             })),
-            Operator(op) => Ok(Rc::new(ast::Operator { value: op.clone() })),
-            LogicalOperator(op) => Ok(Rc::new(ast::LogicalOperator { value: op.clone() })),
+            Operator(op) => Ok(new_astref(ast::Operator { value: op.clone() })),
+            LogicalOperator(op) => Ok(new_astref(ast::LogicalOperator { value: op.clone() })),
             LeftParen | LeftBrace | LeftBracket => self.symbolic_expression(
                 stream,
                 Self::closing_token_type(&token.token_type),
@@ -110,7 +121,7 @@ impl Parser {
         }
     }
 
-    fn absolute_name(&self, token: &Token) -> Result<Rc<dyn ast::Ast>, ParseError> {
+    fn absolute_name(&self, token: &Token) -> Result<AstRef, ParseError> {
         let value = token
             .get_string_value()
             .ok_or(ParseError::new("Invalid absolute name"))?;
@@ -120,7 +131,7 @@ impl Parser {
             .map(|s| s.to_string())
             .collect();
 
-        Ok(Rc::new(ast::AbsoluteName { segments }))
+        Ok(new_astref(ast::AbsoluteName { segments }))
     }
 
     fn closing_token_type(opening_token_type: &TokenType) -> TokenType {
@@ -136,35 +147,32 @@ impl Parser {
         &self,
         stream: &mut BufferedStream<Token>,
         end_token_type: TokenType,
-    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+    ) -> Result<AstRef, ParseError> {
         let mut elements = Vec::new();
         while Self::peek_token(stream, &vec![&end_token_type]).is_none() {
             let element = self.get_quoted_element(stream)?;
             elements.push(element);
         }
         Self::next_token(stream, &vec![&end_token_type])?; // consume closing token
-        Ok(Rc::new(ast::List { elements }))
+        Ok(new_astref(ast::List { elements }))
     }
 
-    fn get_quoted_element(
-        &self,
-        stream: &mut BufferedStream<Token>,
-    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+    fn get_quoted_element(&self, stream: &mut BufferedStream<Token>) -> Result<AstRef, ParseError> {
         let token = Self::next_token(stream, &vec![])?;
         match token.token_type {
-            Integer => Ok(Rc::new(ast::Integer {
+            Integer => Ok(new_astref(ast::Integer {
                 value: token.get_int_value().unwrap(),
             })),
-            Real => Ok(Rc::new(ast::Real {
+            Real => Ok(new_astref(ast::Real {
                 value: token.get_real_value().unwrap(),
             })),
-            Bool => Ok(Rc::new(ast::Bool {
+            Bool => Ok(new_astref(ast::Bool {
                 value: token.get_bool_value().unwrap(),
             })),
-            Str => Ok(Rc::new(ast::Str {
+            Str => Ok(new_astref(ast::Str {
                 value: token.get_string_value().unwrap(),
             })),
-            Symbol => Ok(Rc::new(ast::Symbol {
+            Symbol => Ok(new_astref(ast::Symbol {
                 value: token.get_string_value().unwrap(),
             })),
             LeftParen | LeftBrace | LeftBracket => {
@@ -173,7 +181,7 @@ impl Parser {
             QuoteParen | QuoteBrace | QuoteBracket => {
                 Err(ParseError::new("Quotation nesting not allowed"))
             }
-            _ => Ok(Rc::new(ast::Quote {
+            _ => Ok(new_astref(ast::Quote {
                 value: token.clone(),
             })),
         }
@@ -184,7 +192,7 @@ impl Parser {
         stream: &mut BufferedStream<Token>,
         end_token_type: TokenType,
         define_allowed: bool,
-    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+    ) -> Result<AstRef, ParseError> {
         let token = Self::next_token(stream, &vec![])?;
 
         match token.token_type {
@@ -220,7 +228,7 @@ impl Parser {
         &self,
         stream: &mut BufferedStream<Token>,
         end_token_type: &TokenType,
-    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+    ) -> Result<AstRef, ParseError> {
         let mut children = Vec::new();
         while Self::peek_token(stream, &vec![end_token_type]).is_none() {
             children.push(self.expression(stream, true)?);
@@ -228,14 +236,14 @@ impl Parser {
 
         Self::next_token(stream, &vec![end_token_type])?; // consume closing token
 
-        Ok(Rc::new(ast::Block { children }))
+        Ok(new_astref(ast::Block { children }))
     }
 
     fn let_expression(
         &self,
         stream: &mut BufferedStream<Token>,
         end_token_type: TokenType,
-    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+    ) -> Result<AstRef, ParseError> {
         let opening_def = Self::next_token(stream, &vec![&LeftParen, &LeftBrace, &LeftBracket])?;
         let closing_def_type = Self::closing_token_type(&opening_def.token_type);
 
@@ -252,13 +260,10 @@ impl Parser {
 
         Self::next_token(stream, &vec![&end_token_type])?; // consume closing token
 
-        Ok(Rc::new(ast::Block { children }))
+        Ok(new_astref(ast::Block { children }))
     }
 
-    fn let_definition(
-        &self,
-        stream: &mut BufferedStream<Token>,
-    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+    fn let_definition(&self, stream: &mut BufferedStream<Token>) -> Result<AstRef, ParseError> {
         let opening = Self::next_token(stream, &vec![&LeftParen, &LeftBrace, &LeftBracket])?;
         let closing_type = Self::closing_token_type(&opening.token_type);
 
@@ -269,14 +274,14 @@ impl Parser {
 
         Self::next_token(stream, &vec![&closing_type])?; // consume closing token
 
-        Ok(Rc::new(ast::Definition { name, value }))
+        Ok(new_astref(ast::Definition { name, value }))
     }
 
     fn lambda(
         &self,
         stream: &mut BufferedStream<Token>,
         end_token_type: TokenType,
-    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+    ) -> Result<AstRef, ParseError> {
         let opening_token = Self::next_token(stream, &vec![&LeftParen, &LeftBrace, &LeftBracket])?;
         let closing_token_type = Self::closing_token_type(&opening_token.token_type);
         let mut variadic: Option<String> = None;
@@ -297,7 +302,7 @@ impl Parser {
 
         let body = self.block(stream, &end_token_type)?;
 
-        Ok(Rc::new(ast::Lambda {
+        Ok(new_astref(ast::Lambda {
             name: None,
             parameters,
             variadic,
@@ -309,7 +314,7 @@ impl Parser {
         &self,
         stream: &mut BufferedStream<Token>,
         end_token_type: TokenType,
-    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+    ) -> Result<AstRef, ParseError> {
         let callee = self.expression(stream, false)?;
         let mut arguments = Vec::new();
 
@@ -319,14 +324,18 @@ impl Parser {
 
         Self::next_token(stream, &vec![&end_token_type])?; // consume closing token
 
-        Ok(Rc::new(ast::Call { callee, arguments }))
+        Ok(new_astref(ast::Call {
+            callee,
+            arguments,
+            is_tail_call: false,
+        }))
     }
 
     fn disjunction(
         &self,
         stream: &mut BufferedStream<Token>,
         end_token_type: TokenType,
-    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+    ) -> Result<AstRef, ParseError> {
         let mut children = Vec::new();
 
         while Self::peek_token(stream, &vec![&end_token_type]).is_none() {
@@ -342,21 +351,18 @@ impl Parser {
         Ok(self.create_if_expr_from_disjunction(&mut children))
     }
 
-    fn create_if_expr_from_disjunction(
-        &self,
-        elements: &mut Vec<Rc<dyn ast::Ast>>,
-    ) -> Rc<dyn ast::Ast> {
+    fn create_if_expr_from_disjunction(&self, elements: &mut Vec<AstRef>) -> AstRef {
         if elements.is_empty() {
-            return Rc::new(ast::Bool { value: false });
+            return new_astref(ast::Bool { value: false });
         }
 
         let condition = elements.remove(0);
 
-        let if_expr = Rc::new(ast::IfExpression {
+        let if_expr = new_astref(ast::IfExpression {
             condition: condition.clone(),
             consequent: condition,
             alternate: if elements.is_empty() {
-                Rc::new(ast::Bool { value: false })
+                new_astref(ast::Bool { value: false })
             } else {
                 self.create_if_expr_from_disjunction(elements)
             },
@@ -368,7 +374,7 @@ impl Parser {
         &self,
         stream: &mut BufferedStream<Token>,
         end_token_type: TokenType,
-    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+    ) -> Result<AstRef, ParseError> {
         let mut children = Vec::new();
 
         while Self::peek_token(stream, &vec![&end_token_type]).is_none() {
@@ -384,24 +390,21 @@ impl Parser {
         Ok(self.create_if_expr_from_conjunction(&mut children))
     }
 
-    fn create_if_expr_from_conjunction(
-        &self,
-        elements: &mut Vec<Rc<dyn ast::Ast>>,
-    ) -> Rc<dyn ast::Ast> {
+    fn create_if_expr_from_conjunction(&self, elements: &mut Vec<AstRef>) -> AstRef {
         if elements.is_empty() {
-            return Rc::new(ast::Bool { value: true });
+            return new_astref(ast::Bool { value: true });
         }
 
         let condition = elements.remove(0);
 
-        let if_expr = Rc::new(ast::IfExpression {
+        let if_expr = new_astref(ast::IfExpression {
             condition: condition.clone(),
             consequent: if elements.is_empty() {
                 condition
             } else {
                 self.create_if_expr_from_conjunction(elements)
             },
-            alternate: Rc::new(ast::Bool { value: false }),
+            alternate: new_astref(ast::Bool { value: false }),
         });
         if_expr
     }
@@ -410,7 +413,7 @@ impl Parser {
         &self,
         stream: &mut BufferedStream<Token>,
         end_token_type: TokenType,
-    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+    ) -> Result<AstRef, ParseError> {
         let mut clauses = Vec::new();
 
         while let Some(_) = Self::peek_token(stream, &vec![&LeftParen, &LeftBrace, &LeftBracket]) {
@@ -427,17 +430,14 @@ impl Parser {
         Ok(self.create_if_expr_from_cond_clauses(&mut clauses))
     }
 
-    fn create_if_expr_from_cond_clauses(
-        &self,
-        clauses: &mut Vec<(Rc<dyn ast::Ast>, Rc<dyn ast::Ast>)>,
-    ) -> Rc<dyn ast::Ast> {
+    fn create_if_expr_from_cond_clauses(&self, clauses: &mut Vec<(AstRef, AstRef)>) -> AstRef {
         if clauses.is_empty() {
-            return Rc::new(ast::Nil {});
+            return new_astref(ast::Nil {});
         }
 
         let (condition, consequent) = clauses.remove(0);
 
-        let if_expr = Rc::new(ast::IfExpression {
+        let if_expr = new_astref(ast::IfExpression {
             condition,
             consequent,
             alternate: self.create_if_expr_from_cond_clauses(clauses),
@@ -448,7 +448,7 @@ impl Parser {
     fn cond_clause(
         &self,
         stream: &mut BufferedStream<Token>,
-    ) -> Result<(Rc<dyn ast::Ast>, Rc<dyn ast::Ast>), ParseError> {
+    ) -> Result<(AstRef, AstRef), ParseError> {
         let opening_token = Self::next_token(stream, &vec![&LeftParen, &LeftBrace, &LeftBracket])?;
 
         let condition = self.expression(stream, false)?;
@@ -466,14 +466,14 @@ impl Parser {
         &self,
         stream: &mut BufferedStream<Token>,
         end_token_type: TokenType,
-    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+    ) -> Result<AstRef, ParseError> {
         let condition = self.expression(stream, false)?;
         let consequent = self.expression(stream, false)?;
         let alternate = self.expression(stream, false)?;
 
         Self::next_token(stream, &vec![&end_token_type])?; // consume closing token
 
-        Ok(Rc::new(ast::IfExpression {
+        Ok(new_astref(ast::IfExpression {
             condition,
             consequent,
             alternate,
@@ -484,7 +484,7 @@ impl Parser {
         &self,
         stream: &mut BufferedStream<Token>,
         end_token_type: TokenType,
-    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+    ) -> Result<AstRef, ParseError> {
         let token = Self::peek_token(
             stream,
             &vec![&Identifier, &LeftParen, &LeftBrace, &LeftBracket],
@@ -502,7 +502,7 @@ impl Parser {
         stream: &mut BufferedStream<Token>,
         opening_token: &Token,
         def_end_token_type: &TokenType,
-    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+    ) -> Result<AstRef, ParseError> {
         let closing_token_type = Self::closing_token_type(&opening_token.token_type);
         Self::next_token(stream, &vec![])?;
 
@@ -525,9 +525,9 @@ impl Parser {
 
         let body = self.block(stream, def_end_token_type)?;
 
-        Ok(Rc::new(ast::Definition {
+        Ok(new_astref(ast::Definition {
             name: name.clone(),
-            value: Rc::new(ast::Lambda {
+            value: new_astref(ast::Lambda {
                 name: Some(name.clone()),
                 parameters,
                 variadic,
@@ -541,7 +541,7 @@ impl Parser {
         stream: &mut BufferedStream<Token>,
         name_token: &Token,
         end_token_type: &TokenType,
-    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+    ) -> Result<AstRef, ParseError> {
         let name = name_token.get_string_value().unwrap();
         Self::next_token(stream, &vec![&Identifier])?; // consume opening token (name)
 
@@ -549,14 +549,14 @@ impl Parser {
 
         Self::next_token(stream, &vec![end_token_type])?; // consume closing token
 
-        Ok(Rc::new(ast::Definition { name, value }))
+        Ok(new_astref(ast::Definition { name, value }))
     }
 
     fn struct_definition(
         &self,
         stream: &mut BufferedStream<Token>,
         end_token_type: TokenType,
-    ) -> Result<Rc<dyn ast::Ast>, ParseError> {
+    ) -> Result<AstRef, ParseError> {
         let token = Self::next_token(stream, &vec![&Identifier])?;
         let name = token.get_string_value().unwrap();
 
@@ -573,7 +573,7 @@ impl Parser {
 
         Self::next_token(stream, &vec![&end_token_type])?; // consume closing token
 
-        Ok(Rc::new(ast::StructDefinition { name, fields }))
+        Ok(new_astref(ast::StructDefinition { name, fields }))
     }
 }
 
@@ -635,28 +635,35 @@ mod tests {
         let program = program.unwrap();
         assert_eq!(program.children.len(), 7);
 
-        let integer = downcast_ast::<Integer>(&program.children[0]).unwrap();
+        let integer = &borrow_ast(&program.children[0]);
+        let integer = downcast_ast::<Integer>(integer).unwrap();
         assert_eq!(integer.value, 123);
 
-        let real = downcast_ast::<Real>(&program.children[1]).unwrap();
+        let real = &borrow_ast(&program.children[1]);
+        let real = downcast_ast::<Real>(real).unwrap();
         assert_eq!(real.value, 3.14);
 
-        let boolean = downcast_ast::<Bool>(&program.children[2]).unwrap();
+        let boolean = &borrow_ast(&program.children[2]);
+        let boolean = downcast_ast::<Bool>(boolean).unwrap();
         assert_eq!(boolean.value, true);
 
-        let string = downcast_ast::<Str>(&program.children[3]).unwrap();
+        let string = &borrow_ast(&program.children[3]);
+        let string = downcast_ast::<Str>(string).unwrap();
         assert_eq!(string.value, "Thomas");
 
-        let ident = downcast_ast::<Identifier>(&program.children[4]).unwrap();
+        let ident = &borrow_ast(&program.children[4]);
+        let ident = downcast_ast::<Identifier>(ident).unwrap();
         assert_eq!(ident.value, "an-identifier");
 
-        let absname = downcast_ast::<AbsoluteName>(&program.children[5]).unwrap();
+        let absname = &borrow_ast(&program.children[5]);
+        let absname = downcast_ast::<AbsoluteName>(absname).unwrap();
         assert_eq!(
             absname.segments,
             vec!["absolute".to_string(), "name".to_string()]
         );
 
-        let nil = downcast_ast::<Nil>(&program.children[6]);
+        let nil = &borrow_ast(&program.children[6]);
+        let nil = downcast_ast::<Nil>(nil);
         assert!(nil.is_some());
     }
 
@@ -671,10 +678,12 @@ mod tests {
         let program = program.unwrap();
         assert_eq!(program.children.len(), 1);
 
-        let definition = downcast_ast::<Definition>(&program.children[0]).unwrap();
+        let definition = &borrow_ast(&program.children[0]);
+        let definition = downcast_ast::<Definition>(definition).unwrap();
         assert_eq!(definition.name, "answer");
 
-        let integer = downcast_ast::<Integer>(&definition.value).unwrap();
+        let integer = &borrow_ast(&definition.value);
+        let integer = downcast_ast::<Integer>(integer).unwrap();
         assert_eq!(integer.value, 42);
     }
 
@@ -689,7 +698,8 @@ mod tests {
         let program = program.unwrap();
         assert_eq!(program.children.len(), 1);
 
-        let struct_def = downcast_ast::<StructDefinition>(&program.children[0]).unwrap();
+        let struct_def = &borrow_ast(&program.children[0]);
+        let struct_def = downcast_ast::<StructDefinition>(struct_def).unwrap();
         assert_eq!(struct_def.name, "person");
         assert_eq!(
             struct_def.fields,
@@ -707,16 +717,13 @@ mod tests {
         assert!(program.is_ok());
         let program = program.unwrap();
 
-        let definition = downcast_ast::<Definition>(&program.children[0]).unwrap();
+        let definition = &borrow_ast(&program.children[0]);
+        let definition = downcast_ast::<Definition>(definition).unwrap();
         assert_eq!(definition.name, "do-something");
 
-        let Lambda {
-            name: _,
-            parameters,
-            variadic: _,
-            body: _,
-        } = downcast_ast::<Lambda>(&definition.value).unwrap();
-        assert_eq!(*parameters, vec!["a".to_string(), "b".to_string()]);
+        let lambda = &borrow_ast(&definition.value);
+        let lambda = downcast_ast::<Lambda>(lambda).unwrap();
+        assert_eq!(lambda.parameters, vec!["a".to_string(), "b".to_string()]);
     }
 
     #[test]
@@ -729,7 +736,8 @@ mod tests {
         assert!(program.is_ok());
         let program = program.unwrap();
 
-        let lambda = downcast_ast::<Lambda>(&program.children[0]).unwrap();
+        let lambda = &borrow_ast(&program.children[0]);
+        let lambda = downcast_ast::<Lambda>(lambda).unwrap();
         assert_eq!(*lambda.parameters, vec!["a".to_string(), "b".to_string()]);
     }
 
@@ -746,12 +754,19 @@ mod tests {
         let program = program.unwrap();
         assert_eq!(program.children.len(), 1);
 
-        let if_expr = downcast_ast::<IfExpression>(&program.children[0]).unwrap();
-        let condition = downcast_ast::<Bool>(&if_expr.condition).unwrap();
+        let if_expr = &borrow_ast(&program.children[0]);
+        let if_expr = downcast_ast::<IfExpression>(if_expr).unwrap();
+
+        let condition = &borrow_ast(&if_expr.condition);
+        let condition = downcast_ast::<Bool>(condition).unwrap();
         assert_eq!(condition.value, true);
-        let consequent = downcast_ast::<Integer>(&if_expr.consequent).unwrap();
+
+        let consequent = &borrow_ast(&if_expr.consequent);
+        let consequent = downcast_ast::<Integer>(consequent).unwrap();
         assert_eq!(consequent.value, 123);
-        let alternate = downcast_ast::<Integer>(&if_expr.alternate).unwrap();
+
+        let alternate = &borrow_ast(&if_expr.alternate);
+        let alternate = downcast_ast::<Integer>(alternate).unwrap();
         assert_eq!(alternate.value, 456);
     }
 
@@ -799,7 +814,9 @@ mod tests {
         assert!(program.is_ok(), "{}", program.err().unwrap());
 
         let program = program.unwrap();
-        let ident = downcast_ast::<Identifier>(&program.children[1]).unwrap();
+
+        let ident = &borrow_ast(&program.children[1]);
+        let ident = downcast_ast::<Identifier>(ident).unwrap();
         assert_eq!(ident.value, "answer");
     }
 
@@ -813,7 +830,9 @@ mod tests {
         assert!(program.is_ok(), "{}", program.err().unwrap());
 
         let program = program.unwrap();
-        let symbol = downcast_ast::<Symbol>(&program.children[0]).unwrap();
+
+        let symbol = &borrow_ast(&program.children[0]);
+        let symbol = downcast_ast::<Symbol>(symbol).unwrap();
         assert_eq!(symbol.value, "'answer");
     }
 
@@ -827,8 +846,12 @@ mod tests {
         assert!(program.is_ok(), "{}", program.err().unwrap());
 
         let program = program.unwrap();
-        let call = downcast_ast::<Call>(&program.children[0]).unwrap();
-        let callee = downcast_ast::<Operator>(&call.callee).unwrap();
+
+        let call = &borrow_ast(&program.children[0]);
+        let call = downcast_ast::<Call>(call).unwrap();
+
+        let callee = &borrow_ast(&call.callee);
+        let callee = downcast_ast::<Operator>(callee).unwrap();
         assert_eq!(callee.value, Op::Plus);
         assert_eq!(call.arguments.len(), 2);
     }
@@ -843,16 +866,21 @@ mod tests {
         assert!(program.is_ok(), "{}", program.err().unwrap());
 
         let program = program.unwrap();
-        let list = downcast_ast::<List>(&program.children[0]).unwrap();
+
+        let list = &borrow_ast(&program.children[0]);
+        let list = downcast_ast::<List>(list).unwrap();
         assert_eq!(list.elements.len(), 3);
 
-        let integer = downcast_ast::<Integer>(&list.elements[0]).unwrap();
+        let integer = &borrow_ast(&list.elements[0]);
+        let integer = downcast_ast::<Integer>(integer).unwrap();
         assert_eq!(integer.value, 1);
 
-        let integer = downcast_ast::<Integer>(&list.elements[1]).unwrap();
+        let integer = &borrow_ast(&list.elements[1]);
+        let integer = downcast_ast::<Integer>(integer).unwrap();
         assert_eq!(integer.value, 2);
 
-        let ident = downcast_ast::<Quote>(&list.elements[2]).unwrap();
+        let ident = &borrow_ast(&list.elements[2]);
+        let ident = downcast_ast::<Quote>(ident).unwrap();
         assert_eq!(ident.value.token_type, TokenType::Identifier);
         assert_eq!(ident.value.get_string_value().unwrap(), "a");
     }
@@ -868,7 +896,8 @@ mod tests {
         assert!(program.is_ok(), "{}", program.err().unwrap());
         let program = program.unwrap();
 
-        let block = downcast_ast::<Block>(&program.children[0]).unwrap();
+        let block = &borrow_ast(&program.children[0]);
+        let block = downcast_ast::<Block>(block).unwrap();
         assert_eq!(block.children.len(), 3);
     }
 
@@ -882,8 +911,55 @@ mod tests {
         let program = parser.parse(code);
         assert!(program.is_ok(), "{}", program.err().unwrap());
         let program = program.unwrap();
-        let def = downcast_ast::<Definition>(&program.children[0]).unwrap();
-        let lambda = downcast_ast::<Lambda>(&def.value).unwrap();
+
+        let def = &borrow_ast(&program.children[0]);
+        let def = downcast_ast::<Definition>(def).unwrap();
+
+        let lambda = &borrow_ast(&def.value);
+        let lambda = downcast_ast::<Lambda>(lambda).unwrap();
         assert_eq!(lambda.variadic, Some("numbers".to_string()));
+    }
+
+    #[test]
+    fn test_tail_call() {
+        let parser = super::Parser::new();
+        let code = r#"
+            (def (factorial n) 
+                (def (helper n acc) 
+                    (if (= n 0)
+                        acc
+                        (helper (- n 1) (* acc n))))
+                (helper n 1))
+            (factorial 5)
+        "#;
+        let program = parser.parse(code);
+        assert!(program.is_ok(), "{}", program.err().unwrap());
+        let program = program.unwrap();
+
+        let def = &borrow_ast(&program.children[0]);
+        let def = downcast_ast::<Definition>(def).unwrap();
+
+        let factorial = &borrow_ast(&def.value);
+        let factorial = downcast_ast::<Lambda>(factorial).unwrap();
+
+        let factorial_body = &borrow_ast(&factorial.body);
+        let factorial_body = downcast_ast::<Block>(factorial_body).unwrap();
+
+        let helper_def = &borrow_ast(&factorial_body.children[0]);
+        let helper_def = downcast_ast::<Definition>(helper_def).unwrap();
+
+        let helper = &borrow_ast(&helper_def.value);
+        let helper = downcast_ast::<Lambda>(helper).unwrap();
+
+        let helper_body = &borrow_ast(&helper.body);
+        let helper_body = downcast_ast::<Block>(helper_body).unwrap();
+
+        let helper_if = &borrow_ast(&helper_body.children[0]);
+        let helper_if = downcast_ast::<IfExpression>(helper_if).unwrap();
+
+        let tail_call = &borrow_ast(&helper_if.alternate);
+        let tail_call = downcast_ast::<Call>(tail_call).unwrap();
+
+        assert!(tail_call.is_tail_call);
     }
 }

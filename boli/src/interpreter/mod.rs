@@ -33,7 +33,7 @@ impl Interpreter {
 
     pub fn eval(&mut self, code: &str) -> EvalResult {
         let parser = Parser::new();
-        let program: Rc<dyn Ast> = Rc::new(
+        let program: AstRef = new_astref(
             parser
                 .parse(code)
                 .map_err(|e| InterpreterError::new(&e.message))?,
@@ -46,14 +46,14 @@ impl Interpreter {
         Err(InterpreterError::new(message))
     }
 
-    fn eval_ast(&mut self, ast: &Rc<dyn Ast>) -> EvalResult {
-        ast.accept(self);
+    fn eval_ast(&mut self, ast: &AstRef) -> EvalResult {
+        ast.borrow().accept(self);
         self.stack
             .pop()
             .unwrap_or(self.new_eval_error("No value on the stack"))
     }
 
-    fn eval_block(&mut self, children: &Vec<Rc<dyn Ast>>) -> EvalResult {
+    fn eval_block(&mut self, children: &Vec<AstRef>) -> EvalResult {
         let mut result: EvalResult = Ok(Rc::new(NilValue {}));
 
         for child in children {
@@ -282,6 +282,7 @@ impl AstVisitor for Interpreter {
                 return;
             }
         };
+        let callable = Rc::new(callable);
 
         let mut args = vec![];
         for arg in &call.arguments {
@@ -293,8 +294,34 @@ impl AstVisitor for Interpreter {
             args.push(arg.unwrap());
         }
 
-        let result = callable.call(&args);
-        self.stack.push(result);
+        if call.is_tail_call {
+            let tail_call = Rc::new(TailCallValue {
+                arguments: args.clone(),
+            });
+            self.stack.push(Ok(tail_call));
+            return;
+        }
+
+        loop {
+            let result = callable.call(&args);
+
+            match result {
+                Ok(result) => {
+                    if result.get_type() == ValueType::TailCall {
+                        let tail_call = downcast_value::<TailCallValue>(&result).unwrap();
+                        args = tail_call.arguments.clone();
+                        continue;
+                    } else {
+                        self.stack.push(Ok(result));
+                        return;
+                    }
+                }
+                Err(_) => {
+                    self.stack.push(result);
+                    return;
+                }
+            }
+        }
     }
 
     fn visit_spread_expr(&mut self, _spread_expr: &SpreadExpr) {
@@ -466,6 +493,23 @@ mod tests {
                 (if (= n 0)
                     1
                     (* n (fac (- n 1)))))
+            (fac 5)
+        "#;
+        let result = interpreter.eval(code).unwrap();
+        assert_eq!(result.get_type(), ValueType::Int);
+        assert_eq!(result.to_string(), "120");
+    }
+
+    #[test]
+    fn test_eval_tailrec() {
+        let mut interpreter = Interpreter::new();
+        let code = r#"
+            (def (fac n)
+                (def (fac-iter n acc)
+                    (if (= n 0)
+                        acc
+                        (fac-iter (- n 1) (* n acc))))
+                (fac-iter n 1))
             (fac 5)
         "#;
         let result = interpreter.eval(code).unwrap();

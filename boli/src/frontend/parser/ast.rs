@@ -1,12 +1,24 @@
 use crate::frontend::lexer::tokens::{self, Token};
+use std::cell::{Ref, RefCell};
 use std::rc::Rc;
 
 pub trait Ast {
     fn accept(&self, visitor: &mut dyn AstVisitor);
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor);
     fn as_any(&self) -> &dyn std::any::Any;
 }
 
-pub fn downcast_ast<T: 'static>(ast: &Rc<dyn Ast>) -> Option<&T> {
+pub type AstRef = Rc<RefCell<dyn Ast>>;
+
+pub fn new_astref<T: Ast + 'static>(ast: T) -> AstRef {
+    Rc::new(RefCell::new(ast))
+}
+
+pub fn borrow_ast<'a>(ast: &'a AstRef) -> Ref<'a, dyn Ast> {
+    ast.borrow()
+}
+
+pub fn downcast_ast<'a, T: 'static>(ast: &'a Ref<dyn Ast>) -> Option<&'a T> {
     ast.as_any().downcast_ref::<T>()
 }
 
@@ -33,12 +45,39 @@ pub trait AstVisitor {
     fn visit_spread_expr(&mut self, spread_expr: &SpreadExpr);
 }
 
+pub trait AstMutVisitor {
+    fn visit_program(&mut self, program: &mut Program);
+    fn visit_block(&mut self, block: &mut Block);
+    fn visit_integer(&mut self, integer: &mut Integer);
+    fn visit_real(&mut self, real: &mut Real);
+    fn visit_bool(&mut self, bool: &mut Bool);
+    fn visit_str(&mut self, str: &mut Str);
+    fn visit_nil(&mut self);
+    fn visit_identifier(&mut self, identifier: &mut Identifier);
+    fn visit_absolute_name(&mut self, absolute_name: &mut AbsoluteName);
+    fn visit_symbol(&mut self, symbol: &mut Symbol);
+    fn visit_quote(&mut self, quote: &mut Quote);
+    fn visit_operator(&mut self, operator: &mut Operator);
+    fn visit_logical_operator(&mut self, operator: &mut LogicalOperator);
+    fn visit_list(&mut self, list: &mut List);
+    fn visit_def(&mut self, def: &mut Definition);
+    fn visit_struct_def(&mut self, struct_def: &mut StructDefinition);
+    fn visit_if(&mut self, if_expr: &mut IfExpression);
+    fn visit_lambda(&mut self, lambda: &mut Lambda);
+    fn visit_call(&mut self, call: &mut Call);
+    fn visit_spread_expr(&mut self, spread_expr: &mut SpreadExpr);
+}
+
 pub struct Program {
-    pub children: Vec<Rc<dyn Ast>>,
+    pub children: Vec<AstRef>,
 }
 
 impl Ast for Program {
     fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_program(self);
+    }
+
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
         visitor.visit_program(self);
     }
 
@@ -48,11 +87,15 @@ impl Ast for Program {
 }
 
 pub struct Block {
-    pub children: Vec<Rc<dyn Ast>>,
+    pub children: Vec<AstRef>,
 }
 
 impl Ast for Block {
     fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_block(self);
+    }
+
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
         visitor.visit_block(self);
     }
 
@@ -70,6 +113,10 @@ impl Ast for Integer {
         visitor.visit_integer(self);
     }
 
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
+        visitor.visit_integer(self);
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -81,6 +128,10 @@ pub struct Real {
 
 impl Ast for Real {
     fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_real(self);
+    }
+
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
         visitor.visit_real(self);
     }
 
@@ -98,6 +149,10 @@ impl Ast for Bool {
         visitor.visit_bool(self);
     }
 
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
+        visitor.visit_bool(self);
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -111,6 +166,10 @@ impl Ast for Str {
         visitor.visit_str(self);
     }
 
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
+        visitor.visit_str(self);
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -120,6 +179,10 @@ pub struct Nil {}
 
 impl Ast for Nil {
     fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_nil();
+    }
+
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
         visitor.visit_nil();
     }
 
@@ -137,6 +200,10 @@ impl Ast for Identifier {
         visitor.visit_identifier(self);
     }
 
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
+        visitor.visit_identifier(self);
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -148,6 +215,10 @@ pub struct AbsoluteName {
 
 impl Ast for AbsoluteName {
     fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_absolute_name(self);
+    }
+
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
         visitor.visit_absolute_name(self);
     }
 
@@ -165,6 +236,10 @@ impl Ast for Symbol {
         visitor.visit_symbol(self);
     }
 
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
+        visitor.visit_symbol(self);
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -176,6 +251,10 @@ pub struct Quote {
 
 impl Ast for Quote {
     fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_quote(self);
+    }
+
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
         visitor.visit_quote(self);
     }
 
@@ -193,6 +272,10 @@ impl Ast for Operator {
         visitor.visit_operator(self);
     }
 
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
+        visitor.visit_operator(self);
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -207,17 +290,25 @@ impl Ast for LogicalOperator {
         visitor.visit_logical_operator(self);
     }
 
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
+        visitor.visit_logical_operator(self);
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
 }
 
 pub struct List {
-    pub elements: Vec<Rc<dyn Ast>>,
+    pub elements: Vec<AstRef>,
 }
 
 impl Ast for List {
     fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_list(self);
+    }
+
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
         visitor.visit_list(self);
     }
 
@@ -228,11 +319,15 @@ impl Ast for List {
 
 pub struct Definition {
     pub name: String,
-    pub value: Rc<dyn Ast>,
+    pub value: AstRef,
 }
 
 impl Ast for Definition {
     fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_def(self);
+    }
+
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
         visitor.visit_def(self);
     }
 
@@ -251,19 +346,27 @@ impl Ast for StructDefinition {
         visitor.visit_struct_def(self);
     }
 
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
+        visitor.visit_struct_def(self);
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
 }
 
 pub struct IfExpression {
-    pub condition: Rc<dyn Ast>,
-    pub consequent: Rc<dyn Ast>,
-    pub alternate: Rc<dyn Ast>,
+    pub condition: AstRef,
+    pub consequent: AstRef,
+    pub alternate: AstRef,
 }
 
 impl Ast for IfExpression {
     fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_if(self);
+    }
+
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
         visitor.visit_if(self);
     }
 
@@ -276,11 +379,15 @@ pub struct Lambda {
     pub name: Option<String>,
     pub parameters: Vec<String>,
     pub variadic: Option<String>,
-    pub body: Rc<dyn Ast>,
+    pub body: AstRef,
 }
 
 impl Ast for Lambda {
     fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_lambda(self);
+    }
+
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
         visitor.visit_lambda(self);
     }
 
@@ -290,12 +397,17 @@ impl Ast for Lambda {
 }
 
 pub struct Call {
-    pub callee: Rc<dyn Ast>,
-    pub arguments: Vec<Rc<dyn Ast>>,
+    pub callee: AstRef,
+    pub arguments: Vec<AstRef>,
+    pub is_tail_call: bool,
 }
 
 impl Ast for Call {
     fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_call(self);
+    }
+
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
         visitor.visit_call(self);
     }
 
@@ -305,11 +417,15 @@ impl Ast for Call {
 }
 
 pub struct SpreadExpr {
-    pub expr: Rc<dyn Ast>,
+    pub expr: AstRef,
 }
 
 impl Ast for SpreadExpr {
     fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_spread_expr(self);
+    }
+
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
         visitor.visit_spread_expr(self);
     }
 

@@ -1,5 +1,5 @@
 use boli::{
-    frontend::parser::{visitor::JsonData, Parser as BoliParser},
+    frontend::parser::{json_visitor::JsonData, Parser as BoliParser},
     interpreter::Interpreter,
 };
 use clap::{Parser, Subcommand};
