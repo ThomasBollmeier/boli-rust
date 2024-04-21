@@ -1,3 +1,4 @@
+use super::list_functions::*;
 use super::number_functions::*;
 use super::values::*;
 use std::cell::RefCell;
@@ -59,6 +60,14 @@ impl Environment {
         self.set_builtins(">=", &Rc::new(Ge::new()));
         self.set_builtins("<", &Rc::new(Lt::new()));
         self.set_builtins("<=", &Rc::new(Le::new()));
+
+        self.set_builtins("list", &Rc::new(List::new()));
+        self.set_builtins("head", &Rc::new(Head::new()));
+        self.set_builtins("tail", &Rc::new(Tail::new()));
+        self.set_builtins("cons", &Rc::new(Cons::new()));
+        self.set_builtins("concat", &Rc::new(Concat::new()));
+        self.set_builtins("filter", &Rc::new(Filter::new()));
+        self.set_builtins("map", &Rc::new(Map::new()));
     }
 
     fn set_builtins<T: Callable + 'static>(&mut self, name: &str, function: &Rc<T>) {
