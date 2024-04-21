@@ -1,5 +1,5 @@
 use core::str;
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell, RefMut};
 use std::error::Error;
 use std::fmt::{Debug, Display};
 use std::rc::Rc;
@@ -23,9 +23,24 @@ pub enum ValueType {
 pub trait Value: Display + Debug {
     fn get_type(&self) -> ValueType;
     fn as_any(&self) -> &dyn std::any::Any;
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
 }
 
-pub fn downcast_value<T: 'static>(value: &Rc<dyn Value>) -> Option<&T> {
+pub type ValueRef = Rc<RefCell<dyn Value>>;
+
+pub fn new_valueref<T: Value + 'static>(value: T) -> ValueRef {
+    Rc::new(RefCell::new(value))
+}
+
+pub fn borrow_value<'a>(value: &'a ValueRef) -> Ref<'a, dyn Value> {
+    value.borrow()
+}
+
+pub fn borrow_mut_value<'a>(value: &'a ValueRef) -> RefMut<'a, dyn Value> {
+    value.borrow_mut()
+}
+
+pub fn downcast_value<'a, T: 'static>(value: &'a Ref<dyn Value>) -> Option<&'a T> {
     value.as_any().downcast_ref::<T>()
 }
 
@@ -38,6 +53,10 @@ impl Value for NilValue {
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
     }
 }
@@ -61,6 +80,10 @@ impl Value for BoolValue {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 impl Display for BoolValue {
@@ -82,6 +105,10 @@ impl Value for IntValue {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 impl Display for IntValue {
@@ -101,6 +128,10 @@ impl Value for RealValue {
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
     }
 }
@@ -125,6 +156,10 @@ impl Value for StrValue {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 impl Display for StrValue {
@@ -135,7 +170,7 @@ impl Display for StrValue {
 
 #[derive(Debug)]
 pub struct ListValue {
-    pub elements: Vec<Rc<dyn Value>>,
+    pub elements: Vec<ValueRef>,
 }
 
 impl Value for ListValue {
@@ -146,19 +181,27 @@ impl Value for ListValue {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 impl Display for ListValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let elements_str: Vec<String> = self.elements.iter().map(|e| format!("{}", e)).collect();
+        let elements_str: Vec<String> = self
+            .elements
+            .iter()
+            .map(|e| format!("{}", e.borrow()))
+            .collect();
         write!(f, "(list {})", elements_str.join(" "))
     }
 }
 
-pub type EvalResult = Result<Rc<dyn Value>, InterpreterError>;
+pub type EvalResult = Result<ValueRef, InterpreterError>;
 
 pub trait Callable {
-    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult;
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult;
 }
 
 pub struct LambdaValue {
@@ -187,7 +230,7 @@ impl LambdaValue {
 
     fn init_call_env(
         &self,
-        args: &Vec<Rc<dyn Value>>,
+        args: &Vec<ValueRef>,
     ) -> Result<Rc<RefCell<Environment>>, InterpreterError> {
         let num_args = args.len();
         let num_params = self.parameters.len();
@@ -220,7 +263,7 @@ impl LambdaValue {
             };
             call_env
                 .borrow_mut()
-                .set(var_param.to_string(), Rc::new(arg_list));
+                .set(var_param.to_string(), new_valueref(arg_list));
         }
 
         Ok(call_env)
@@ -233,6 +276,10 @@ impl Value for LambdaValue {
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
     }
 }
@@ -258,7 +305,7 @@ impl Debug for LambdaValue {
 }
 
 impl Callable for LambdaValue {
-    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         let call_env = self.init_call_env(args)?;
         let mut interpreter = Interpreter::with_environment(&call_env);
 
@@ -301,16 +348,20 @@ impl Value for BuiltInFunctionValue {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 impl Callable for BuiltInFunctionValue {
-    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         self.function.call(args)
     }
 }
 
 pub struct TailCallValue {
-    pub arguments: Vec<Rc<dyn Value>>,
+    pub arguments: Vec<ValueRef>,
 }
 
 impl Value for TailCallValue {
@@ -319,6 +370,10 @@ impl Value for TailCallValue {
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
     }
 }

@@ -1,6 +1,6 @@
 use boli::{
     frontend::parser::{json_visitor::JsonData, Parser as BoliParser},
-    interpreter::Interpreter,
+    interpreter::{values::borrow_value, Interpreter},
 };
 use clap::{Parser, Subcommand};
 use std::{
@@ -63,7 +63,7 @@ fn interpret(code: &str) {
     let result = interpreter.eval(code);
 
     match result {
-        Ok(value) => println!("{}", value),
+        Ok(value) => println!("{}", borrow_value(&value)),
         Err(err) => println!("Error: {:?}", err),
     }
 }

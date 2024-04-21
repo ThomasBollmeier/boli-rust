@@ -55,7 +55,7 @@ impl Interpreter {
     }
 
     fn eval_block(&mut self, children: &Vec<AstRef>) -> EvalResult {
-        let mut result: EvalResult = Ok(Rc::new(NilValue {}));
+        let mut result: EvalResult = Ok(new_valueref(NilValue {}));
 
         for child in children {
             result = self.eval_ast(child);
@@ -67,7 +67,8 @@ impl Interpreter {
         result
     }
 
-    fn is_truthy(&self, value: &Rc<dyn Value>) -> bool {
+    fn is_truthy(&self, value: &ValueRef) -> bool {
+        let value = &borrow_value(value);
         match value.get_type() {
             ValueType::Nil => false,
             ValueType::Bool => {
@@ -103,29 +104,29 @@ impl AstVisitor for Interpreter {
     }
 
     fn visit_integer(&mut self, integer: &Integer) {
-        self.stack.push(Ok(Rc::new(IntValue {
+        self.stack.push(Ok(new_valueref(IntValue {
             value: integer.value,
         })));
     }
 
     fn visit_real(&mut self, real: &Real) {
         self.stack
-            .push(Ok(Rc::new(RealValue { value: real.value })));
+            .push(Ok(new_valueref(RealValue { value: real.value })));
     }
 
     fn visit_bool(&mut self, bool: &Bool) {
         self.stack
-            .push(Ok(Rc::new(BoolValue { value: bool.value })));
+            .push(Ok(new_valueref(BoolValue { value: bool.value })));
     }
 
     fn visit_str(&mut self, str: &Str) {
-        self.stack.push(Ok(Rc::new(StrValue {
+        self.stack.push(Ok(new_valueref(StrValue {
             value: str.value.clone(),
         })));
     }
 
     fn visit_nil(&mut self) {
-        self.stack.push(Ok(Rc::new(NilValue {})));
+        self.stack.push(Ok(new_valueref(NilValue {})));
     }
 
     fn visit_identifier(&mut self, identifier: &Identifier) {
@@ -217,7 +218,7 @@ impl AstVisitor for Interpreter {
             elements.push(elem_result.unwrap());
         }
 
-        self.stack.push(Ok(Rc::new(ListValue { elements })));
+        self.stack.push(Ok(new_valueref(ListValue { elements })));
     }
 
     fn visit_def(&mut self, def: &Definition) {
@@ -230,7 +231,7 @@ impl AstVisitor for Interpreter {
         }
 
         self.env.borrow_mut().set(name, value.unwrap().clone());
-        self.stack.push(Ok(Rc::new(NilValue {})));
+        self.stack.push(Ok(new_valueref(NilValue {})));
     }
 
     fn visit_struct_def(&mut self, _struct_def: &StructDefinition) {
@@ -255,7 +256,7 @@ impl AstVisitor for Interpreter {
     }
 
     fn visit_lambda(&mut self, lambda: &Lambda) {
-        let lambda_value = Rc::new(LambdaValue {
+        let lambda_value = new_valueref(LambdaValue {
             name: lambda.name.clone(),
             parameters: lambda.parameters.clone(),
             variadic: lambda.variadic.clone(),
@@ -271,7 +272,9 @@ impl AstVisitor for Interpreter {
             self.stack.push(callee);
             return;
         }
+
         let callee = callee.unwrap();
+        let callee = &borrow_value(&callee);
         let callee_type = callee.get_type();
 
         let callable: &dyn Callable = match callee_type {
@@ -296,7 +299,7 @@ impl AstVisitor for Interpreter {
         }
 
         if call.is_tail_call {
-            let tail_call = Rc::new(TailCallValue {
+            let tail_call = new_valueref(TailCallValue {
                 arguments: args.clone(),
             });
             self.stack.push(Ok(tail_call));
@@ -308,14 +311,16 @@ impl AstVisitor for Interpreter {
 
             match result {
                 Ok(result) => {
-                    if result.get_type() == ValueType::TailCall {
-                        let tail_call = downcast_value::<TailCallValue>(&result).unwrap();
-                        args = tail_call.arguments.clone();
-                        continue;
-                    } else {
-                        self.stack.push(Ok(result));
-                        return;
+                    {
+                        let res = &borrow_value(&result);
+                        if res.get_type() == ValueType::TailCall {
+                            let tail_call = downcast_value::<TailCallValue>(&res).unwrap();
+                            args = tail_call.arguments.clone();
+                            continue;
+                        }
                     }
+                    self.stack.push(Ok(result));
+                    return;
                 }
                 Err(_) => {
                     self.stack.push(result);
@@ -332,12 +337,14 @@ impl AstVisitor for Interpreter {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     #[test]
     fn test_eval_bool() {
         let mut interpreter = Interpreter::new();
         let result = interpreter.eval("#t").unwrap();
+        let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Bool);
         assert_eq!(result.to_string(), "#true");
     }
@@ -346,6 +353,7 @@ mod tests {
     fn test_eval_integer() {
         let mut interpreter = Interpreter::new();
         let result = interpreter.eval("42").unwrap();
+        let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Int);
         assert_eq!(result.to_string(), "42");
     }
@@ -354,6 +362,7 @@ mod tests {
     fn test_eval_real() {
         let mut interpreter = Interpreter::new();
         let result = interpreter.eval("42,0").unwrap();
+        let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Real);
         assert_eq!(result.to_string(), "42,0");
     }
@@ -362,6 +371,7 @@ mod tests {
     fn test_eval_string() {
         let mut interpreter = Interpreter::new();
         let result = interpreter.eval("\"Hello, World!\"").unwrap();
+        let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Str);
         assert_eq!(result.to_string(), "\"Hello, World!\"");
     }
@@ -370,6 +380,7 @@ mod tests {
     fn test_eval_list() {
         let mut interpreter = Interpreter::new();
         let result = interpreter.eval("'(1 2 3 (4 5))").unwrap();
+        let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::List);
         assert_eq!(result.to_string(), "(list 1 2 3 (list 4 5))");
     }
@@ -378,6 +389,7 @@ mod tests {
     fn test_eval_addition() {
         let mut interpreter = Interpreter::new();
         let result = interpreter.eval("(+ 1 2 3 4,0)").unwrap();
+        let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Real);
         assert_eq!(result.to_string(), "10,0");
     }
@@ -386,6 +398,7 @@ mod tests {
     fn test_eval_subtraction() {
         let mut interpreter = Interpreter::new();
         let result = interpreter.eval("(- 44 1 1)").unwrap();
+        let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Int);
         assert_eq!(result.to_string(), "42");
     }
@@ -394,6 +407,7 @@ mod tests {
     fn test_eval_multiplication() {
         let mut interpreter = Interpreter::new();
         let result = interpreter.eval("(* 2 3 7)").unwrap();
+        let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Int);
         assert_eq!(result.to_string(), "42");
     }
@@ -402,6 +416,7 @@ mod tests {
     fn test_eval_division() {
         let mut interpreter = Interpreter::new();
         let result = interpreter.eval("(/ 84,5 2)").unwrap();
+        let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Real);
         assert_eq!(result.to_string(), "42,25");
     }
@@ -410,6 +425,7 @@ mod tests {
     fn test_eval_power() {
         let mut interpreter = Interpreter::new();
         let result = interpreter.eval("(^ 2 2 3)").unwrap();
+        let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Int);
         assert_eq!(result.to_string(), "256");
     }
@@ -418,6 +434,7 @@ mod tests {
     fn test_eval_modulo() {
         let mut interpreter = Interpreter::new();
         let result = interpreter.eval("(% 85 43)").unwrap();
+        let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Int);
         assert_eq!(result.to_string(), "42");
     }
@@ -426,6 +443,7 @@ mod tests {
     fn test_eval_eq() {
         let mut interpreter = Interpreter::new();
         let result = interpreter.eval("(= 42 (- 43 1))").unwrap();
+        let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Bool);
         assert_eq!(result.to_string(), "#true");
     }
@@ -434,6 +452,7 @@ mod tests {
     fn test_eval_gt() {
         let mut interpreter = Interpreter::new();
         let result = interpreter.eval("(> 43 42 41,0)").unwrap();
+        let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Bool);
         assert_eq!(result.to_string(), "#true");
     }
@@ -442,6 +461,7 @@ mod tests {
     fn test_eval_ge() {
         let mut interpreter = Interpreter::new();
         let result = interpreter.eval("(>= 43 42 42)").unwrap();
+        let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Bool);
         assert_eq!(result.to_string(), "#true");
     }
@@ -450,6 +470,7 @@ mod tests {
     fn test_eval_lt() {
         let mut interpreter = Interpreter::new();
         let result = interpreter.eval("(< 41,0 42 43)").unwrap();
+        let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Bool);
         assert_eq!(result.to_string(), "#true");
     }
@@ -458,6 +479,7 @@ mod tests {
     fn test_eval_le() {
         let mut interpreter = Interpreter::new();
         let result = interpreter.eval("(<= 42 42 43)").unwrap();
+        let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Bool);
         assert_eq!(result.to_string(), "#true");
     }
@@ -466,10 +488,12 @@ mod tests {
     fn test_eval_if() {
         let mut interpreter = Interpreter::new();
         let result = interpreter.eval("(if #t 42 43)").unwrap();
+        let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Int);
         assert_eq!(result.to_string(), "42");
 
         let result = interpreter.eval("(if #f 43 42)").unwrap();
+        let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Int);
         assert_eq!(result.to_string(), "42");
     }
@@ -482,6 +506,7 @@ mod tests {
             answer
         "#;
         let result = interpreter.eval(code).unwrap();
+        let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Int);
         assert_eq!(result.to_string(), "42");
     }
@@ -497,6 +522,7 @@ mod tests {
             (fac 5)
         "#;
         let result = interpreter.eval(code).unwrap();
+        let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Int);
         assert_eq!(result.to_string(), "120");
     }
@@ -514,6 +540,7 @@ mod tests {
             (fac 5)
         "#;
         let result = interpreter.eval(code).unwrap();
+        let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Int);
         assert_eq!(result.to_string(), "120");
     }

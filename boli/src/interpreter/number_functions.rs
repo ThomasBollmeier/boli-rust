@@ -1,5 +1,4 @@
 use super::values::*;
-use std::rc::Rc;
 
 pub struct Add {}
 
@@ -10,7 +9,7 @@ impl Add {
 }
 
 impl Callable for Add {
-    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         calculate_value(|a, b| a.add(b), args, true)
     }
 }
@@ -24,7 +23,7 @@ impl Sub {
 }
 
 impl Callable for Sub {
-    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         calculate_value(|a, b| a.sub(b), args, true)
     }
 }
@@ -38,7 +37,7 @@ impl Mul {
 }
 
 impl Callable for Mul {
-    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         calculate_value(|a, b| a.mul(b), args, true)
     }
 }
@@ -52,7 +51,7 @@ impl Div {
 }
 
 impl Callable for Div {
-    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         calculate_value(|a, b| a.div(b), args, true)
     }
 }
@@ -66,7 +65,7 @@ impl Pow {
 }
 
 impl Callable for Pow {
-    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         calculate_value(|a, b| a.pow(b), args, false)
     }
 }
@@ -80,7 +79,7 @@ impl Rem {
 }
 
 impl Callable for Rem {
-    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         calculate_value(|a, b| a.rem(b), args, true)
     }
 }
@@ -94,7 +93,7 @@ impl Eq {
 }
 
 impl Callable for Eq {
-    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         all_values(|a, b| a.eq(b), args)
     }
 }
@@ -108,7 +107,7 @@ impl Gt {
 }
 
 impl Callable for Gt {
-    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         all_values(|a, b| a.gt(b), args)
     }
 }
@@ -122,7 +121,7 @@ impl Ge {
 }
 
 impl Callable for Ge {
-    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         all_values(|a, b| a.ge(b), args)
     }
 }
@@ -136,7 +135,7 @@ impl Lt {
 }
 
 impl Callable for Lt {
-    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         all_values(|a, b| a.lt(b), args)
     }
 }
@@ -150,20 +149,20 @@ impl Le {
 }
 
 impl Callable for Le {
-    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         all_values(|a, b| a.le(b), args)
     }
 }
 
-fn calculate_value<F>(op: F, values: &Vec<Rc<dyn Value>>, left_associative: bool) -> EvalResult
+fn calculate_value<F>(op: F, values: &Vec<ValueRef>, left_associative: bool) -> EvalResult
 where
     F: Fn(&Number, &Number) -> Number,
 {
     let numbers = values_to_numbers(values)?;
     let calc_result = calculate(op, &numbers, left_associative);
     match calc_result {
-        Number::Int(result) => Ok(Rc::new(IntValue { value: result })),
-        Number::Float(result) => Ok(Rc::new(RealValue { value: result })),
+        Number::Int(result) => Ok(new_valueref(IntValue { value: result })),
+        Number::Float(result) => Ok(new_valueref(RealValue { value: result })),
     }
 }
 
@@ -194,7 +193,7 @@ where
     }
 }
 
-fn all_values<F>(op: F, values: &Vec<Rc<dyn Value>>) -> EvalResult
+fn all_values<F>(op: F, values: &Vec<ValueRef>) -> EvalResult
 where
     F: Fn(&Number, &Number) -> bool,
 {
@@ -205,7 +204,7 @@ where
 
     let op_result = all_numbers(op, &numbers);
 
-    Ok(Rc::new(BoolValue { value: op_result }))
+    Ok(new_valueref(BoolValue { value: op_result }))
 }
 
 fn all_numbers<F>(op: F, numbers: &Vec<Number>) -> bool
@@ -239,10 +238,11 @@ where
     true
 }
 
-fn values_to_numbers(vals: &Vec<Rc<dyn Value>>) -> Result<Vec<Number>, InterpreterError> {
+fn values_to_numbers(vals: &Vec<ValueRef>) -> Result<Vec<Number>, InterpreterError> {
     let mut numbers = vec![];
 
     for val in vals {
+        let val = &borrow_value(val);
         let number = match val.get_type() {
             ValueType::Int => {
                 let int_value = downcast_value::<IntValue>(val).unwrap();

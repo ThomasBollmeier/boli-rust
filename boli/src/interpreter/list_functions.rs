@@ -1,5 +1,4 @@
 use super::values::*;
-use std::rc::Rc;
 
 fn error(message: &str) -> EvalResult {
     Err(InterpreterError::new(message))
@@ -14,10 +13,10 @@ impl List {
 }
 
 impl Callable for List {
-    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
-        Ok(Rc::new(ListValue {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        Ok(new_valueref(ListValue {
             elements: args.clone(),
-        }) as Rc<dyn Value>)
+        }))
     }
 }
 
@@ -30,12 +29,13 @@ impl Head {
 }
 
 impl Callable for Head {
-    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         if args.len() != 1 {
             return error("head function expects exactly one argument");
         }
 
-        match args[0].as_any().downcast_ref::<ListValue>() {
+        let first_arg = args[0].borrow();
+        match first_arg.as_any().downcast_ref::<ListValue>() {
             Some(list) => {
                 if list.elements.is_empty() {
                     return error("head function expects a non-empty list");
@@ -57,20 +57,21 @@ impl Tail {
 }
 
 impl Callable for Tail {
-    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         if args.len() != 1 {
             return error("tail function expects exactly one argument");
         }
 
-        match args[0].as_any().downcast_ref::<ListValue>() {
+        let first_arg = args[0].borrow();
+        match first_arg.as_any().downcast_ref::<ListValue>() {
             Some(list) => {
                 if list.elements.is_empty() {
                     return error("tail function expects a non-empty list");
                 }
 
-                Ok(Rc::new(ListValue {
+                Ok(new_valueref(ListValue {
                     elements: list.elements[1..].to_vec(),
-                }) as Rc<dyn Value>)
+                }) as ValueRef)
             }
             None => error("tail function expects a list"),
         }
@@ -86,17 +87,18 @@ impl Cons {
 }
 
 impl Callable for Cons {
-    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         if args.len() != 2 {
             return error("cons function expects exactly two arguments");
         }
 
-        match args[1].as_any().downcast_ref::<ListValue>() {
+        let second_arg = args[1].borrow();
+        match second_arg.as_any().downcast_ref::<ListValue>() {
             Some(list) => {
                 let mut elements = vec![args[0].clone()];
                 elements.extend(list.elements.clone());
 
-                Ok(Rc::new(ListValue { elements }) as Rc<dyn Value>)
+                Ok(new_valueref(ListValue { elements }) as ValueRef)
             }
             None => error("cons function expects a list as the second argument"),
         }
@@ -112,17 +114,18 @@ impl Concat {
 }
 
 impl Callable for Concat {
-    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         let mut elements = Vec::new();
 
         for arg in args {
+            let arg = arg.borrow();
             match arg.as_any().downcast_ref::<ListValue>() {
                 Some(list) => elements.extend(list.elements.clone()),
                 None => return error("concat function expects a list as arguments"),
             }
         }
 
-        Ok(Rc::new(ListValue { elements }) as Rc<dyn Value>)
+        Ok(new_valueref(ListValue { elements }) as ValueRef)
     }
 }
 
@@ -135,25 +138,28 @@ impl Filter {
 }
 
 impl Callable for Filter {
-    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         if args.len() != 2 {
             return error("filter function expects exactly two arguments");
         }
 
-        let predicate: &dyn Callable = match args[0].get_type() {
-            ValueType::BuiltInFunction => downcast_value::<BuiltInFunctionValue>(&args[0]).unwrap(),
-            ValueType::Lambda => downcast_value::<LambdaValue>(&args[0]).unwrap(),
+        let arg0 = &borrow_value(&args[0]);
+        let predicate: &dyn Callable = match arg0.get_type() {
+            ValueType::BuiltInFunction => downcast_value::<BuiltInFunctionValue>(arg0).unwrap(),
+            ValueType::Lambda => downcast_value::<LambdaValue>(arg0).unwrap(),
             _ => {
                 return error("filter function expects a predicate function as the first argument")
             }
         };
 
-        match args[1].get_type() {
+        let arg1 = &borrow_value(&args[1]);
+        match arg1.get_type() {
             ValueType::List => {
-                let list = downcast_value::<ListValue>(&args[1]).unwrap();
+                let list = downcast_value::<ListValue>(arg1).unwrap();
                 let mut elements = Vec::new();
                 for elem in &list.elements {
                     let result = predicate.call(&vec![elem.clone()])?;
+                    let result = borrow_value(&result);
                     match result.get_type() {
                         ValueType::Bool => {
                             if downcast_value::<BoolValue>(&result).unwrap().value {
@@ -167,7 +173,7 @@ impl Callable for Filter {
                         }
                     }
                 }
-                Ok(Rc::new(ListValue { elements }) as Rc<dyn Value>)
+                Ok(new_valueref(ListValue { elements }) as ValueRef)
             }
             _ => return error("filter function expects a list as the second argument"),
         }
@@ -183,25 +189,25 @@ impl Map {
 }
 
 impl Callable for Map {
-    fn call(&self, args: &Vec<Rc<dyn Value>>) -> EvalResult {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         if args.len() < 2 {
             return error("map function expects at least two arguments");
         }
 
-        let function: &dyn Callable = match args[0].get_type() {
-            ValueType::BuiltInFunction => downcast_value::<BuiltInFunctionValue>(&args[0]).unwrap(),
-            ValueType::Lambda => downcast_value::<LambdaValue>(&args[0]).unwrap(),
+        let arg0 = &borrow_value(&args[0]);
+        let function: &dyn Callable = match arg0.get_type() {
+            ValueType::BuiltInFunction => downcast_value::<BuiltInFunctionValue>(arg0).unwrap(),
+            ValueType::Lambda => downcast_value::<LambdaValue>(arg0).unwrap(),
             _ => return error("map function expects a function as the first argument"),
         };
 
         let mut min_size_opt: Option<usize> = None;
-        let mut lists = Vec::new();
 
         for arg in args.iter().skip(1) {
+            let arg = &borrow_value(&arg);
             match arg.get_type() {
                 ValueType::List => {
-                    let list = downcast_value::<ListValue>(&arg).unwrap();
-                    lists.push(list);
+                    let list = downcast_value::<ListValue>(arg).unwrap();
                     if let Some(min_size) = min_size_opt {
                         if list.elements.len() < min_size {
                             min_size_opt = Some(list.elements.len());
@@ -219,15 +225,82 @@ impl Callable for Map {
         let mut elements = Vec::new();
 
         for i in 0..min_size {
-            let mut args = Vec::new();
-            for list in lists.iter() {
-                args.push(list.elements[i].clone());
+            let mut call_args = Vec::new();
+            for arg in args.iter().skip(1) {
+                let arg = &borrow_value(&arg);
+                let list = downcast_value::<ListValue>(arg).unwrap();
+                call_args.push(list.elements[i].clone());
             }
 
-            let result = function.call(&args)?;
+            let result = function.call(&call_args)?;
             elements.push(result);
         }
 
-        Ok(Rc::new(ListValue { elements }) as Rc<dyn Value>)
+        Ok(new_valueref(ListValue { elements }) as ValueRef)
+    }
+}
+
+pub struct ListRef {}
+
+impl ListRef {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for ListRef {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 2 {
+            return error("list-ref function expects exactly two arguments");
+        }
+
+        let arg0 = &borrow_value(&args[0]);
+        let list = match arg0.as_any().downcast_ref::<ListValue>() {
+            Some(list) => list,
+            None => return error("list-ref function expects a list"),
+        };
+
+        let arg1 = &borrow_value(&args[1]);
+        let index = match arg1.as_any().downcast_ref::<IntValue>() {
+            Some(index) => index.value,
+            None => return error("list-ref function expects an integer as the second argument"),
+        };
+
+        Ok(list.elements[index as usize].clone())
+    }
+}
+
+pub struct ListSetBang {}
+
+impl ListSetBang {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for ListSetBang {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 3 {
+            return error("list-set! function expects exactly three arguments");
+        }
+
+        let arg0 = &mut borrow_mut_value(&args[0]);
+        let list = match arg0.as_any_mut().downcast_mut::<ListValue>() {
+            Some(list) => list,
+            None => return error("list-set! function expects a list"),
+        };
+
+        let arg1 = &borrow_value(&args[1]);
+        let index = match arg1.as_any().downcast_ref::<IntValue>() {
+            Some(index) => index.value,
+            None => return error("list-set! function expects an integer as the second argument"),
+        };
+
+        let arg2 = args[2].clone();
+        list.elements[index as usize] = arg2;
+
+        Ok(new_valueref(ListValue {
+            elements: list.elements.clone(),
+        }))
     }
 }

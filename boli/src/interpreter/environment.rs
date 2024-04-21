@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 pub struct Environment {
-    pub env: HashMap<String, Rc<dyn Value>>,
+    pub env: HashMap<String, ValueRef>,
     parent: Option<Rc<RefCell<Environment>>>,
 }
 
@@ -32,7 +32,7 @@ impl Environment {
         self.parent.clone()
     }
 
-    pub fn get(&self, key: &str) -> Option<Rc<dyn Value>> {
+    pub fn get(&self, key: &str) -> Option<ValueRef> {
         if let Some(value) = self.env.get(key) {
             return Some(value.clone());
         }
@@ -44,7 +44,7 @@ impl Environment {
         None
     }
 
-    pub fn set(&mut self, key: String, value: Rc<dyn Value>) {
+    pub fn set(&mut self, key: String, value: ValueRef) {
         self.env.insert(key, value);
     }
 
@@ -68,12 +68,14 @@ impl Environment {
         self.set_builtins("concat", &Rc::new(Concat::new()));
         self.set_builtins("filter", &Rc::new(Filter::new()));
         self.set_builtins("map", &Rc::new(Map::new()));
+        self.set_builtins("list-ref", &Rc::new(ListRef::new()));
+        self.set_builtins("list-set!", &Rc::new(ListSetBang::new()));
     }
 
     fn set_builtins<T: Callable + 'static>(&mut self, name: &str, function: &Rc<T>) {
         self.set(
             name.to_string(),
-            Rc::new(BuiltInFunctionValue {
+            new_valueref(BuiltInFunctionValue {
                 name: name.to_string(),
                 function: function.clone(),
             }),
