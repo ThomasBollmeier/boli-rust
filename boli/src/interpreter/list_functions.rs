@@ -1,9 +1,5 @@
 use super::values::*;
 
-fn error(message: &str) -> EvalResult {
-    Err(InterpreterError::new(message))
-}
-
 pub struct List {}
 
 impl List {

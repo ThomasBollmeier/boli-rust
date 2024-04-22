@@ -168,6 +168,12 @@ impl Display for StrValue {
     }
 }
 
+impl Countable for StrValue {
+    fn count(&self) -> usize {
+        self.value.chars().count()
+    }
+}
+
 #[derive(Debug)]
 pub struct ListValue {
     pub elements: Vec<ValueRef>,
@@ -198,10 +204,24 @@ impl Display for ListValue {
     }
 }
 
+impl Countable for ListValue {
+    fn count(&self) -> usize {
+        self.elements.len()
+    }
+}
+
 pub type EvalResult = Result<ValueRef, InterpreterError>;
+
+pub fn error(message: &str) -> EvalResult {
+    Err(InterpreterError::new(message))
+}
 
 pub trait Callable {
     fn call(&self, args: &Vec<ValueRef>) -> EvalResult;
+}
+
+pub trait Countable {
+    fn count(&self) -> usize;
 }
 
 pub struct LambdaValue {

@@ -1,3 +1,4 @@
+pub mod count_functions;
 pub mod environment;
 pub mod list_functions;
 pub mod number_functions;

@@ -1,3 +1,4 @@
+use super::count_functions::*;
 use super::list_functions::*;
 use super::number_functions::*;
 use super::values::*;
@@ -70,6 +71,9 @@ impl Environment {
         self.set_builtins("map", &Rc::new(Map::new()));
         self.set_builtins("list-ref", &Rc::new(ListRef::new()));
         self.set_builtins("list-set!", &Rc::new(ListSetBang::new()));
+
+        self.set_builtins("count", &Rc::new(Count::new()));
+        self.set_builtins("empty?", &Rc::new(IsEmpty::new()));
     }
 
     fn set_builtins<T: Callable + 'static>(&mut self, name: &str, function: &Rc<T>) {
