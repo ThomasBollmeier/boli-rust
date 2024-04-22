@@ -38,14 +38,19 @@ impl IsEmpty {
 
 impl Callable for IsEmpty {
     fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
-        let count = Count::new();
-        let count_result = count.call(args)?;
-        let count_result = borrow_value(&count_result);
-        let count_result = downcast_value::<IntValue>(&count_result).unwrap();
+        if args.len() != 1 {
+            return error("empty? function expects exactly one argument");
+        }
 
-        Ok(new_valueref(BoolValue {
-            value: count_result.value == 0,
-        }))
+        let arg0 = borrow_value(&args[0]);
+
+        let count = if let Some(countable) = downcast_countable(&arg0) {
+            countable.count()
+        } else {
+            return error("empty? function expects a string or a list");
+        };
+
+        Ok(new_valueref(BoolValue { value: count == 0 }))
     }
 }
 

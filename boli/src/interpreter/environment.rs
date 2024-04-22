@@ -1,6 +1,8 @@
 use super::count_functions::*;
 use super::list_functions::*;
+use super::misc_functions::*;
 use super::number_functions::*;
+use super::string_functions::*;
 use super::values::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -74,6 +76,14 @@ impl Environment {
 
         self.set_builtins("count", &Rc::new(Count::new()));
         self.set_builtins("empty?", &Rc::new(IsEmpty::new()));
+
+        self.set_builtins("str-sub", &Rc::new(StrSub::new()));
+        self.set_builtins("str-replace", &Rc::new(StrReplace::new()));
+        self.set_builtins("str-concat", &Rc::new(StrConcat::new()));
+        self.set_builtins("str-upper", &Rc::new(StrUpper::new()));
+        self.set_builtins("str-lower", &Rc::new(StrLower::new()));
+
+        self.set_builtins("equal?", &Rc::new(IsEqual::new()));
     }
 
     fn set_builtins<T: Callable + 'static>(&mut self, name: &str, function: &Rc<T>) {

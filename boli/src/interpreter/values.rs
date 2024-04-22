@@ -92,6 +92,16 @@ impl Display for BoolValue {
     }
 }
 
+impl ComparableEq for BoolValue {
+    fn is_equal(&self, other: &ValueRef) -> bool {
+        if let Some(other) = downcast_value::<BoolValue>(&other.borrow()) {
+            self.value == other.value
+        } else {
+            false
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct IntValue {
     pub value: i64,
@@ -114,6 +124,16 @@ impl Value for IntValue {
 impl Display for IntValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.value)
+    }
+}
+
+impl ComparableEq for IntValue {
+    fn is_equal(&self, other: &ValueRef) -> bool {
+        if let Some(other) = downcast_value::<IntValue>(&other.borrow()) {
+            self.value == other.value
+        } else {
+            false
+        }
     }
 }
 
@@ -174,6 +194,16 @@ impl Countable for StrValue {
     }
 }
 
+impl ComparableEq for StrValue {
+    fn is_equal(&self, other: &ValueRef) -> bool {
+        if let Some(other) = downcast_value::<StrValue>(&other.borrow()) {
+            self.value == other.value
+        } else {
+            false
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct ListValue {
     pub elements: Vec<ValueRef>,
@@ -222,6 +252,10 @@ pub trait Callable {
 
 pub trait Countable {
     fn count(&self) -> usize;
+}
+
+pub trait ComparableEq {
+    fn is_equal(&self, other: &ValueRef) -> bool;
 }
 
 pub struct LambdaValue {

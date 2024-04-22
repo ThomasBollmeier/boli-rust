@@ -1,7 +1,9 @@
 pub mod count_functions;
 pub mod environment;
 pub mod list_functions;
+pub mod misc_functions;
 pub mod number_functions;
+pub mod string_functions;
 pub mod values;
 
 use std::cell::RefCell;
@@ -287,7 +289,6 @@ impl AstVisitor for Interpreter {
                 return;
             }
         };
-        let callable = Rc::new(callable);
 
         let mut args = vec![];
         for arg in &call.arguments {
