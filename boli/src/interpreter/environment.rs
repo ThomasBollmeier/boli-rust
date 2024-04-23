@@ -84,6 +84,10 @@ impl Environment {
         self.set_builtins("str-lower", &Rc::new(StrLower::new()));
 
         self.set_builtins("equal?", &Rc::new(IsEqual::new()));
+        self.set_builtins("write", &Rc::new(Write::new()));
+        self.set_builtins("writeln", &Rc::new(WriteLn::new()));
+        self.set_builtins("display", &Rc::new(Display_::new()));
+        self.set_builtins("displayln", &Rc::new(DisplayLn::new()));
     }
 
     fn set_builtins<T: Callable + 'static>(&mut self, name: &str, function: &Rc<T>) {
