@@ -151,8 +151,10 @@ impl AstVisitor for Interpreter {
         todo!()
     }
 
-    fn visit_quote(&mut self, _quote: &Quote) {
-        todo!()
+    fn visit_quote(&mut self, quote: &Quote) {
+        self.stack.push(Ok(new_valueref(QuoteValue {
+            token: quote.value.clone(),
+        })));
     }
 
     fn visit_operator(&mut self, operator: &Operator) {
@@ -545,5 +547,17 @@ mod tests {
         let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Int);
         assert_eq!(result.to_string(), "120");
+    }
+
+    #[test]
+    fn test_eval_quote() {
+        let mut interpreter = Interpreter::new();
+        let code = r#"
+            '((+ 1 2) (a b))
+        "#;
+        let result = interpreter.eval(code).unwrap();
+        let result = borrow_value(&result);
+        assert_eq!(result.get_type(), ValueType::List);
+        assert_eq!(result.to_string(), "(list (list '+ 1 2) (list 'a 'b))");
     }
 }

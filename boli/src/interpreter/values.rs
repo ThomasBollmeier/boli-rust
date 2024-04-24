@@ -4,6 +4,8 @@ use std::error::Error;
 use std::fmt::{Debug, Display};
 use std::rc::Rc;
 
+use crate::frontend::lexer::tokens::Token;
+
 use super::environment::Environment;
 use super::{AstRef, Interpreter};
 
@@ -14,6 +16,7 @@ pub enum ValueType {
     Int,
     Real,
     Str,
+    Quote,
     List,
     Lambda,
     BuiltInFunction,
@@ -201,6 +204,46 @@ impl ComparableEq for StrValue {
         } else {
             false
         }
+    }
+}
+
+pub struct QuoteValue {
+    pub token: Token,
+}
+
+impl QuoteValue {
+    pub fn new(token: &Token) -> Self {
+        Self {
+            token: token.clone(),
+        }
+    }
+}
+
+impl Value for QuoteValue {
+    fn get_type(&self) -> ValueType {
+        ValueType::Quote
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
+impl Display for QuoteValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let token_str = self.token.get_display_str().unwrap_or("".to_string());
+        write!(f, "'{}", token_str)
+    }
+}
+
+impl Debug for QuoteValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let token_str = self.token.get_display_str().unwrap_or("".to_string());
+        write!(f, "'{}", token_str)
     }
 }
 

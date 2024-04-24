@@ -207,6 +207,54 @@ impl Token {
             _ => None,
         }
     }
+
+    pub fn get_display_str(&self) -> Option<String> {
+        match &self.token_type {
+            TokenType::Integer => self.get_int_value().map(|v| v.to_string()),
+            TokenType::Real => self.get_real_value().map(|v| v.to_string()),
+            TokenType::Bool => self.get_bool_value().map(|v| v.to_string()),
+            TokenType::Str => self.get_string_value(),
+            TokenType::Identifier => self.get_string_value(),
+            TokenType::AbsoluteName => self.get_string_value(),
+            TokenType::Symbol => self.get_string_value(),
+            TokenType::Error => self.get_string_value(),
+            TokenType::LeftParen => Some("(".to_string()),
+            TokenType::RightParen => Some(")".to_string()),
+            TokenType::LeftBrace => Some("{".to_string()),
+            TokenType::RightBrace => Some("}".to_string()),
+            TokenType::LeftBracket => Some("[".to_string()),
+            TokenType::RightBracket => Some("]".to_string()),
+            TokenType::QuoteParen => Some("'(".to_string()),
+            TokenType::QuoteBrace => Some("'{".to_string()),
+            TokenType::QuoteBracket => Some("'[".to_string()),
+            TokenType::Def => Some("def".to_string()),
+            TokenType::DefStruct => Some("def-struct".to_string()),
+            TokenType::If => Some("if".to_string()),
+            TokenType::Conjunction => Some("and".to_string()),
+            TokenType::Disjunction => Some("or".to_string()),
+            TokenType::Lambda => Some("λ".to_string()),
+            TokenType::Operator(op) => match op {
+                Op::Plus => Some("+".to_string()),
+                Op::Minus => Some("-".to_string()),
+                Op::Asterisk => Some("*".to_string()),
+                Op::Slash => Some("/".to_string()),
+                Op::Caret => Some("^".to_string()),
+                Op::Percent => Some("%".to_string()),
+            },
+            TokenType::LogicalOperator(logical_op) => match logical_op {
+                LogicalOp::Eq => Some("=".to_string()),
+                LogicalOp::Gt => Some(">".to_string()),
+                LogicalOp::Ge => Some(">=".to_string()),
+                LogicalOp::Lt => Some("<".to_string()),
+                LogicalOp::Le => Some("<=".to_string()),
+            },
+            TokenType::Nil => Some("nil".to_string()),
+            TokenType::Dot3 => Some("...".to_string()),
+            TokenType::Block => Some("block".to_string()),
+            TokenType::Cond => Some("cond".to_string()),
+            TokenType::Let => Some("let".to_string()),
+        }
+    }
 }
 
 impl Display for Token {
