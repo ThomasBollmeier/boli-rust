@@ -239,8 +239,31 @@ impl AstVisitor for Interpreter {
         self.stack.push(Ok(new_valueref(NilValue {})));
     }
 
-    fn visit_struct_def(&mut self, _struct_def: &StructDefinition) {
-        todo!()
+    fn visit_struct_def(&mut self, struct_def: &StructDefinition) {
+        let struct_type = new_valueref(StructTypeValue::new(&struct_def.name, &struct_def.fields));
+        self.env
+            .borrow_mut()
+            .set(struct_def.name.clone(), struct_type.clone());
+
+        let create_struct_name = format!("create-{}", &struct_def.name);
+        self.env.borrow_mut().set_builtin(
+            &create_struct_name,
+            &Rc::new(CreateStructValue::new(&struct_type)),
+        );
+
+        for field in &struct_def.fields {
+            let getter_name = format!("{}-{}", &struct_def.name, &field);
+            self.env
+                .borrow_mut()
+                .set_builtin(&getter_name, &Rc::new(GetStructField::new(&field)));
+
+            let setter_name = format!("{}-set-{}!", &struct_def.name, &field);
+            self.env
+                .borrow_mut()
+                .set_builtin(&setter_name, &Rc::new(SetStructField::new(&field)));
+        }
+
+        self.stack.push(Ok(new_valueref(NilValue {})));
     }
 
     fn visit_if(&mut self, if_expr: &IfExpression) {
@@ -559,5 +582,54 @@ mod tests {
         let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::List);
         assert_eq!(result.to_string(), "(list (list '+ 1 2) (list 'a 'b))");
+    }
+
+    #[test]
+    fn test_create_struct() {
+        let mut interpreter = Interpreter::new();
+        let code = r#"
+            (def-struct person (name first-name))
+            (def philosophus (create-person "Nietzsche" "Friedrich"))
+            philosophus
+        "#;
+        let result = interpreter.eval(code).unwrap();
+        let result = borrow_value(&result);
+        assert_eq!(result.get_type(), ValueType::Struct);
+        assert_eq!(
+            result.to_string(),
+            r#"(struct person 'name "Nietzsche" 'first-name "Friedrich")"#
+        );
+    }
+
+    #[test]
+    fn test_get_struct_field() {
+        let mut interpreter = Interpreter::new();
+        let code = r#"
+            (def-struct person (name first-name))
+            (def philosophus (create-person "Nietzsche" "Friedrich"))
+            (person-name philosophus)
+        "#;
+        let result = interpreter.eval(code).unwrap();
+        let result = borrow_value(&result);
+        assert_eq!(result.get_type(), ValueType::Str);
+        assert_eq!(result.to_string(), "\"Nietzsche\"");
+    }
+
+    #[test]
+    fn test_set_struct_field() {
+        let mut interpreter = Interpreter::new();
+        let code = r#"
+            (def-struct person (name first-name))
+            (def ego (create-person "Bollmeier" "Thomas"))
+            (person-set-first-name! ego "Tom")
+            ego
+        "#;
+        let result = interpreter.eval(code).unwrap();
+        let result = borrow_value(&result);
+        assert_eq!(result.get_type(), ValueType::Struct);
+        assert_eq!(
+            result.to_string(),
+            r#"(struct person 'name "Bollmeier" 'first-name "Tom")"#
+        );
     }
 }

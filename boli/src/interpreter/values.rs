@@ -1,5 +1,6 @@
 use core::str;
 use std::cell::{Ref, RefCell, RefMut};
+use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{Debug, Display};
 use std::rc::Rc;
@@ -18,6 +19,8 @@ pub enum ValueType {
     Str,
     Quote,
     List,
+    StructType,
+    Struct,
     Lambda,
     BuiltInFunction,
     TailCall,
@@ -280,6 +283,189 @@ impl Display for ListValue {
 impl Countable for ListValue {
     fn count(&self) -> usize {
         self.elements.len()
+    }
+}
+
+#[derive(Debug)]
+pub struct StructTypeValue {
+    pub name: String,
+    pub fields: Vec<String>,
+}
+
+impl StructTypeValue {
+    pub fn new(name: &str, fields: &Vec<String>) -> Self {
+        Self {
+            name: name.to_string(),
+            fields: fields.clone(),
+        }
+    }
+}
+
+impl Value for StructTypeValue {
+    fn get_type(&self) -> ValueType {
+        ValueType::StructType
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
+impl Display for StructTypeValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let fields_str: Vec<String> = self.fields.iter().map(|f| f.to_string()).collect();
+        write!(f, "(def-struct {} {})", self.name, fields_str.join(" "))
+    }
+}
+
+pub struct CreateStructValue {
+    struct_type: ValueRef,
+}
+
+impl CreateStructValue {
+    pub fn new(struct_type: &ValueRef) -> Self {
+        Self {
+            struct_type: struct_type.clone(),
+        }
+    }
+}
+
+impl Callable for CreateStructValue {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        let struct_type = borrow_value(&self.struct_type);
+        let struct_type = downcast_value::<StructTypeValue>(&struct_type);
+        if struct_type.is_none() {
+            return error("Invalid struct type");
+        }
+        let struct_type = struct_type.unwrap();
+
+        if args.len() != struct_type.fields.len() {
+            return error("Number of arguments differs from number of fields");
+        }
+
+        let mut values = HashMap::new();
+        for (i, field) in struct_type.fields.iter().enumerate() {
+            values.insert(field.clone(), args[i].clone());
+        }
+
+        Ok(new_valueref(StructValue::new(&self.struct_type, values)))
+    }
+}
+
+pub struct GetStructField {
+    field: String,
+}
+
+impl GetStructField {
+    pub fn new(field: &str) -> Self {
+        Self {
+            field: field.to_string(),
+        }
+    }
+}
+
+impl Callable for GetStructField {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 1 {
+            return error("getter function expects exactly one argument");
+        }
+
+        let struct_value = borrow_value(&args[0]);
+        let struct_value = downcast_value::<StructValue>(&struct_value);
+        if struct_value.is_none() {
+            return error("getter function expects a struct");
+        }
+        let struct_value = struct_value.unwrap();
+
+        if let Some(value) = struct_value.values.get(&self.field) {
+            Ok(value.clone())
+        } else {
+            error("Field not found")
+        }
+    }
+}
+
+pub struct SetStructField {
+    field: String,
+}
+
+impl SetStructField {
+    pub fn new(field: &str) -> Self {
+        Self {
+            field: field.to_string(),
+        }
+    }
+}
+
+impl Callable for SetStructField {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 2 {
+            return error("set-struct function expects exactly two arguments");
+        }
+
+        let mut struct_value = borrow_mut_value(&args[0]);
+        let struct_value = struct_value.as_any_mut().downcast_mut::<StructValue>();
+        if struct_value.is_none() {
+            return error("set-struct function expects a struct");
+        }
+        let struct_value = struct_value.unwrap();
+
+        let new_value = args[1].clone();
+        struct_value.values.insert(self.field.clone(), new_value);
+
+        Ok(new_valueref(NilValue {}))
+    }
+}
+
+#[derive(Debug)]
+pub struct StructValue {
+    pub struct_type: ValueRef,
+    pub values: HashMap<String, ValueRef>,
+}
+
+impl StructValue {
+    pub fn new(struct_type: &ValueRef, values: HashMap<String, ValueRef>) -> Self {
+        Self {
+            struct_type: struct_type.clone(),
+            values,
+        }
+    }
+}
+
+impl Value for StructValue {
+    fn get_type(&self) -> ValueType {
+        ValueType::Struct
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
+impl Display for StructValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let struct_type = borrow_value(&self.struct_type);
+        let struct_type = downcast_value::<StructTypeValue>(&struct_type).unwrap();
+
+        let values_str = &struct_type
+            .fields
+            .iter()
+            .filter_map(|field| {
+                self.values
+                    .get(field)
+                    .map(|value| format!("'{} {}", field, value.borrow()))
+            })
+            .collect::<Vec<String>>();
+
+        write!(f, "(struct {} {})", struct_type.name, values_str.join(" "))
     }
 }
 

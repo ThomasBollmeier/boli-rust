@@ -52,45 +52,45 @@ impl Environment {
     }
 
     fn init_builtins(&mut self) {
-        self.set_builtins("+", &Rc::new(Add::new()));
-        self.set_builtins("-", &Rc::new(Sub::new()));
-        self.set_builtins("*", &Rc::new(Mul::new()));
-        self.set_builtins("/", &Rc::new(Div::new()));
-        self.set_builtins("^", &Rc::new(Pow::new()));
-        self.set_builtins("%", &Rc::new(Rem::new()));
-        self.set_builtins("=", &Rc::new(Eq::new()));
-        self.set_builtins(">", &Rc::new(Gt::new()));
-        self.set_builtins(">=", &Rc::new(Ge::new()));
-        self.set_builtins("<", &Rc::new(Lt::new()));
-        self.set_builtins("<=", &Rc::new(Le::new()));
+        self.set_builtin("+", &Rc::new(Add::new()));
+        self.set_builtin("-", &Rc::new(Sub::new()));
+        self.set_builtin("*", &Rc::new(Mul::new()));
+        self.set_builtin("/", &Rc::new(Div::new()));
+        self.set_builtin("^", &Rc::new(Pow::new()));
+        self.set_builtin("%", &Rc::new(Rem::new()));
+        self.set_builtin("=", &Rc::new(Eq::new()));
+        self.set_builtin(">", &Rc::new(Gt::new()));
+        self.set_builtin(">=", &Rc::new(Ge::new()));
+        self.set_builtin("<", &Rc::new(Lt::new()));
+        self.set_builtin("<=", &Rc::new(Le::new()));
 
-        self.set_builtins("list", &Rc::new(List::new()));
-        self.set_builtins("head", &Rc::new(Head::new()));
-        self.set_builtins("tail", &Rc::new(Tail::new()));
-        self.set_builtins("cons", &Rc::new(Cons::new()));
-        self.set_builtins("concat", &Rc::new(Concat::new()));
-        self.set_builtins("filter", &Rc::new(Filter::new()));
-        self.set_builtins("map", &Rc::new(Map::new()));
-        self.set_builtins("list-ref", &Rc::new(ListRef::new()));
-        self.set_builtins("list-set!", &Rc::new(ListSetBang::new()));
+        self.set_builtin("list", &Rc::new(List::new()));
+        self.set_builtin("head", &Rc::new(Head::new()));
+        self.set_builtin("tail", &Rc::new(Tail::new()));
+        self.set_builtin("cons", &Rc::new(Cons::new()));
+        self.set_builtin("concat", &Rc::new(Concat::new()));
+        self.set_builtin("filter", &Rc::new(Filter::new()));
+        self.set_builtin("map", &Rc::new(Map::new()));
+        self.set_builtin("list-ref", &Rc::new(ListRef::new()));
+        self.set_builtin("list-set!", &Rc::new(ListSetBang::new()));
 
-        self.set_builtins("count", &Rc::new(Count::new()));
-        self.set_builtins("empty?", &Rc::new(IsEmpty::new()));
+        self.set_builtin("count", &Rc::new(Count::new()));
+        self.set_builtin("empty?", &Rc::new(IsEmpty::new()));
 
-        self.set_builtins("str-sub", &Rc::new(StrSub::new()));
-        self.set_builtins("str-replace", &Rc::new(StrReplace::new()));
-        self.set_builtins("str-concat", &Rc::new(StrConcat::new()));
-        self.set_builtins("str-upper", &Rc::new(StrUpper::new()));
-        self.set_builtins("str-lower", &Rc::new(StrLower::new()));
+        self.set_builtin("str-sub", &Rc::new(StrSub::new()));
+        self.set_builtin("str-replace", &Rc::new(StrReplace::new()));
+        self.set_builtin("str-concat", &Rc::new(StrConcat::new()));
+        self.set_builtin("str-upper", &Rc::new(StrUpper::new()));
+        self.set_builtin("str-lower", &Rc::new(StrLower::new()));
 
-        self.set_builtins("equal?", &Rc::new(IsEqual::new()));
-        self.set_builtins("write", &Rc::new(Write::new()));
-        self.set_builtins("writeln", &Rc::new(WriteLn::new()));
-        self.set_builtins("display", &Rc::new(Display_::new()));
-        self.set_builtins("displayln", &Rc::new(DisplayLn::new()));
+        self.set_builtin("equal?", &Rc::new(IsEqual::new()));
+        self.set_builtin("write", &Rc::new(Write::new()));
+        self.set_builtin("writeln", &Rc::new(WriteLn::new()));
+        self.set_builtin("display", &Rc::new(Display_::new()));
+        self.set_builtin("displayln", &Rc::new(DisplayLn::new()));
     }
 
-    fn set_builtins<T: Callable + 'static>(&mut self, name: &str, function: &Rc<T>) {
+    pub fn set_builtin<T: Callable + 'static>(&mut self, name: &str, function: &Rc<T>) {
         self.set(
             name.to_string(),
             new_valueref(BuiltInFunctionValue {
