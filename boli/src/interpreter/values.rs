@@ -423,15 +423,22 @@ impl Callable for SetStructField {
 
 #[derive(Debug)]
 pub struct StructValue {
-    pub struct_type: ValueRef,
+    pub struct_type: Option<ValueRef>,
     pub values: HashMap<String, ValueRef>,
 }
 
 impl StructValue {
     pub fn new(struct_type: &ValueRef, values: HashMap<String, ValueRef>) -> Self {
         Self {
-            struct_type: struct_type.clone(),
+            struct_type: Some(struct_type.clone()),
             values,
+        }
+    }
+
+    pub fn new_hash_table() -> Self {
+        Self {
+            struct_type: None,
+            values: HashMap::new(),
         }
     }
 }
@@ -452,20 +459,32 @@ impl Value for StructValue {
 
 impl Display for StructValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let struct_type = borrow_value(&self.struct_type);
-        let struct_type = downcast_value::<StructTypeValue>(&struct_type).unwrap();
+        match &self.struct_type {
+            Some(struct_type) => {
+                let struct_type = borrow_value(struct_type);
+                let struct_type = downcast_value::<StructTypeValue>(&struct_type).unwrap();
+                let values_str = &struct_type
+                    .fields
+                    .iter()
+                    .filter_map(|field| {
+                        self.values
+                            .get(field)
+                            .map(|value| format!("'{} {}", field, value.borrow()))
+                    })
+                    .collect::<Vec<String>>();
 
-        let values_str = &struct_type
-            .fields
-            .iter()
-            .filter_map(|field| {
-                self.values
-                    .get(field)
-                    .map(|value| format!("'{} {}", field, value.borrow()))
-            })
-            .collect::<Vec<String>>();
+                write!(f, "(struct {} {})", struct_type.name, values_str.join(" "))
+            }
+            None => {
+                let values_str = self
+                    .values
+                    .iter()
+                    .map(|(field, value)| format!("'{} {}", field, value.borrow()))
+                    .collect::<Vec<String>>();
 
-        write!(f, "(struct {} {})", struct_type.name, values_str.join(" "))
+                write!(f, "(hash-table {})", values_str.join(" "))
+            }
+        }
     }
 }
 

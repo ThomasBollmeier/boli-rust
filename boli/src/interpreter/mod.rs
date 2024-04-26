@@ -4,6 +4,7 @@ pub mod list_functions;
 pub mod misc_functions;
 pub mod number_functions;
 pub mod string_functions;
+pub mod struct_functions;
 pub mod values;
 
 use std::cell::RefCell;
@@ -630,6 +631,55 @@ mod tests {
         assert_eq!(
             result.to_string(),
             r#"(struct person 'name "Bollmeier" 'first-name "Tom")"#
+        );
+    }
+
+    #[test]
+    fn test_struct_getter() {
+        let mut interpreter = Interpreter::new();
+        let code = r#"
+            (def-struct date (year month day))
+            (def-struct person (name first-name birth-date))
+            (def ego (create-person "Bollmeier" "Thomas" (create-date 1966 7 11)))
+            (struct-get ego '(birth-date year))
+        "#;
+        let result = interpreter.eval(code).unwrap();
+        let result = borrow_value(&result);
+        assert_eq!(result.get_type(), ValueType::Int);
+        assert_eq!(result.to_string(), "1966");
+    }
+    #[test]
+
+    fn test_struct_setter() {
+        let mut interpreter = Interpreter::new();
+        let code = r#"
+            (def-struct date (year month day))
+            (def-struct person (name first-name birth-date))
+            (def ego (create-person "Bollmeier" "Thomas" (create-date 1970 7 11)))
+            (struct-set! ego '(birth-date year) 1966)
+            ego
+        "#;
+        let result = interpreter.eval(code).unwrap();
+        let result = borrow_value(&result);
+        assert_eq!(result.get_type(), ValueType::Struct);
+        assert_eq!(result.to_string(), "(struct person 'name \"Bollmeier\" 'first-name \"Thomas\" 'birth-date (struct date 'year 1966 'month 7 'day 11))");
+    }
+
+    #[test]
+    fn test_create_hash_table() {
+        let mut interpreter = Interpreter::new();
+        let code = r#"
+            (def options (create-hash-table))
+            (struct-set! options '(action) "parse")
+            (struct-set! options '(input-file) "code.boli")
+            options
+        "#;
+        let result = interpreter.eval(code).unwrap();
+        let result = borrow_value(&result);
+        assert_eq!(result.get_type(), ValueType::Struct);
+        assert_eq!(
+            result.to_string(),
+            "(hash-table 'action \"parse\" 'input-file \"code.boli\")"
         );
     }
 }

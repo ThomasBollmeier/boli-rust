@@ -3,6 +3,7 @@ use super::list_functions::*;
 use super::misc_functions::*;
 use super::number_functions::*;
 use super::string_functions::*;
+use super::struct_functions::*;
 use super::values::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -88,6 +89,10 @@ impl Environment {
         self.set_builtin("writeln", &Rc::new(WriteLn::new()));
         self.set_builtin("display", &Rc::new(Display_::new()));
         self.set_builtin("displayln", &Rc::new(DisplayLn::new()));
+
+        self.set_builtin("struct-get", &Rc::new(StructGet::new()));
+        self.set_builtin("struct-set!", &Rc::new(StructSet::new()));
+        self.set_builtin("create-hash-table", &Rc::new(CreateHashTable::new()));
     }
 
     pub fn set_builtin<T: Callable + 'static>(&mut self, name: &str, function: &Rc<T>) {
