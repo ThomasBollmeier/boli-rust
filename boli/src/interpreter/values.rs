@@ -17,6 +17,7 @@ pub enum ValueType {
     Int,
     Real,
     Str,
+    Symbol,
     Quote,
     List,
     StructType,
@@ -207,6 +208,39 @@ impl ComparableEq for StrValue {
         } else {
             false
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct SymbolValue {
+    pub value: String,
+}
+
+impl SymbolValue {
+    pub fn new(value: &str) -> Self {
+        Self {
+            value: value.to_string(),
+        }
+    }
+}
+
+impl Value for SymbolValue {
+    fn get_type(&self) -> ValueType {
+        ValueType::Symbol
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
+impl Display for SymbolValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "'{}", self.value)
     }
 }
 
@@ -476,10 +510,16 @@ impl Display for StructValue {
                 write!(f, "(struct {} {})", struct_type.name, values_str.join(" "))
             }
             None => {
-                let values_str = self
+                let mut keys = self
                     .values
+                    .keys()
+                    .map(|k| k.clone())
+                    .collect::<Vec<String>>();
+                keys.sort();
+
+                let values_str = keys
                     .iter()
-                    .map(|(field, value)| format!("'{} {}", field, value.borrow()))
+                    .map(|key| format!("'{} {}", key, self.values.get(key).unwrap().borrow()))
                     .collect::<Vec<String>>();
 
                 write!(f, "(hash-table {})", values_str.join(" "))

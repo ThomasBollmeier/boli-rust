@@ -148,8 +148,9 @@ impl AstVisitor for Interpreter {
         todo!()
     }
 
-    fn visit_symbol(&mut self, _symbol: &Symbol) {
-        todo!()
+    fn visit_symbol(&mut self, symbol: &Symbol) {
+        self.stack
+            .push(Ok(new_valueref(SymbolValue::new(&symbol.value[1..]))));
     }
 
     fn visit_quote(&mut self, quote: &Quote) {
@@ -258,7 +259,7 @@ impl AstVisitor for Interpreter {
                 .borrow_mut()
                 .set_builtin(&getter_name, &Rc::new(GetStructField::new(&field)));
 
-            let setter_name = format!("{}-set-{}!", &struct_def.name, &field);
+            let setter_name = format!("set-{}-{}!", &struct_def.name, &field);
             self.env
                 .borrow_mut()
                 .set_builtin(&setter_name, &Rc::new(SetStructField::new(&field)));
@@ -622,7 +623,7 @@ mod tests {
         let code = r#"
             (def-struct person (name first-name))
             (def ego (create-person "Bollmeier" "Thomas"))
-            (person-set-first-name! ego "Tom")
+            (set-person-first-name! ego "Tom")
             ego
         "#;
         let result = interpreter.eval(code).unwrap();
@@ -681,5 +682,15 @@ mod tests {
             result.to_string(),
             "(hash-table 'action \"parse\" 'input-file \"code.boli\")"
         );
+    }
+
+    #[test]
+    fn test_eval_symbol() {
+        let mut interpreter = Interpreter::new();
+        let code = r#" 'symbol "#;
+        let result = interpreter.eval(code).unwrap();
+        let result = borrow_value(&result);
+        assert_eq!(result.get_type(), ValueType::Symbol);
+        assert_eq!(result.to_string(), "'symbol");
     }
 }
