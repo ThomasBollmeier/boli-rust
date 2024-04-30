@@ -10,22 +10,32 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 pub struct Environment {
-    pub env: HashMap<String, ValueRef>,
-    parent: Option<Rc<RefCell<Environment>>>,
+    pub env: HashMap<String, EnvEntry>,
+    parent: Option<EnvironmentRef>,
 }
+
+pub struct EnvEntry {
+    value: ValueRef,
+    owned: bool,
+}
+
+pub type EnvironmentRef = Rc<RefCell<Environment>>;
 
 impl Environment {
     pub fn new() -> Self {
-        let mut result = Self {
+        let mut global = Self {
             env: HashMap::new(),
             parent: None,
         };
-        result.init_builtins();
+        global.init_builtins();
 
-        result
+        Self {
+            env: HashMap::new(),
+            parent: Some(Rc::new(RefCell::new(global))),
+        }
     }
 
-    pub fn with_parent(parent: &Rc<RefCell<Environment>>) -> Self {
+    pub fn with_parent(parent: &EnvironmentRef) -> Self {
         Self {
             env: HashMap::new(),
             parent: Some(parent.clone()),
@@ -37,7 +47,7 @@ impl Environment {
     }
 
     pub fn get(&self, key: &str) -> Option<ValueRef> {
-        if let Some(value) = self.env.get(key) {
+        if let Some(EnvEntry { value, owned: _ }) = self.env.get(key) {
             return Some(value.clone());
         }
 
@@ -49,7 +59,41 @@ impl Environment {
     }
 
     pub fn set(&mut self, key: String, value: ValueRef) {
-        self.env.insert(key, value);
+        self.env.insert(key, EnvEntry { value, owned: true }); // true: value is owned by the environment
+    }
+
+    pub fn get_exported_values(&self) -> HashMap<String, ValueRef> {
+        HashMap::from(
+            self.env
+                .iter()
+                .filter(|(_, EnvEntry { value: _, owned })| *owned)
+                .map(|(key, EnvEntry { value, owned: _ })| (key.clone(), value.clone()))
+                .collect::<HashMap<String, ValueRef>>(),
+        )
+    }
+
+    pub fn import_values(&mut self, values: HashMap<String, ValueRef>) {
+        for (key, value) in values {
+            self.env.insert(
+                key,
+                EnvEntry {
+                    value,
+                    owned: false,
+                },
+            ); // false: value is not owned by the environment
+        }
+    }
+
+    pub fn import_values_with_alias(&mut self, values: HashMap<String, ValueRef>, alias: &str) {
+        for (key, value) in values {
+            self.env.insert(
+                format!("{}::{}", alias, key),
+                EnvEntry {
+                    value,
+                    owned: false,
+                },
+            ); // false: value is not owned by the environment
+        }
     }
 
     fn init_builtins(&mut self) {

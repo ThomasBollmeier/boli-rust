@@ -2,6 +2,7 @@ pub mod count_functions;
 pub mod environment;
 pub mod list_functions;
 pub mod misc_functions;
+pub mod module_loader;
 pub mod number_functions;
 pub mod string_functions;
 pub mod struct_functions;
@@ -259,7 +260,7 @@ impl AstVisitor for Interpreter {
                 .borrow_mut()
                 .set_builtin(&getter_name, &Rc::new(GetStructField::new(&field)));
 
-            let setter_name = format!("set-{}-{}!", &struct_def.name, &field);
+            let setter_name = format!("{}-set-{}!", &struct_def.name, &field);
             self.env
                 .borrow_mut()
                 .set_builtin(&setter_name, &Rc::new(SetStructField::new(&field)));
@@ -623,7 +624,7 @@ mod tests {
         let code = r#"
             (def-struct person (name first-name))
             (def ego (create-person "Bollmeier" "Thomas"))
-            (set-person-first-name! ego "Tom")
+            (person-set-first-name! ego "Tom")
             ego
         "#;
         let result = interpreter.eval(code).unwrap();
