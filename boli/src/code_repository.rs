@@ -1,5 +1,6 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
+#[derive(PartialEq, Debug)]
 pub enum CodeRepoObjectType {
     Directory,
     File,
@@ -11,10 +12,15 @@ pub trait CodeRepoObject {
     fn as_any(&self) -> &dyn std::any::Any;
 }
 
-pub trait Directory: CodeRepoObject {
-    fn list(&self) -> HashMap<String, Rc<dyn CodeRepoObject>>;
+pub trait CodeDirectory: CodeRepoObject {
+    fn get_dir(&self, name: &str) -> Option<CodeDirRef>;
+    fn get_file(&self, name: &str) -> Option<CodeFileRef>;
 }
 
-pub trait File: CodeRepoObject {
+pub type CodeDirRef = Rc<RefCell<dyn CodeDirectory>>;
+
+pub trait CodeFile: CodeRepoObject {
     fn read(&self) -> String;
 }
+
+pub type CodeFileRef = Rc<RefCell<dyn CodeFile>>;
