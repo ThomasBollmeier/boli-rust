@@ -1,5 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
+pub mod file_system;
+
 #[derive(PartialEq, Debug)]
 pub enum CodeRepoObjectType {
     Directory,

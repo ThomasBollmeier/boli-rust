@@ -1,0 +1,7 @@
+(require 'core::list)
+
+(def (main)
+    (def lst '(1 2 3 4 5))
+    (reverse lst))
+
+(main)
