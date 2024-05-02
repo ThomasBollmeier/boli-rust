@@ -2,7 +2,7 @@ pub mod count_functions;
 pub mod environment;
 pub mod list_functions;
 pub mod misc_functions;
-pub mod module_loader;
+pub mod module_mgmt;
 pub mod number_functions;
 pub mod string_functions;
 pub mod struct_functions;

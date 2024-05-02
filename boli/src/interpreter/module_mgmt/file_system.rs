@@ -6,14 +6,20 @@ use std::{
     rc::Rc,
 };
 
-use super::{CodeDirRef, CodeDirectory, CodeFile, CodeFileRef, CodeRepoObject, CodeRepoObjectType};
+use super::{
+    ModuleDirRef, ModuleDirectory, ModuleFile, ModuleFileRef, ModuleObject, ModuleObjectType,
+};
+
+pub fn new_directory(path: &str, name: &str) -> Rc<RefCell<Directory>> {
+    Rc::new(RefCell::new(Directory::new(path, name)))
+}
 
 pub struct Directory {
     path: String,
     name: String,
     initialized: RefCell<bool>,
-    dirs: RefCell<HashMap<String, CodeDirRef>>,
-    files: RefCell<HashMap<String, CodeFileRef>>,
+    dirs: RefCell<HashMap<String, ModuleDirRef>>,
+    files: RefCell<HashMap<String, ModuleFileRef>>,
 }
 
 impl Directory {
@@ -62,9 +68,9 @@ impl Directory {
     }
 }
 
-impl CodeRepoObject for Directory {
-    fn get_type(&self) -> CodeRepoObjectType {
-        CodeRepoObjectType::Directory
+impl ModuleObject for Directory {
+    fn get_type(&self) -> ModuleObjectType {
+        ModuleObjectType::Directory
     }
 
     fn get_name(&self) -> String {
@@ -76,8 +82,8 @@ impl CodeRepoObject for Directory {
     }
 }
 
-impl CodeDirectory for Directory {
-    fn get_dir(&self, name: &str) -> Option<CodeDirRef> {
+impl ModuleDirectory for Directory {
+    fn get_dir(&self, name: &str) -> Option<ModuleDirRef> {
         if !self.initialized.borrow().clone() {
             self.initialize();
         }
@@ -90,7 +96,7 @@ impl CodeDirectory for Directory {
         }
     }
 
-    fn get_file(&self, name: &str) -> Option<CodeFileRef> {
+    fn get_file(&self, name: &str) -> Option<ModuleFileRef> {
         if !self.initialized.borrow().clone() {
             self.initialize();
         }
@@ -103,6 +109,10 @@ impl CodeDirectory for Directory {
             Some(file) => Some(file.clone()),
             None => None,
         }
+    }
+
+    fn get_extension(&self, _name: &str) -> Option<super::ExtensionModuleRef> {
+        None
     }
 }
 
@@ -120,9 +130,9 @@ impl File {
     }
 }
 
-impl CodeRepoObject for File {
-    fn get_type(&self) -> CodeRepoObjectType {
-        CodeRepoObjectType::File
+impl ModuleObject for File {
+    fn get_type(&self) -> ModuleObjectType {
+        ModuleObjectType::File
     }
 
     fn get_name(&self) -> String {
@@ -134,7 +144,7 @@ impl CodeRepoObject for File {
     }
 }
 
-impl CodeFile for File {
+impl ModuleFile for File {
     fn read(&self) -> String {
         let mut buffer = String::new();
         let file_path = self.path.clone() + "/" + &self.name;
