@@ -17,9 +17,14 @@ use environment::Environment;
 
 use values::*;
 
+use self::environment::EnvironmentRef;
+use self::module_mgmt::module_loader::RequireFn;
+use self::module_mgmt::ModuleDirRef;
+
 pub struct Interpreter {
     pub stack: Vec<EvalResult>,
-    pub env: Rc<RefCell<Environment>>,
+    pub env: EnvironmentRef,
+    module_search_dirs: Vec<ModuleDirRef>,
 }
 
 impl Interpreter {
@@ -27,6 +32,7 @@ impl Interpreter {
         Self {
             stack: Vec::new(),
             env: Rc::new(RefCell::new(Environment::new())),
+            module_search_dirs: Vec::new(),
         }
     }
 
@@ -34,7 +40,17 @@ impl Interpreter {
         Self {
             stack: Vec::new(),
             env: env.clone(),
+            module_search_dirs: Vec::new(),
         }
+    }
+
+    pub fn set_module_search_dirs(&mut self, dirs: &Vec<ModuleDirRef>) {
+        self.module_search_dirs = dirs.clone();
+
+        let require_fn = RequireFn::new(&self.env, &self.module_search_dirs);
+        self.env
+            .borrow_mut()
+            .set_builtin("require", &Rc::new(require_fn));
     }
 
     pub fn eval(&mut self, code: &str) -> EvalResult {

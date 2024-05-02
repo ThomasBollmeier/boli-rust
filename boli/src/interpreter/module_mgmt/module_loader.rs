@@ -1,4 +1,7 @@
-use crate::interpreter::{module_mgmt::ModuleDirRef, Interpreter, InterpreterError, ValueRef};
+use crate::interpreter::{
+    borrow_value, downcast_value, environment::EnvironmentRef, module_mgmt::ModuleDirRef,
+    new_valueref, Callable, Interpreter, InterpreterError, NilValue, SymbolValue, ValueRef,
+};
 use std::collections::HashMap;
 
 pub struct ModuleLoader {
@@ -70,6 +73,44 @@ impl ModuleLoader {
                 )))
             }
         }
+    }
+}
+
+pub struct RequireFn {
+    env: EnvironmentRef,
+    module_loader: ModuleLoader,
+}
+
+impl RequireFn {
+    pub fn new(env: &EnvironmentRef, search_dirs: &Vec<ModuleDirRef>) -> Self {
+        Self {
+            env: env.clone(),
+            module_loader: ModuleLoader::new(search_dirs),
+        }
+    }
+}
+
+impl Callable for RequireFn {
+    fn call(&self, args: &Vec<ValueRef>) -> Result<ValueRef, InterpreterError> {
+        if args.len() != 1 {
+            return Err(InterpreterError::new(
+                "require function expects exactly one argument",
+            ));
+        }
+
+        let arg0 = &borrow_value(&args[0]);
+        let module_path = downcast_value::<SymbolValue>(arg0);
+        if module_path.is_none() {
+            return Err(InterpreterError::new(
+                "require function expects a symbol as the first argument",
+            ));
+        }
+        let module_path = module_path.unwrap().value.clone();
+        let module_imports = self.module_loader.load_module(&module_path)?;
+
+        self.env.borrow_mut().import_values(module_imports);
+
+        Ok(new_valueref(NilValue {}))
     }
 }
 
