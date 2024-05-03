@@ -1,5 +1,6 @@
 use std::{
     cell::{Ref, RefCell},
+    fmt::Debug,
     rc::Rc,
 };
 
@@ -38,7 +39,7 @@ fn downcast_compareable_eq<'a>(value: &'a Ref<dyn Value>) -> Option<&'a dyn Comp
     }
 }
 
-pub trait Output {
+pub trait Output: Debug {
     fn print(&mut self, text: &str);
     fn print_line(&mut self, text: &str) {
         self.print(text);
@@ -49,6 +50,7 @@ pub trait Output {
 
 pub type OutputRef = Rc<RefCell<dyn Output>>;
 
+#[derive(Debug)]
 pub struct StdOutput {}
 
 impl StdOutput {
@@ -72,13 +74,7 @@ pub struct Write {
 }
 
 impl Write {
-    pub fn new() -> Self {
-        Self {
-            output: Rc::new(RefCell::new(StdOutput::new())),
-        }
-    }
-
-    pub fn with_output(output: &OutputRef) -> Self {
+    pub fn new(output: &OutputRef) -> Self {
         Self {
             output: output.clone(),
         }
@@ -99,13 +95,7 @@ pub struct WriteLn {
 }
 
 impl WriteLn {
-    pub fn new() -> Self {
-        Self {
-            output: Rc::new(RefCell::new(StdOutput::new())),
-        }
-    }
-
-    pub fn with_output(output: &OutputRef) -> Self {
+    pub fn new(output: &OutputRef) -> Self {
         Self {
             output: output.clone(),
         }
@@ -126,13 +116,7 @@ pub struct Display_ {
 }
 
 impl Display_ {
-    pub fn new() -> Self {
-        Self {
-            output: Rc::new(RefCell::new(StdOutput::new())),
-        }
-    }
-
-    pub fn with_output(output: &OutputRef) -> Self {
+    pub fn new(output: &OutputRef) -> Self {
         Self {
             output: output.clone(),
         }
@@ -153,13 +137,7 @@ pub struct DisplayLn {
 }
 
 impl DisplayLn {
-    pub fn new() -> Self {
-        Self {
-            output: Rc::new(RefCell::new(StdOutput::new())),
-        }
-    }
-
-    pub fn with_output(output: &OutputRef) -> Self {
+    pub fn new(output: &OutputRef) -> Self {
         Self {
             output: output.clone(),
         }

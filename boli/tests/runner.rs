@@ -2,6 +2,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use boli::interpreter::{
     self,
+    environment::Environment,
     misc_functions::OutputRef,
     module_mgmt::{
         extension::{new_extension, new_extension_dir},
@@ -22,10 +23,13 @@ fn test_load_extension_module_ok() {
     ext_dir.borrow_mut().add_extension(&ext_module);
 
     let search_dirs: Vec<ModuleDirRef> = vec![new_directory("tests", "code"), ext_dir];
-
     let output: OutputRef = Rc::new(RefCell::new(StringOutput::new()));
 
-    let module_loader = ModuleLoader::new(&search_dirs, &output);
+    let env = interpreter::environment::Environment::new();
+    Environment::set_module_search_dirs(&env, &search_dirs);
+    Environment::set_output(&env, &output);
+
+    let module_loader = ModuleLoader::new(&env);
     let result = module_loader.load_module("q&a");
 
     assert!(result.is_ok());
@@ -37,6 +41,7 @@ fn test_load_extension_module_ok() {
     assert_eq!(value.borrow().get_type(), ValueType::Int);
 }
 
+#[derive(Debug)]
 struct StringOutput {
     output: String,
 }
@@ -70,13 +75,15 @@ fn read_expected_output_file(file_name: &str) -> String {
 
 fn run_file(input_file_name: &str, expected_output_file: &str) {
     let code_dir: ModuleDirRef = new_directory("tests", "input");
+    let output: OutputRef = Rc::new(RefCell::new(StringOutput::new()));
+    let env = Environment::new();
+    Environment::set_module_search_dirs(&env, &vec![code_dir.clone()]);
+    Environment::set_output(&env, &output);
 
     let file = code_dir.borrow().get_file(input_file_name).unwrap();
     let code = file.borrow().read();
 
-    let output: OutputRef = Rc::new(RefCell::new(StringOutput::new()));
-    let mut interpreter = interpreter::Interpreter::new();
-    interpreter.configure(Some(vec![code_dir]), Some(output.clone()));
+    let mut interpreter = interpreter::Interpreter::with_environment(&env);
 
     let result = interpreter.eval(&code);
     assert!(result.is_ok(), "Error: {:?}", result.err());

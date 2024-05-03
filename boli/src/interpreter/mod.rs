@@ -19,78 +19,25 @@ use environment::Environment;
 use values::*;
 
 use self::environment::EnvironmentRef;
-use self::misc_functions::{DisplayLn, Display_, OutputRef, StdOutput, Write, WriteLn};
-use self::module_mgmt::file_system::new_directory;
-use self::module_mgmt::module_loader::RequireFn;
-use self::module_mgmt::ModuleDirRef;
 
 pub struct Interpreter {
     pub stack: Vec<EvalResult>,
     pub env: EnvironmentRef,
-    module_search_dirs: Vec<ModuleDirRef>,
-    output: OutputRef,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
-        let current_dir = new_directory(".", "");
         Self {
             stack: Vec::new(),
-            env: Rc::new(RefCell::new(Environment::new())),
-            module_search_dirs: vec![current_dir],
-            output: Rc::new(RefCell::new(StdOutput::new())),
+            env: Environment::new(),
         }
     }
 
-    pub fn with_environment(env: &Rc<RefCell<Environment>>) -> Self {
-        let current_dir = new_directory(".", "");
+    pub fn with_environment(env: &EnvironmentRef) -> Self {
         Self {
             stack: Vec::new(),
             env: env.clone(),
-            module_search_dirs: vec![current_dir],
-            output: Rc::new(RefCell::new(StdOutput::new())),
         }
-    }
-
-    pub fn configure(&mut self, dirs: Option<Vec<ModuleDirRef>>, output: Option<OutputRef>) {
-        if dirs.is_none() && output.is_none() {
-            return;
-        }
-
-        if let Some(dirs) = dirs {
-            self.module_search_dirs = dirs.clone();
-        }
-
-        let mut output_changed = false;
-
-        if let Some(output) = &output {
-            self.output = output.clone();
-            output_changed = true;
-        }
-
-        let require_fn = RequireFn::new(&self.env, &self.module_search_dirs, &self.output);
-        self.env
-            .borrow_mut()
-            .set_builtin("require", &Rc::new(require_fn));
-
-        if !output_changed {
-            return;
-        }
-
-        let output = output.unwrap();
-
-        self.env
-            .borrow_mut()
-            .set_builtin("write", &Rc::new(Write::with_output(&output)));
-        self.env
-            .borrow_mut()
-            .set_builtin("writeln", &Rc::new(WriteLn::with_output(&output)));
-        self.env
-            .borrow_mut()
-            .set_builtin("display", &Rc::new(Display_::with_output(&output)));
-        self.env
-            .borrow_mut()
-            .set_builtin("displayln", &Rc::new(DisplayLn::with_output(&output)));
     }
 
     pub fn eval(&mut self, code: &str) -> EvalResult {
