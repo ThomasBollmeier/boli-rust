@@ -10,6 +10,7 @@ pub mod values;
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::vec;
 
 use crate::frontend::lexer::tokens::{LogicalOp, Op};
 use crate::frontend::parser::{ast::*, Parser};
@@ -19,6 +20,7 @@ use values::*;
 
 use self::environment::EnvironmentRef;
 use self::misc_functions::{DisplayLn, Display_, OutputRef, StdOutput, Write, WriteLn};
+use self::module_mgmt::file_system::new_directory;
 use self::module_mgmt::module_loader::RequireFn;
 use self::module_mgmt::ModuleDirRef;
 
@@ -31,19 +33,21 @@ pub struct Interpreter {
 
 impl Interpreter {
     pub fn new() -> Self {
+        let current_dir = new_directory(".", "");
         Self {
             stack: Vec::new(),
             env: Rc::new(RefCell::new(Environment::new())),
-            module_search_dirs: Vec::new(),
+            module_search_dirs: vec![current_dir],
             output: Rc::new(RefCell::new(StdOutput::new())),
         }
     }
 
     pub fn with_environment(env: &Rc<RefCell<Environment>>) -> Self {
+        let current_dir = new_directory(".", "");
         Self {
             stack: Vec::new(),
             env: env.clone(),
-            module_search_dirs: Vec::new(),
+            module_search_dirs: vec![current_dir],
             output: Rc::new(RefCell::new(StdOutput::new())),
         }
     }
