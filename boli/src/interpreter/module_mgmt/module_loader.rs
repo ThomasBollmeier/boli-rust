@@ -58,8 +58,7 @@ impl ModuleLoader {
             if let Some(module_file) = dir.borrow().get_file(&module_file) {
                 let module_code = module_file.borrow().read();
                 let mut interpreter = Interpreter::new();
-                interpreter.set_module_search_dirs(&self.search_dirs);
-                interpreter.redirect_output(&self.output);
+                interpreter.configure(Some(self.search_dirs.clone()), Some(self.output.clone()));
                 interpreter.eval(&module_code)?;
                 return Ok(interpreter.env.clone().borrow().get_exported_values());
             }

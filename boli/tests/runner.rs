@@ -13,24 +13,6 @@ use boli::interpreter::{
 };
 
 #[test]
-fn test_load_file_module_ok() {
-    let search_dirs: Vec<ModuleDirRef> = vec![new_directory("tests", "code")];
-
-    let output: OutputRef = Rc::new(RefCell::new(StringOutput::new()));
-
-    let module_loader = ModuleLoader::new(&search_dirs, &output);
-    let result = module_loader.load_module("core::list");
-
-    assert!(result.is_ok());
-
-    let values = result.unwrap();
-    assert_eq!(values.len(), 1);
-
-    let reverse_value = values.get("reverse").unwrap();
-    assert_eq!(reverse_value.borrow().get_type(), ValueType::Lambda);
-}
-
-#[test]
 fn test_load_extension_module_ok() {
     let ext_dir = new_extension_dir("ext");
 
@@ -53,24 +35,6 @@ fn test_load_extension_module_ok() {
 
     let value = values.get("answer").unwrap();
     assert_eq!(value.borrow().get_type(), ValueType::Int);
-}
-
-#[test]
-fn test_main_module_ok() {
-    let code_dir: ModuleDirRef = new_directory("tests", "code");
-
-    let main_file = code_dir.borrow().get_file("main.boli").unwrap();
-    let code = main_file.borrow().read();
-
-    let mut interpreter = interpreter::Interpreter::new();
-    interpreter.set_module_search_dirs(&vec![code_dir]);
-
-    let result = interpreter.eval(&code);
-    assert!(result.is_ok(), "Error: {:?}", result.err());
-
-    let result = result.unwrap();
-    assert_eq!(result.borrow().get_type(), ValueType::List);
-    assert_eq!(result.borrow().to_string(), "(list 5 4 3 2 1)");
 }
 
 struct StringOutput {
@@ -99,16 +63,20 @@ impl interpreter::misc_functions::Output for StringOutput {
     }
 }
 
-fn run_file(file_name: &str, expected_output: &str) {
-    let code_dir: ModuleDirRef = new_directory("tests", "code");
+fn read_expected_output_file(file_name: &str) -> String {
+    let path = format!("tests/output/{}", file_name);
+    std::fs::read_to_string(path).unwrap()
+}
 
-    let file = code_dir.borrow().get_file(file_name).unwrap();
+fn run_file(input_file_name: &str, expected_output_file: &str) {
+    let code_dir: ModuleDirRef = new_directory("tests", "input");
+
+    let file = code_dir.borrow().get_file(input_file_name).unwrap();
     let code = file.borrow().read();
 
     let output: OutputRef = Rc::new(RefCell::new(StringOutput::new()));
     let mut interpreter = interpreter::Interpreter::new();
-    interpreter.set_module_search_dirs(&vec![code_dir]);
-    interpreter.redirect_output(&output);
+    interpreter.configure(Some(vec![code_dir]), Some(output.clone()));
 
     let result = interpreter.eval(&code);
     assert!(result.is_ok(), "Error: {:?}", result.err());
@@ -116,10 +84,18 @@ fn run_file(file_name: &str, expected_output: &str) {
     let str_out = output.borrow();
     let str_out = str_out.as_any().downcast_ref::<StringOutput>().unwrap();
 
-    assert_eq!(str_out.get_output(), expected_output);
+    let actual_output = str_out.get_output();
+    let expected_output = read_expected_output_file(expected_output_file);
+
+    assert_eq!(actual_output, expected_output);
 }
 
 #[test]
 fn test_hello() {
-    run_file("hello.boli", "Guten Tag, Thomas!\n");
+    run_file("hello.boli", "hello.out");
+}
+
+#[test]
+fn test_reverse() {
+    run_file("reverse.boli", "reverse.out");
 }

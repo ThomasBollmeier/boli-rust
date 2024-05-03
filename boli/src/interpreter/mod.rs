@@ -48,35 +48,45 @@ impl Interpreter {
         }
     }
 
-    pub fn set_module_search_dirs(&mut self, dirs: &Vec<ModuleDirRef>) {
-        self.module_search_dirs = dirs.clone();
+    pub fn configure(&mut self, dirs: Option<Vec<ModuleDirRef>>, output: Option<OutputRef>) {
+        if dirs.is_none() && output.is_none() {
+            return;
+        }
+
+        if let Some(dirs) = dirs {
+            self.module_search_dirs = dirs.clone();
+        }
+
+        let mut output_changed = false;
+
+        if let Some(output) = &output {
+            self.output = output.clone();
+            output_changed = true;
+        }
 
         let require_fn = RequireFn::new(&self.env, &self.module_search_dirs, &self.output);
         self.env
             .borrow_mut()
             .set_builtin("require", &Rc::new(require_fn));
-    }
 
-    pub fn redirect_output(&mut self, output: &OutputRef) {
-        self.output = output.clone();
+        if !output_changed {
+            return;
+        }
 
-        let require_fn = RequireFn::new(&self.env, &self.module_search_dirs, &self.output);
-        self.env
-            .borrow_mut()
-            .set_builtin("require", &Rc::new(require_fn));
+        let output = output.unwrap();
 
         self.env
             .borrow_mut()
-            .set_builtin("write", &Rc::new(Write::with_output(output)));
+            .set_builtin("write", &Rc::new(Write::with_output(&output)));
         self.env
             .borrow_mut()
-            .set_builtin("writeln", &Rc::new(WriteLn::with_output(output)));
+            .set_builtin("writeln", &Rc::new(WriteLn::with_output(&output)));
         self.env
             .borrow_mut()
-            .set_builtin("display", &Rc::new(Display_::with_output(output)));
+            .set_builtin("display", &Rc::new(Display_::with_output(&output)));
         self.env
             .borrow_mut()
-            .set_builtin("displayln", &Rc::new(DisplayLn::with_output(output)));
+            .set_builtin("displayln", &Rc::new(DisplayLn::with_output(&output)));
     }
 
     pub fn eval(&mut self, code: &str) -> EvalResult {
