@@ -105,9 +105,11 @@ impl RequireFn {
 
 impl Callable for RequireFn {
     fn call(&self, args: &Vec<ValueRef>) -> Result<ValueRef, InterpreterError> {
-        if args.len() != 1 {
+        let num_args = args.len();
+
+        if num_args != 1 && num_args != 2 {
             return Err(InterpreterError::new(
-                "require function expects exactly one argument",
+                "require function expects 1-2 arguments",
             ));
         }
 
@@ -121,7 +123,22 @@ impl Callable for RequireFn {
         let module_path = module_path.unwrap().value.clone();
         let module_imports = self.module_loader.load_module(&module_path)?;
 
-        self.env.borrow_mut().import_values(module_imports);
+        if num_args == 2 {
+            let arg1 = &borrow_value(&args[1]);
+            let alias = downcast_value::<SymbolValue>(arg1);
+            if alias.is_none() {
+                return Err(InterpreterError::new(
+                    "require function expects a symbol as the second argument",
+                ));
+            }
+            let alias = alias.unwrap().value.clone();
+
+            self.env
+                .borrow_mut()
+                .import_values_with_alias(module_imports, &alias);
+        } else {
+            self.env.borrow_mut().import_values(module_imports);
+        }
 
         Ok(new_valueref(NilValue {}))
     }

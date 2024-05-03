@@ -197,8 +197,16 @@ impl AstVisitor for Interpreter {
         self.stack.push(Ok(value.unwrap().clone()));
     }
 
-    fn visit_absolute_name(&mut self, _absolute_name: &AbsoluteName) {
-        todo!()
+    fn visit_absolute_name(&mut self, absolute_name: &AbsoluteName) {
+        let abs_name = absolute_name.segments.join("::");
+        let value = self.env.borrow().get(&abs_name);
+        if value.is_none() {
+            let err = self.new_eval_error(&format!("Undefined identifier: {}", abs_name));
+            self.stack.push(err);
+            return;
+        }
+
+        self.stack.push(Ok(value.unwrap().clone()));
     }
 
     fn visit_symbol(&mut self, symbol: &Symbol) {
