@@ -101,10 +101,8 @@ impl ModuleDirectory for Directory {
             self.initialize();
         }
 
-        let file_name = name.to_string() + ".boli";
-
         let files = self.files.borrow();
-        let file = files.get(&file_name);
+        let file = files.get(name);
         match file {
             Some(file) => Some(file.clone()),
             None => None,

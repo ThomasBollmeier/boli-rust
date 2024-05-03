@@ -62,6 +62,16 @@ impl Environment {
         self.env.insert(key, EnvEntry { value, owned: true }); // true: value is owned by the environment
     }
 
+    fn set_unowned(&mut self, key: String, value: ValueRef) {
+        self.env.insert(
+            key,
+            EnvEntry {
+                value,
+                owned: false,
+            },
+        ); // false: value is not owned by the environment
+    }
+
     pub fn get_exported_values(&self) -> HashMap<String, ValueRef> {
         HashMap::from(
             self.env
@@ -140,7 +150,7 @@ impl Environment {
     }
 
     pub fn set_builtin<T: Callable + 'static>(&mut self, name: &str, function: &Rc<T>) {
-        self.set(
+        self.set_unowned(
             name.to_string(),
             new_valueref(BuiltInFunctionValue {
                 name: name.to_string(),

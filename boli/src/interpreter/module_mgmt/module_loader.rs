@@ -1,32 +1,43 @@
 use crate::interpreter::{
-    borrow_value, downcast_value, environment::EnvironmentRef, module_mgmt::ModuleDirRef,
-    new_valueref, Callable, Interpreter, InterpreterError, NilValue, SymbolValue, ValueRef,
+    borrow_value, downcast_value, environment::EnvironmentRef, misc_functions::OutputRef,
+    module_mgmt::ModuleDirRef, new_valueref, Callable, Interpreter, InterpreterError, NilValue,
+    SymbolValue, ValueRef,
 };
 use std::collections::HashMap;
 
 pub struct ModuleLoader {
     search_dirs: Vec<ModuleDirRef>,
+    output: OutputRef,
 }
 
 impl ModuleLoader {
-    pub fn new(search_dirs: &Vec<ModuleDirRef>) -> Self {
+    pub fn new(search_dirs: &Vec<ModuleDirRef>, output: &OutputRef) -> Self {
         Self {
             search_dirs: search_dirs.clone(),
+            output: output.clone(),
         }
     }
 
     pub fn load_module(&self, path: &str) -> Result<HashMap<String, ValueRef>, InterpreterError> {
+        let mut load_error: Option<InterpreterError> = None;
+
         for dir in &self.search_dirs {
             match self.load_module_in_dir(dir, path) {
                 Ok(env) => return Ok(env),
-                Err(_) => continue,
+                Err(err) => {
+                    load_error = Some(err);
+                    continue;
+                }
             }
         }
 
-        Err(InterpreterError::new(&format!(
-            "module '{}' not found",
-            path
-        )))
+        match load_error {
+            Some(err) => Err(err),
+            None => Err(InterpreterError::new(&format!(
+                "module '{}' not found",
+                path
+            ))),
+        }
     }
 
     fn load_module_in_dir(
@@ -42,10 +53,13 @@ impl ModuleLoader {
 
         if path_segments.len() == 1 {
             let module_name = path_segments[0];
+            let module_file = module_name.to_string() + ".boli";
 
-            if let Some(module_file) = dir.borrow().get_file(module_name) {
+            if let Some(module_file) = dir.borrow().get_file(&module_file) {
                 let module_code = module_file.borrow().read();
                 let mut interpreter = Interpreter::new();
+                interpreter.set_module_search_dirs(&self.search_dirs);
+                interpreter.redirect_output(&self.output);
                 interpreter.eval(&module_code)?;
                 return Ok(interpreter.env.clone().borrow().get_exported_values());
             }
@@ -82,10 +96,10 @@ pub struct RequireFn {
 }
 
 impl RequireFn {
-    pub fn new(env: &EnvironmentRef, search_dirs: &Vec<ModuleDirRef>) -> Self {
+    pub fn new(env: &EnvironmentRef, search_dirs: &Vec<ModuleDirRef>, output: &OutputRef) -> Self {
         Self {
             env: env.clone(),
-            module_loader: ModuleLoader::new(search_dirs),
+            module_loader: ModuleLoader::new(search_dirs, output),
         }
     }
 }
@@ -119,6 +133,7 @@ mod tests {
     use super::*;
     use crate::interpreter::{
         self,
+        misc_functions::StdOutput,
         module_mgmt::{
             extension::{Extension, ExtensionDir},
             ModuleDirectory, ModuleFile, ModuleFileRef, ModuleObject, ModuleObjectType,
@@ -238,7 +253,7 @@ mod tests {
         current_dir.borrow_mut().add_dir(&core_dir);
 
         let list_module = Rc::new(RefCell::new(TestFile::new(
-            "list",
+            "list.boli",
             r#"
         (def (reverse l)
             (def (helper l acc)
@@ -254,7 +269,9 @@ mod tests {
         )));
         core_dir.borrow_mut().add_file(&list_module);
 
-        let loader = ModuleLoader::new(&vec![current_dir.clone()]);
+        let output: OutputRef = Rc::new(RefCell::new(StdOutput::new()));
+
+        let loader = ModuleLoader::new(&vec![current_dir.clone()], &output);
 
         let loaded_values = loader.load_module("core::list").unwrap();
 
@@ -280,7 +297,9 @@ mod tests {
         let ext_module = Rc::new(RefCell::new(Extension::new("q&a", values)));
         ext_dir.borrow_mut().add_extension(&ext_module);
 
-        let loader = ModuleLoader::new(&vec![search_dir.clone()]);
+        let output: OutputRef = Rc::new(RefCell::new(StdOutput::new()));
+
+        let loader = ModuleLoader::new(&vec![search_dir.clone()], &output);
 
         let loaded_values = loader.load_module("ext::q&a").unwrap();
 

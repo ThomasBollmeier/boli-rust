@@ -18,6 +18,7 @@ use environment::Environment;
 use values::*;
 
 use self::environment::EnvironmentRef;
+use self::misc_functions::{DisplayLn, Display_, OutputRef, StdOutput, Write, WriteLn};
 use self::module_mgmt::module_loader::RequireFn;
 use self::module_mgmt::ModuleDirRef;
 
@@ -25,6 +26,7 @@ pub struct Interpreter {
     pub stack: Vec<EvalResult>,
     pub env: EnvironmentRef,
     module_search_dirs: Vec<ModuleDirRef>,
+    output: OutputRef,
 }
 
 impl Interpreter {
@@ -33,6 +35,7 @@ impl Interpreter {
             stack: Vec::new(),
             env: Rc::new(RefCell::new(Environment::new())),
             module_search_dirs: Vec::new(),
+            output: Rc::new(RefCell::new(StdOutput::new())),
         }
     }
 
@@ -41,16 +44,39 @@ impl Interpreter {
             stack: Vec::new(),
             env: env.clone(),
             module_search_dirs: Vec::new(),
+            output: Rc::new(RefCell::new(StdOutput::new())),
         }
     }
 
     pub fn set_module_search_dirs(&mut self, dirs: &Vec<ModuleDirRef>) {
         self.module_search_dirs = dirs.clone();
 
-        let require_fn = RequireFn::new(&self.env, &self.module_search_dirs);
+        let require_fn = RequireFn::new(&self.env, &self.module_search_dirs, &self.output);
         self.env
             .borrow_mut()
             .set_builtin("require", &Rc::new(require_fn));
+    }
+
+    pub fn redirect_output(&mut self, output: &OutputRef) {
+        self.output = output.clone();
+
+        let require_fn = RequireFn::new(&self.env, &self.module_search_dirs, &self.output);
+        self.env
+            .borrow_mut()
+            .set_builtin("require", &Rc::new(require_fn));
+
+        self.env
+            .borrow_mut()
+            .set_builtin("write", &Rc::new(Write::with_output(output)));
+        self.env
+            .borrow_mut()
+            .set_builtin("writeln", &Rc::new(WriteLn::with_output(output)));
+        self.env
+            .borrow_mut()
+            .set_builtin("display", &Rc::new(Display_::with_output(output)));
+        self.env
+            .borrow_mut()
+            .set_builtin("displayln", &Rc::new(DisplayLn::with_output(output)));
     }
 
     pub fn eval(&mut self, code: &str) -> EvalResult {

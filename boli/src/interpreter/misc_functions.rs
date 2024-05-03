@@ -1,4 +1,7 @@
-use std::cell::Ref;
+use std::{
+    cell::{Ref, RefCell},
+    rc::Rc,
+};
 
 use super::values::*;
 
@@ -35,69 +38,138 @@ fn downcast_compareable_eq<'a>(value: &'a Ref<dyn Value>) -> Option<&'a dyn Comp
     }
 }
 
-pub struct Write {}
+pub trait Output {
+    fn print(&mut self, text: &str);
+    fn print_line(&mut self, text: &str) {
+        self.print(text);
+        self.print("\n");
+    }
+    fn as_any(&self) -> &dyn std::any::Any;
+}
+
+pub type OutputRef = Rc<RefCell<dyn Output>>;
+
+pub struct StdOutput {}
+
+impl StdOutput {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Output for StdOutput {
+    fn print(&mut self, text: &str) {
+        print!("{}", text);
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+pub struct Write {
+    output: OutputRef,
+}
 
 impl Write {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            output: Rc::new(RefCell::new(StdOutput::new())),
+        }
+    }
+
+    pub fn with_output(output: &OutputRef) -> Self {
+        Self {
+            output: output.clone(),
+        }
     }
 }
 
 impl Callable for Write {
     fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         for arg in args {
-            print_value(arg, PrintMode::Write { line_break: false });
+            print_value(arg, PrintMode::Write { line_break: false }, &self.output);
         }
         Ok(new_valueref(NilValue {}))
     }
 }
 
-pub struct WriteLn {}
+pub struct WriteLn {
+    output: OutputRef,
+}
 
 impl WriteLn {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            output: Rc::new(RefCell::new(StdOutput::new())),
+        }
+    }
+
+    pub fn with_output(output: &OutputRef) -> Self {
+        Self {
+            output: output.clone(),
+        }
     }
 }
 
 impl Callable for WriteLn {
     fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         for arg in args {
-            print_value(arg, PrintMode::Write { line_break: true });
+            print_value(arg, PrintMode::Write { line_break: true }, &self.output);
         }
         Ok(new_valueref(NilValue {}))
     }
 }
 
-pub struct Display_ {}
+pub struct Display_ {
+    output: OutputRef,
+}
 
 impl Display_ {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            output: Rc::new(RefCell::new(StdOutput::new())),
+        }
+    }
+
+    pub fn with_output(output: &OutputRef) -> Self {
+        Self {
+            output: output.clone(),
+        }
     }
 }
 
 impl Callable for Display_ {
     fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         for arg in args {
-            print_value(arg, PrintMode::Display { line_break: false });
+            print_value(arg, PrintMode::Display { line_break: false }, &self.output);
         }
         Ok(new_valueref(NilValue {}))
     }
 }
 
-pub struct DisplayLn {}
+pub struct DisplayLn {
+    output: OutputRef,
+}
 
 impl DisplayLn {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            output: Rc::new(RefCell::new(StdOutput::new())),
+        }
+    }
+
+    pub fn with_output(output: &OutputRef) -> Self {
+        Self {
+            output: output.clone(),
+        }
     }
 }
 
 impl Callable for DisplayLn {
     fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         for arg in args {
-            print_value(arg, PrintMode::Display { line_break: true });
+            print_value(arg, PrintMode::Display { line_break: true }, &self.output);
         }
         Ok(new_valueref(NilValue {}))
     }
@@ -108,20 +180,20 @@ enum PrintMode {
     Display { line_break: bool },
 }
 
-fn print_value(value: &ValueRef, mode: PrintMode) {
+fn print_value(value: &ValueRef, mode: PrintMode, output: &OutputRef) {
     match mode {
         PrintMode::Write { line_break } => {
-            print!("{}", value.borrow());
+            output.borrow_mut().print(&format!("{}", value.borrow()));
             if line_break {
-                println!();
+                output.borrow_mut().print_line("");
             }
         }
         PrintMode::Display { line_break } => {
             let value_str = format!("{}", value.borrow());
             let value_str = value_str.trim_matches('"');
-            print!("{}", value_str);
+            output.borrow_mut().print(value_str);
             if line_break {
-                println!();
+                output.borrow_mut().print_line("");
             }
         }
     }
