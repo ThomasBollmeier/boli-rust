@@ -25,6 +25,7 @@ pub enum ValueType {
     Lambda,
     BuiltInFunction,
     TailCall,
+    Spread,
 }
 
 pub trait Value: Display + Debug {
@@ -729,6 +730,36 @@ impl Display for TailCallValue {
 impl Debug for TailCallValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "<tail call>")
+    }
+}
+
+pub struct SpreadValue {
+    pub elements: Vec<ValueRef>,
+}
+
+impl Value for SpreadValue {
+    fn get_type(&self) -> ValueType {
+        ValueType::Spread
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
+impl Display for SpreadValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<spread>")
+    }
+}
+
+impl Debug for SpreadValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<spread>")
     }
 }
 

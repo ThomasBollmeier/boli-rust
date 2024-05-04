@@ -278,7 +278,7 @@ mod tests {
         )));
         core_dir.borrow_mut().add_file(&list_module);
 
-        let env = Environment::new();
+        let env = Environment::new_ref();
         Environment::set_module_search_dirs(&env, &vec![current_dir]);
 
         let loader = ModuleLoader::new(&env);
@@ -307,7 +307,7 @@ mod tests {
         let ext_module = Rc::new(RefCell::new(Extension::new("q&a", values)));
         ext_dir.borrow_mut().add_extension(&ext_module);
 
-        let env = Environment::new();
+        let env = Environment::new_ref();
         Environment::set_module_search_dirs(&env, &vec![search_dir]);
 
         let loader = ModuleLoader::new(&env);

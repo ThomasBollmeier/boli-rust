@@ -23,13 +23,15 @@ use self::environment::EnvironmentRef;
 pub struct Interpreter {
     pub stack: Vec<EvalResult>,
     pub env: EnvironmentRef,
+    call_nesting: u32,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
         Self {
             stack: Vec::new(),
-            env: Environment::new(),
+            env: Environment::new_ref(),
+            call_nesting: 0,
         }
     }
 
@@ -37,6 +39,7 @@ impl Interpreter {
         Self {
             stack: Vec::new(),
             env: env.clone(),
+            call_nesting: 0,
         }
     }
 
@@ -329,14 +332,26 @@ impl AstVisitor for Interpreter {
             }
         };
 
+        self.call_nesting += 1;
+
         let mut args = vec![];
         for arg in &call.arguments {
             let arg = self.eval_ast(arg);
             if arg.is_err() {
                 self.stack.push(arg);
+                self.call_nesting -= 1;
                 return;
             }
-            args.push(arg.unwrap());
+            let arg = arg.unwrap();
+            if arg.borrow().get_type() == ValueType::Spread {
+                let spread = &borrow_value(&arg);
+                let spread = downcast_value::<SpreadValue>(&spread).unwrap();
+                for element in &spread.elements {
+                    args.push(element.clone());
+                }
+                continue;
+            }
+            args.push(arg);
         }
 
         if call.is_tail_call {
@@ -344,6 +359,7 @@ impl AstVisitor for Interpreter {
                 arguments: args.clone(),
             });
             self.stack.push(Ok(tail_call));
+            self.call_nesting -= 1;
             return;
         }
 
@@ -361,18 +377,48 @@ impl AstVisitor for Interpreter {
                         }
                     }
                     self.stack.push(Ok(result));
+                    self.call_nesting -= 1;
                     return;
                 }
                 Err(_) => {
                     self.stack.push(result);
+                    self.call_nesting -= 1;
                     return;
                 }
             }
         }
     }
 
-    fn visit_spread_expr(&mut self, _spread_expr: &SpreadExpr) {
-        todo!()
+    fn visit_spread_expr(&mut self, spread_expr: &SpreadExpr) {
+        if self.call_nesting == 0 {
+            let err = self.new_eval_error("Spread expression outside of function call");
+            self.stack.push(err);
+            return;
+        }
+
+        let spread_value = self.eval_ast(&spread_expr.expr);
+        if spread_value.is_err() {
+            self.stack.push(spread_value);
+            return;
+        }
+
+        let spread_value = spread_value.unwrap();
+        let spread_value = &borrow_value(&spread_value);
+        let spread_value = downcast_value::<ListValue>(spread_value);
+
+        if spread_value.is_none() {
+            let err = self.new_eval_error("Spread expression must be a list");
+            self.stack.push(err);
+            return;
+        }
+
+        let spread_value = spread_value.unwrap();
+
+        let spread = SpreadValue {
+            elements: spread_value.elements.clone(),
+        };
+
+        self.stack.push(Ok(new_valueref(spread)));
     }
 }
 
@@ -704,5 +750,18 @@ mod tests {
         let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Symbol);
         assert_eq!(result.to_string(), "'symbol");
+    }
+
+    #[test]
+    fn test_eval_varargs() {
+        let mut interpreter = Interpreter::new();
+        let code = r#"
+            (def (my-add numbers...)
+                (+ ...numbers))
+            (my-add 1 2 3 4 5)
+        "#;
+        let result = interpreter.eval(code).unwrap();
+        assert_eq!(result.borrow().get_type(), ValueType::Int);
+        assert_eq!(result.borrow().to_string(), "15");
     }
 }

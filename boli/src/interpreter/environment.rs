@@ -27,11 +27,26 @@ pub struct EnvEntry {
 pub type EnvironmentRef = Rc<RefCell<Environment>>;
 
 impl Environment {
-    pub fn new() -> EnvironmentRef {
+    pub fn new_ref() -> EnvironmentRef {
         let ret = Rc::new(RefCell::new(Self {
             env: HashMap::new(),
             module_search_dirs: None,
             output: None,
+            parent: None,
+        }));
+        Self::init_builtins(&ret);
+
+        ret
+    }
+
+    pub fn ref_with_search_dirs_and_output(
+        search_dirs: &Vec<ModuleDirRef>,
+        output: &OutputRef,
+    ) -> EnvironmentRef {
+        let ret = Rc::new(RefCell::new(Self {
+            env: HashMap::new(),
+            module_search_dirs: Some(search_dirs.clone()),
+            output: Some(output.clone()),
             parent: None,
         }));
         Self::init_builtins(&ret);

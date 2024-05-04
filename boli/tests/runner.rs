@@ -25,9 +25,7 @@ fn test_load_extension_module_ok() {
     let search_dirs: Vec<ModuleDirRef> = vec![new_directory("tests", "code"), ext_dir];
     let output: OutputRef = Rc::new(RefCell::new(StringOutput::new()));
 
-    let env = interpreter::environment::Environment::new();
-    Environment::set_module_search_dirs(&env, &search_dirs);
-    Environment::set_output(&env, &output);
+    let env = Environment::ref_with_search_dirs_and_output(&search_dirs, &output);
 
     let module_loader = ModuleLoader::new(&env);
     let result = module_loader.load_module("q&a");
@@ -76,9 +74,7 @@ fn read_expected_output_file(file_name: &str) -> String {
 fn run_file(input_file_name: &str, expected_output_file: &str) {
     let code_dir: ModuleDirRef = new_directory("tests", "input");
     let output: OutputRef = Rc::new(RefCell::new(StringOutput::new()));
-    let env = Environment::new();
-    Environment::set_module_search_dirs(&env, &vec![code_dir.clone()]);
-    Environment::set_output(&env, &output);
+    let env = Environment::ref_with_search_dirs_and_output(&vec![code_dir.clone()], &output);
 
     let file = code_dir.borrow().get_file(input_file_name).unwrap();
     let code = file.borrow().read();
@@ -105,4 +101,9 @@ fn test_hello() {
 #[test]
 fn test_reverse() {
     run_file("reverse.boli", "reverse.out");
+}
+
+#[test]
+fn test_vararags() {
+    run_file("varargs.boli", "varargs.out");
 }

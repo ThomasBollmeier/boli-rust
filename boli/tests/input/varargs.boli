@@ -1,0 +1,4 @@
+(def (my-add numbers...)
+    (+ ...numbers))
+
+(writeln (my-add 1 2 3 4))
