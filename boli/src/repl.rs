@@ -46,7 +46,9 @@ pub fn run() -> Result<()> {
 
         input.push_str(&line);
 
-        if !is_balanced(&input) {
+        if has_open_parens(&input) {
+            input.push_str(" ");
+            continued = true;
             continue;
         }
 
@@ -100,7 +102,7 @@ fn print_help() {
     println!(":h - Show this help");
 }
 
-fn is_balanced(s: &str) -> bool {
+fn has_open_parens(s: &str) -> bool {
     let mut count = 0;
 
     for c in s.chars() {
@@ -111,5 +113,5 @@ fn is_balanced(s: &str) -> bool {
         }
     }
 
-    count == 0
+    count > 0
 }
