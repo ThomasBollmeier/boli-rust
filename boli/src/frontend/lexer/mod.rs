@@ -8,6 +8,8 @@ use tokens::{
     TokenType::{self, *},
 };
 
+use self::tokens::Op;
+
 pub struct Lexer {
     stream: BufferedStream<char>,
     line: usize,
@@ -253,6 +255,19 @@ impl Stream<Token> for Lexer {
                 return Some(Token::new(token_type, line, column));
             }
 
+            if ch == '+' || ch == '-' {
+                let next_char = self.stream.peek().unwrap_or(' ');
+                if next_char.is_digit(10) {
+                    return self.scan_number(ch, line, column);
+                } else if next_char.is_whitespace() {
+                    match ch {
+                        '+' => return Some(Token::new(Operator(Op::Plus), line, column)),
+                        '-' => return Some(Token::new(Operator(Op::Minus), line, column)),
+                        _ => unreachable!(),
+                    }
+                }
+            }
+
             if ch == '>' || ch == '<' {
                 return self.scan_logical_operator(ch, line, column);
             }
@@ -293,7 +308,7 @@ mod tests {
 
     #[test]
     fn test_scan_single_char_tokens() {
-        let code = "(){}[]+-*/^%=";
+        let code = "(){}[]+ - */^%=";
         let mut lexer = Lexer::new(code);
         assert_eq!(lexer.next().unwrap().token_type, LeftParen);
         assert_eq!(lexer.next().unwrap().token_type, RightParen);

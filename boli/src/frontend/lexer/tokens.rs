@@ -62,8 +62,6 @@ impl TokenType {
             '}' => Some(Self::RightBrace),
             '[' => Some(Self::LeftBracket),
             ']' => Some(Self::RightBracket),
-            '+' => Some(Self::Operator(Op::Plus)),
-            '-' => Some(Self::Operator(Op::Minus)),
             '*' => Some(Self::Operator(Op::Asterisk)),
             '/' => Some(Self::Operator(Op::Slash)),
             '^' => Some(Self::Operator(Op::Caret)),
