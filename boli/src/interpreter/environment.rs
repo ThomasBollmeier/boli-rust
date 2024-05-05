@@ -176,6 +176,8 @@ impl Environment {
         env.borrow_mut().set_builtin("<", &Rc::new(Lt::new()));
         env.borrow_mut().set_builtin("<=", &Rc::new(Le::new()));
 
+        env.borrow_mut().set_builtin("not", &Rc::new(Not::new()));
+
         env.borrow_mut().set_builtin("list", &Rc::new(List::new()));
         env.borrow_mut().set_builtin("head", &Rc::new(Head::new()));
         env.borrow_mut().set_builtin("tail", &Rc::new(Tail::new()));
@@ -219,6 +221,10 @@ impl Environment {
             .set_builtin("struct-set!", &Rc::new(StructSet::new()));
         env.borrow_mut()
             .set_builtin("create-hash-table", &Rc::new(CreateHashTable::new()));
+        env.borrow_mut()
+            .set_builtin("hash-get", &Rc::new(HashGet::new()));
+        env.borrow_mut()
+            .set_builtin("hash-set!", &Rc::new(HashSetBang::new()));
     }
 
     fn init_output_builtins(env: &EnvironmentRef) {

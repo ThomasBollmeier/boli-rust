@@ -147,3 +147,85 @@ impl Callable for CreateHashTable {
         Ok(new_valueref(StructValue::new_hash_table()))
     }
 }
+
+pub struct HashGet {}
+
+impl HashGet {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for HashGet {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 2 {
+            return error("hash-get expects 2 arguments");
+        }
+
+        let arg0 = &borrow_value(&args[0]);
+        let arg0 = downcast_value::<StructValue>(arg0);
+        if arg0.is_none() {
+            return error("hash-get expects a hash table as the first argument");
+        }
+        let hash_table = arg0.unwrap();
+        if hash_table.struct_type.is_some() {
+            return error("hash-get expects a hash table as the first argument");
+        }
+
+        let arg1 = &borrow_value(&args[1]);
+        let arg1 = downcast_value::<StrValue>(arg1);
+        if arg1.is_none() {
+            return error("hash-get expects a string as the second argument");
+        }
+        let key = arg1.unwrap();
+
+        let key = key.value.clone();
+        let value = hash_table.values.get(&key);
+
+        if value.is_none() {
+            return error(&format!("key '{}' not found in hash table", key));
+        }
+
+        Ok(value.unwrap().clone())
+    }
+}
+
+pub struct HashSetBang {}
+
+impl HashSetBang {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for HashSetBang {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 3 {
+            return error("hash-set! expects 3 arguments");
+        }
+
+        let mut arg0 = borrow_mut_value(&args[0]);
+        let arg0 = arg0.as_any_mut().downcast_mut::<StructValue>();
+        if arg0.is_none() {
+            return error("hash-set! expects a hash table as the first argument");
+        }
+        let hash_table = arg0.unwrap();
+        if hash_table.struct_type.is_some() {
+            return error("hash-set! expects a hash table as the first argument");
+        }
+
+        let arg1 = &borrow_value(&args[1]);
+        let arg1 = downcast_value::<StrValue>(arg1);
+        if arg1.is_none() {
+            return error("hash-set! expects a string as the second argument");
+        }
+        let key = arg1.unwrap();
+
+        let key = key.value.clone();
+        let new_value = args[2].clone();
+
+        hash_table.values.insert(key, new_value);
+
+        Ok(new_valueref(NilValue {}))
+    }
+}

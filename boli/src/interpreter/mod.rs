@@ -19,6 +19,7 @@ use environment::Environment;
 use values::*;
 
 use self::environment::EnvironmentRef;
+use self::misc_functions::is_truthy;
 
 pub struct Interpreter {
     pub stack: Vec<EvalResult>,
@@ -41,6 +42,10 @@ impl Interpreter {
             env: env.clone(),
             call_nesting: 0,
         }
+    }
+
+    pub fn set_value(&mut self, key: String, value: ValueRef) {
+        self.env.borrow_mut().set(key, value);
     }
 
     pub fn eval(&mut self, code: &str) -> EvalResult {
@@ -76,26 +81,6 @@ impl Interpreter {
         }
 
         result
-    }
-
-    fn is_truthy(&self, value: &ValueRef) -> bool {
-        let value = &borrow_value(value);
-        match value.get_type() {
-            ValueType::Nil => false,
-            ValueType::Bool => {
-                let bool_value = downcast_value::<BoolValue>(value).unwrap();
-                bool_value.value
-            }
-            ValueType::Int => {
-                let int_value = downcast_value::<IntValue>(value).unwrap();
-                int_value.value != 0
-            }
-            ValueType::List => {
-                let list_value = downcast_value::<ListValue>(value).unwrap();
-                !list_value.elements.is_empty()
-            }
-            _ => true,
-        }
     }
 }
 
@@ -291,7 +276,7 @@ impl AstVisitor for Interpreter {
         }
         let condition = condition.unwrap();
 
-        let result = if self.is_truthy(&condition) {
+        let result = if is_truthy(&condition) {
             self.eval_ast(&if_expr.consequent)
         } else {
             self.eval_ast(&if_expr.alternate)
@@ -763,5 +748,16 @@ mod tests {
         let result = interpreter.eval(code).unwrap();
         assert_eq!(result.borrow().get_type(), ValueType::Int);
         assert_eq!(result.borrow().to_string(), "15");
+    }
+
+    #[test]
+    fn test_eval_not() {
+        let mut interpreter = Interpreter::new();
+        let code = r#"
+            (not (= 1 2))
+        "#;
+        let result = interpreter.eval(code).unwrap();
+        assert_eq!(result.borrow().get_type(), ValueType::Bool);
+        assert_eq!(result.borrow().to_string(), "#true");
     }
 }

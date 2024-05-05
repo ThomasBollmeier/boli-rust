@@ -5,7 +5,9 @@ use crate::interpreter;
 pub fn run() -> Result<()> {
     let mut interpreter = interpreter::Interpreter::new();
     let mut input = String::new();
+    let mut line = String::new();
     let mut continued = false;
+    let mut result_count = 0;
 
     print_title();
 
@@ -17,36 +19,50 @@ pub fn run() -> Result<()> {
         }
         stdout().flush()?;
 
-        stdin().read_line(&mut input)?;
+        line.clear();
+        stdin().read_line(&mut line)?;
 
-        input = input.trim().to_string();
+        line = line.trim().to_string();
 
-        if input.is_empty() {
+        if line.is_empty() {
             continue;
         }
 
-        if input.starts_with(':') {
-            if handle_command(&input) {
+        if line.starts_with(':') {
+            if handle_command(&line) {
                 break;
             } else {
-                input.clear();
+                line.clear();
                 continue;
             }
         }
 
-        if input.ends_with('\\') {
-            input.pop();
-            input.push_str("\n");
+        if line.ends_with('\\') {
+            line.pop();
             continued = true;
-            continue;
         } else {
             continued = false;
+        }
+
+        input.push_str(&line);
+
+        if !is_balanced(&input) {
+            continue;
+        }
+
+        if continued {
+            continue;
         }
 
         let result = interpreter.eval(input.trim());
 
         match result {
-            Ok(value) => println!("res = {}", value.borrow()),
+            Ok(value) => {
+                let res = format!("${}", result_count);
+                result_count += 1;
+                interpreter.set_value(res.clone(), value.clone());
+                println!("{} = {}", res, value.borrow());
+            }
             Err(e) => eprintln!("{}", e),
         }
 
@@ -82,4 +98,18 @@ fn handle_command(cmd: &str) -> bool {
 fn print_help() {
     println!(":q - Quit the interpreter");
     println!(":h - Show this help");
+}
+
+fn is_balanced(s: &str) -> bool {
+    let mut count = 0;
+
+    for c in s.chars() {
+        match c {
+            '(' | '[' | '{' => count += 1,
+            ')' | ']' | '}' => count -= 1,
+            _ => (),
+        }
+    }
+
+    count == 0
 }

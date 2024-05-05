@@ -176,3 +176,43 @@ fn print_value(value: &ValueRef, mode: PrintMode, output: &OutputRef) {
         }
     }
 }
+
+pub struct Not {}
+
+impl Not {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for Not {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 1 {
+            return error("not function expects exactly one argument");
+        }
+
+        Ok(new_valueref(BoolValue {
+            value: !is_truthy(&args[0]),
+        }))
+    }
+}
+
+pub fn is_truthy(value: &ValueRef) -> bool {
+    let value = &borrow_value(value);
+    match value.get_type() {
+        ValueType::Nil => false,
+        ValueType::Bool => {
+            let bool_value = downcast_value::<BoolValue>(value).unwrap();
+            bool_value.value
+        }
+        ValueType::Int => {
+            let int_value = downcast_value::<IntValue>(value).unwrap();
+            int_value.value != 0
+        }
+        ValueType::List => {
+            let list_value = downcast_value::<ListValue>(value).unwrap();
+            !list_value.elements.is_empty()
+        }
+        _ => true,
+    }
+}
