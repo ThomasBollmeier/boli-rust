@@ -1,3 +1,4 @@
+use super::values::lazy_list::*;
 use super::values::*;
 
 pub struct List {}
@@ -16,6 +17,25 @@ impl Callable for List {
     }
 }
 
+pub struct Iterator {}
+
+impl Iterator {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for Iterator {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 2 {
+            return error("iterator function expects two arguments");
+        }
+
+        let (start, next_function) = (&args[0], &args[1]);
+        Ok(new_valueref(LazyListValue::new(start, next_function)?))
+    }
+}
+
 pub struct Head {}
 
 impl Head {
@@ -30,16 +50,24 @@ impl Callable for Head {
             return error("head function expects exactly one argument");
         }
 
-        let first_arg = args[0].borrow();
-        match first_arg.as_any().downcast_ref::<ListValue>() {
-            Some(list) => {
+        let first_arg = &borrow_value(&args[0]);
+
+        match first_arg.get_type() {
+            ValueType::List => {
+                let list = downcast_value::<ListValue>(&first_arg).unwrap();
                 if list.elements.is_empty() {
                     return error("head function expects a non-empty list");
                 }
-
                 Ok(list.elements[0].clone())
             }
-            None => error("head function expects a list"),
+            ValueType::LazyList => {
+                let mut list = downcast_value::<LazyListValue>(&first_arg).unwrap().clone();
+                let result = list.take(&new_valueref(IntValue { value: 1 }))?;
+                let result = borrow_value(&result);
+                let lst = downcast_value::<ListValue>(&result).unwrap();
+                Ok(lst.elements[0].clone())
+            }
+            _ => error("head function expects a list"),
         }
     }
 }
@@ -58,18 +86,24 @@ impl Callable for Tail {
             return error("tail function expects exactly one argument");
         }
 
-        let first_arg = args[0].borrow();
-        match first_arg.as_any().downcast_ref::<ListValue>() {
-            Some(list) => {
+        let first_arg = &borrow_value(&args[0]);
+
+        match first_arg.get_type() {
+            ValueType::List => {
+                let list = downcast_value::<ListValue>(&first_arg).unwrap();
                 if list.elements.is_empty() {
                     return error("tail function expects a non-empty list");
                 }
-
                 Ok(new_valueref(ListValue {
                     elements: list.elements[1..].to_vec(),
-                }) as ValueRef)
+                }))
             }
-            None => error("tail function expects a list"),
+            ValueType::LazyList => {
+                let list = downcast_value::<LazyListValue>(&first_arg).unwrap();
+                let new_list = list.drop(&new_valueref(IntValue { value: 1 }))?;
+                Ok(new_valueref(new_list))
+            }
+            _ => error("tail function expects a list"),
         }
     }
 }
@@ -170,6 +204,11 @@ impl Callable for Filter {
                     }
                 }
                 Ok(new_valueref(ListValue { elements }) as ValueRef)
+            }
+            ValueType::LazyList => {
+                let list = downcast_value::<LazyListValue>(arg1).unwrap();
+                let new_list = list.filter(&args[0])?;
+                Ok(new_valueref(new_list))
             }
             _ => return error("filter function expects a list as the second argument"),
         }

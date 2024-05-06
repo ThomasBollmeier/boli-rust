@@ -193,6 +193,9 @@ impl Environment {
             .set_builtin("list-set!", &Rc::new(ListSetBang::new()));
 
         env.borrow_mut()
+            .set_builtin("iterator", &Rc::new(Iterator::new()));
+
+        env.borrow_mut()
             .set_builtin("count", &Rc::new(Count::new()));
         env.borrow_mut()
             .set_builtin("empty?", &Rc::new(IsEmpty::new()));

@@ -10,6 +10,8 @@ use crate::frontend::lexer::tokens::Token;
 use super::environment::Environment;
 use super::{AstRef, Interpreter};
 
+pub mod lazy_list;
+
 #[derive(PartialEq, Debug)]
 pub enum ValueType {
     Nil,
@@ -20,6 +22,7 @@ pub enum ValueType {
     Symbol,
     Quote,
     List,
+    LazyList,
     StructType,
     Struct,
     Lambda,
