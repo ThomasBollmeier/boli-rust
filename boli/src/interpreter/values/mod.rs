@@ -11,6 +11,7 @@ use super::environment::Environment;
 use super::{AstRef, Interpreter};
 
 pub mod lazy_list;
+pub mod sequence;
 
 #[derive(PartialEq, Debug)]
 pub enum ValueType {
@@ -23,6 +24,7 @@ pub enum ValueType {
     Quote,
     List,
     LazyList,
+    Sequence,
     StructType,
     Struct,
     Lambda,
