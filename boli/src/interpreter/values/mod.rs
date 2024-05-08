@@ -10,7 +10,6 @@ use crate::frontend::lexer::tokens::Token;
 use super::environment::Environment;
 use super::{AstRef, Interpreter};
 
-pub mod lazy_list;
 pub mod sequence;
 
 #[derive(PartialEq, Debug)]
@@ -23,7 +22,6 @@ pub enum ValueType {
     Symbol,
     Quote,
     List,
-    LazyList,
     Sequence,
     StructType,
     Struct,

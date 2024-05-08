@@ -2,14 +2,15 @@ use crate::interpreter::misc_functions::is_truthy;
 
 use super::*;
 
-#[derive(Debug, Clone)]
-pub enum Sequence {
+#[derive(Debug)]
+pub enum SequenceValue {
     List {
         list: ValueRef,
         index: usize,
     },
     Iterator {
         start: ValueRef,
+        current: ValueRef,
         next_func: ValueRef,
     },
     Filtered {
@@ -20,9 +21,19 @@ pub enum Sequence {
         map_func: ValueRef,
         sequences: Vec<ValueRef>,
     },
+    Dropped {
+        n: ValueRef,
+        sequence: ValueRef,
+        initial: bool,
+    },
+    DroppedWhile {
+        predicate_func: ValueRef,
+        sequence: ValueRef,
+        initial: bool,
+    },
 }
 
-impl Sequence {
+impl SequenceValue {
     pub fn new_list(list: ValueRef) -> Result<Self, InterpreterError> {
         if list.borrow().get_type() != ValueType::List {
             return Err(InterpreterError::new(
@@ -45,6 +56,7 @@ impl Sequence {
 
         Ok(Self::Iterator {
             start: start.clone(),
+            current: start.clone(),
             next_func: next_func.clone(),
         })
     }
@@ -102,6 +114,52 @@ impl Sequence {
         })
     }
 
+    pub fn new_dropped(n: ValueRef, sequence: ValueRef) -> Result<Self, InterpreterError> {
+        if n.borrow().get_type() != ValueType::Int {
+            return Err(InterpreterError::new(
+                "Dropped sequence requires an integer.",
+            ));
+        }
+
+        if sequence.borrow().get_type() != ValueType::Sequence {
+            return Err(InterpreterError::new(
+                "Dropped sequence requires a sequence.",
+            ));
+        }
+
+        Ok(Self::Dropped {
+            n: n.clone(),
+            sequence: sequence.clone(),
+            initial: true,
+        })
+    }
+
+    pub fn new_dropped_while(
+        predicate_func: ValueRef,
+        sequence: ValueRef,
+    ) -> Result<Self, InterpreterError> {
+        if !matches!(
+            predicate_func.borrow().get_type(),
+            ValueType::BuiltInFunction | ValueType::Lambda
+        ) {
+            return Err(InterpreterError::new(
+                "DroppedWhile sequence requires a function as predicate.",
+            ));
+        }
+
+        if sequence.borrow().get_type() != ValueType::Sequence {
+            return Err(InterpreterError::new(
+                "DroppedWhile sequence requires a sequence.",
+            ));
+        }
+
+        Ok(Self::DroppedWhile {
+            predicate_func: predicate_func.clone(),
+            sequence: sequence.clone(),
+            initial: true,
+        })
+    }
+
     pub fn next(&mut self) -> Option<ValueRef> {
         match self {
             Self::List { list, index } => {
@@ -115,10 +173,14 @@ impl Sequence {
                     None
                 }
             }
-            Self::Iterator { next_func, start } => {
-                let result = match borrow_value(start).get_type() {
+            Self::Iterator {
+                start: _start,
+                current,
+                next_func,
+            } => {
+                let result = match borrow_value(current).get_type() {
                     ValueType::Nil => return None,
-                    _ => Some(start.clone()),
+                    _ => Some(current.clone()),
                 };
 
                 let next_func = &borrow_value(next_func);
@@ -130,8 +192,8 @@ impl Sequence {
                     _ => unreachable!(),
                 };
 
-                *start = callable
-                    .call(&vec![start.clone()])
+                *current = callable
+                    .call(&vec![current.clone()])
                     .unwrap_or(new_valueref(NilValue {}));
 
                 result
@@ -150,7 +212,7 @@ impl Sequence {
                 };
 
                 let mut seq = borrow_mut_value(sequence);
-                let seq = seq.as_any_mut().downcast_mut::<Sequence>().unwrap();
+                let seq = seq.as_any_mut().downcast_mut::<SequenceValue>().unwrap();
 
                 loop {
                     if let Some(value) = seq.next() {
@@ -184,7 +246,7 @@ impl Sequence {
                 for sequence in sequences {
                     if let Some(value) = borrow_mut_value(sequence)
                         .as_any_mut()
-                        .downcast_mut::<Sequence>()
+                        .downcast_mut::<SequenceValue>()
                         .unwrap()
                         .next()
                     {
@@ -196,11 +258,131 @@ impl Sequence {
 
                 func.call(&args).ok()
             }
+            Self::Dropped {
+                n,
+                sequence,
+                initial,
+            } => {
+                let mut sequence = borrow_mut_value(sequence);
+                let sequence = sequence
+                    .as_any_mut()
+                    .downcast_mut::<SequenceValue>()
+                    .unwrap();
+
+                if *initial {
+                    let n = borrow_value(n);
+                    let n = downcast_value::<IntValue>(&n).unwrap().value;
+
+                    for _ in 0..n {
+                        if sequence.next().is_none() {
+                            return None;
+                        }
+                    }
+                    *initial = false;
+                }
+
+                sequence.next()
+            }
+            Self::DroppedWhile {
+                predicate_func,
+                sequence,
+                initial,
+            } => {
+                let pred = &borrow_value(&predicate_func);
+                let pred: &dyn Callable = match pred.get_type() {
+                    ValueType::BuiltInFunction => {
+                        downcast_value::<BuiltInFunctionValue>(pred).unwrap()
+                    }
+                    ValueType::Lambda => downcast_value::<LambdaValue>(pred).unwrap(),
+                    _ => unreachable!(),
+                };
+
+                let mut seq = borrow_mut_value(sequence);
+                let seq = seq.as_any_mut().downcast_mut::<SequenceValue>().unwrap();
+
+                if *initial {
+                    loop {
+                        if let Some(value) = seq.next() {
+                            let result = pred.call(&vec![value.clone()]);
+                            if result.is_err() {
+                                return None;
+                            }
+                            let result = result.unwrap();
+                            if !is_truthy(&result) {
+                                *initial = false;
+                                return Some(value);
+                            }
+                        } else {
+                            return None;
+                        }
+                    }
+                }
+
+                seq.next()
+            }
+        }
+    }
+
+    fn clone_sequence(value: &ValueRef) -> ValueRef {
+        let value = borrow_value(&value);
+        let value = value.as_any().downcast_ref::<SequenceValue>().unwrap();
+        new_valueref(value.clone())
+    }
+}
+
+impl Clone for SequenceValue {
+    fn clone(&self) -> Self {
+        match self {
+            Self::List { list, index } => Self::List {
+                list: list.clone(),
+                index: index.clone(),
+            },
+            Self::Iterator {
+                start,
+                current,
+                next_func,
+            } => Self::Iterator {
+                start: start.clone(),
+                current: current.clone(),
+                next_func: next_func.clone(),
+            },
+            Self::Filtered {
+                predicate_func,
+                sequence,
+            } => Self::Filtered {
+                predicate_func: predicate_func.clone(),
+                sequence: Self::clone_sequence(sequence),
+            },
+            Self::Mapped {
+                map_func,
+                sequences,
+            } => Self::Mapped {
+                map_func: map_func.clone(),
+                sequences: sequences.iter().map(Self::clone_sequence).collect(),
+            },
+            Self::Dropped {
+                n,
+                sequence,
+                initial: _initial,
+            } => Self::Dropped {
+                n: n.clone(),
+                sequence: Self::clone_sequence(sequence),
+                initial: true,
+            },
+            Self::DroppedWhile {
+                predicate_func,
+                sequence,
+                initial: _initial,
+            } => Self::DroppedWhile {
+                predicate_func: predicate_func.clone(),
+                sequence: Self::clone_sequence(sequence),
+                initial: true,
+            },
         }
     }
 }
 
-impl Value for Sequence {
+impl Value for SequenceValue {
     fn get_type(&self) -> ValueType {
         ValueType::Sequence
     }
@@ -214,7 +396,7 @@ impl Value for Sequence {
     }
 }
 
-impl Display for Sequence {
+impl Display for SequenceValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "<sequence>")
     }
@@ -224,7 +406,7 @@ impl Display for Sequence {
 mod tests {
     use super::*;
 
-    fn take(n: usize, sequence: &Sequence) -> ListValue {
+    fn take(n: usize, sequence: &SequenceValue) -> ListValue {
         let mut seq = sequence.clone();
         let mut elements = Vec::new();
         for _ in 0..n {
@@ -247,7 +429,7 @@ mod tests {
             ],
         });
 
-        let mut sequence = Sequence::new_list(list).unwrap();
+        let mut sequence = SequenceValue::new_list(list).unwrap();
 
         assert_eq!(take(10, &mut sequence).to_string(), "(list 1 2 3)");
     }
@@ -259,7 +441,7 @@ mod tests {
         let next_func = interpreter.eval("(λ (n) (+ n 1))").unwrap();
         let start = new_valueref(IntValue { value: 0 });
 
-        let mut sequence = Sequence::new_iterator(next_func, start).unwrap();
+        let mut sequence = SequenceValue::new_iterator(next_func, start).unwrap();
 
         assert_eq!(
             take(10, &mut sequence).to_string(),
@@ -279,11 +461,11 @@ mod tests {
         let next_func = interpreter.eval("(λ (n) (+ n 1))").unwrap();
         let start = new_valueref(IntValue { value: 0 });
 
-        let numbers = Sequence::new_iterator(next_func, start).unwrap();
+        let numbers = SequenceValue::new_iterator(next_func, start).unwrap();
 
         let predicate_func = interpreter.eval("(λ (n) (= (% n 2) 0))").unwrap();
         let even_numbers =
-            Sequence::new_filtered(predicate_func, new_valueref(numbers.clone())).unwrap();
+            SequenceValue::new_filtered(predicate_func, new_valueref(numbers.clone())).unwrap();
 
         assert_eq!(take(10, &numbers).to_string(), "(list 0 1 2 3 4 5 6 7 8 9)");
         assert_eq!(
@@ -299,10 +481,10 @@ mod tests {
         let next_func = interpreter.eval("(λ (n) (+ n 1))").unwrap();
         let start = new_valueref(IntValue { value: 0 });
 
-        let numbers = Sequence::new_iterator(next_func, start).unwrap();
+        let numbers = SequenceValue::new_iterator(next_func, start).unwrap();
 
         let map_func = interpreter.eval("(λ (i j) (list i (* j j)))").unwrap();
-        let squared_numbers = Sequence::new_mapped(
+        let squared_numbers = SequenceValue::new_mapped(
             map_func,
             vec![new_valueref(numbers.clone()), new_valueref(numbers.clone())],
         )
@@ -312,6 +494,47 @@ mod tests {
         assert_eq!(
             take(4, &squared_numbers).to_string(),
             "(list (list 0 0) (list 1 1) (list 2 4) (list 3 9))"
+        );
+    }
+
+    #[test]
+    fn test_dropped() {
+        let mut interpreter = Interpreter::new();
+
+        let next_func = interpreter.eval("(λ (n) (+ n 1))").unwrap();
+        let start = new_valueref(IntValue { value: 0 });
+
+        let numbers = SequenceValue::new_iterator(next_func, start).unwrap();
+
+        let dropped = SequenceValue::new_dropped(
+            new_valueref(IntValue { value: 5 }),
+            new_valueref(numbers.clone()),
+        )
+        .unwrap();
+
+        assert_eq!(
+            take(10, &dropped).to_string(),
+            "(list 5 6 7 8 9 10 11 12 13 14)"
+        );
+    }
+
+    #[test]
+    fn test_dropped_while() {
+        let mut interpreter = Interpreter::new();
+
+        let next_func = interpreter.eval("(λ (n) (+ n 1))").unwrap();
+        let start = new_valueref(IntValue { value: 0 });
+
+        let numbers = SequenceValue::new_iterator(next_func, start).unwrap();
+
+        let predicate_func = interpreter.eval("(λ (n) (< n 5))").unwrap();
+        let dropped =
+            SequenceValue::new_dropped_while(predicate_func, new_valueref(numbers.clone()))
+                .unwrap();
+
+        assert_eq!(
+            take(10, &dropped).to_string(),
+            "(list 5 6 7 8 9 10 11 12 13 14)"
         );
     }
 }

@@ -1,4 +1,6 @@
-use super::values::lazy_list::*;
+use crate::interpreter::misc_functions::is_truthy;
+
+use super::values::sequence::*;
 use super::values::*;
 
 pub struct List {}
@@ -17,6 +19,28 @@ impl Callable for List {
     }
 }
 
+pub struct Sequence {}
+
+impl Sequence {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for Sequence {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 1 {
+            return error("sequence function expects one argument");
+        }
+
+        if args[0].borrow().get_type() != ValueType::List {
+            return error("sequence function expects a list as the argument");
+        }
+
+        Ok(new_valueref(SequenceValue::new_list(args[0].clone())?))
+    }
+}
+
 pub struct Iterator {}
 
 impl Iterator {
@@ -32,7 +56,9 @@ impl Callable for Iterator {
         }
 
         let (start, next_function) = (&args[0], &args[1]);
-        Ok(new_valueref(LazyListValue::new(start, next_function)?))
+        let iterator = SequenceValue::new_iterator(next_function.clone(), start.clone())?;
+
+        Ok(new_valueref(iterator))
     }
 }
 
@@ -50,22 +76,25 @@ impl Callable for Head {
             return error("head function expects exactly one argument");
         }
 
-        let first_arg = &borrow_value(&args[0]);
+        let value_type = args[0].borrow().get_type();
 
-        match first_arg.get_type() {
+        match value_type {
             ValueType::List => {
-                let list = downcast_value::<ListValue>(&first_arg).unwrap();
+                let list = &borrow_value(&args[0]);
+                let list = downcast_value::<ListValue>(list).unwrap();
                 if list.elements.is_empty() {
                     return error("head function expects a non-empty list");
                 }
                 Ok(list.elements[0].clone())
             }
-            ValueType::LazyList => {
-                let mut list = downcast_value::<LazyListValue>(&first_arg).unwrap().clone();
-                let result = list.take(&new_valueref(IntValue { value: 1 }))?;
-                let result = borrow_value(&result);
-                let lst = downcast_value::<ListValue>(&result).unwrap();
-                Ok(lst.elements[0].clone())
+            ValueType::Sequence => {
+                let sequence = args[0].clone();
+                let sequence = borrow_value(&sequence);
+                let mut sequence = downcast_value::<SequenceValue>(&sequence).unwrap().clone();
+                match sequence.next() {
+                    Some(head) => Ok(head),
+                    None => error("head function expects a non-empty sequence"),
+                }
             }
             _ => error("head function expects a list"),
         }
@@ -86,11 +115,12 @@ impl Callable for Tail {
             return error("tail function expects exactly one argument");
         }
 
-        let first_arg = &borrow_value(&args[0]);
+        let value_type = args[0].borrow().get_type();
 
-        match first_arg.get_type() {
+        match value_type {
             ValueType::List => {
-                let list = downcast_value::<ListValue>(&first_arg).unwrap();
+                let list = &borrow_value(&args[0]);
+                let list = downcast_value::<ListValue>(list).unwrap();
                 if list.elements.is_empty() {
                     return error("tail function expects a non-empty list");
                 }
@@ -98,10 +128,12 @@ impl Callable for Tail {
                     elements: list.elements[1..].to_vec(),
                 }))
             }
-            ValueType::LazyList => {
-                let list = downcast_value::<LazyListValue>(&first_arg).unwrap();
-                let new_list = list.drop(&new_valueref(IntValue { value: 1 }))?;
-                Ok(new_valueref(new_list))
+            ValueType::Sequence => {
+                let sequence = args[0].clone();
+                let sequence = borrow_value(&sequence);
+                let mut sequence = downcast_value::<SequenceValue>(&sequence).unwrap().clone();
+                sequence.next();
+                Ok(new_valueref(sequence))
             }
             _ => error("tail function expects a list"),
         }
@@ -173,18 +205,23 @@ impl Callable for Filter {
             return error("filter function expects exactly two arguments");
         }
 
-        let arg0 = &borrow_value(&args[0]);
-        let predicate: &dyn Callable = match arg0.get_type() {
-            ValueType::BuiltInFunction => downcast_value::<BuiltInFunctionValue>(arg0).unwrap(),
-            ValueType::Lambda => downcast_value::<LambdaValue>(arg0).unwrap(),
-            _ => {
-                return error("filter function expects a predicate function as the first argument")
-            }
-        };
+        let value_type = args[1].borrow().get_type();
 
-        let arg1 = &borrow_value(&args[1]);
-        match arg1.get_type() {
+        match value_type {
             ValueType::List => {
+                let arg0 = &borrow_value(&args[0]);
+                let predicate: &dyn Callable =
+                    match arg0.get_type() {
+                        ValueType::BuiltInFunction => {
+                            downcast_value::<BuiltInFunctionValue>(arg0).unwrap()
+                        }
+                        ValueType::Lambda => downcast_value::<LambdaValue>(arg0).unwrap(),
+                        _ => return error(
+                            "filter function expects a predicate function as the first argument",
+                        ),
+                    };
+
+                let arg1 = &borrow_value(&args[1]);
                 let list = downcast_value::<ListValue>(arg1).unwrap();
                 let mut elements = Vec::new();
                 for elem in &list.elements {
@@ -205,10 +242,9 @@ impl Callable for Filter {
                 }
                 Ok(new_valueref(ListValue { elements }) as ValueRef)
             }
-            ValueType::LazyList => {
-                let list = downcast_value::<LazyListValue>(arg1).unwrap();
-                let new_list = list.filter(&args[0])?;
-                Ok(new_valueref(new_list))
+            ValueType::Sequence => {
+                let filtered = SequenceValue::new_filtered(args[0].clone(), args[1].clone())?;
+                Ok(new_valueref(filtered))
             }
             _ => return error("filter function expects a list as the second argument"),
         }
@@ -229,49 +265,284 @@ impl Callable for Map {
             return error("map function expects at least two arguments");
         }
 
-        let arg0 = &borrow_value(&args[0]);
-        let function: &dyn Callable = match arg0.get_type() {
-            ValueType::BuiltInFunction => downcast_value::<BuiltInFunctionValue>(arg0).unwrap(),
-            ValueType::Lambda => downcast_value::<LambdaValue>(arg0).unwrap(),
-            _ => return error("map function expects a function as the first argument"),
-        };
+        let lists = &args[1..];
+        let all_eager = lists.iter().all(|arg| {
+            let arg = borrow_value(&arg);
+            arg.get_type() == ValueType::List
+        });
 
-        let mut min_size_opt: Option<usize> = None;
+        if all_eager {
+            let arg0 = &borrow_value(&args[0]);
+            let function: &dyn Callable = match arg0.get_type() {
+                ValueType::BuiltInFunction => downcast_value::<BuiltInFunctionValue>(arg0).unwrap(),
+                ValueType::Lambda => downcast_value::<LambdaValue>(arg0).unwrap(),
+                _ => return error("map function expects a function as the first argument"),
+            };
 
-        for arg in args.iter().skip(1) {
-            let arg = &borrow_value(&arg);
-            match arg.get_type() {
-                ValueType::List => {
-                    let list = downcast_value::<ListValue>(arg).unwrap();
-                    if let Some(min_size) = min_size_opt {
-                        if list.elements.len() < min_size {
-                            min_size_opt = Some(list.elements.len());
-                        }
-                    } else {
-                        min_size_opt = Some(list.elements.len());
-                    }
-                }
-                _ => return error("map function expects a list as arguments"),
-            }
-        }
+            let mut min_size_opt: Option<usize> = None;
 
-        let min_size = min_size_opt.unwrap_or(0);
-
-        let mut elements = Vec::new();
-
-        for i in 0..min_size {
-            let mut call_args = Vec::new();
             for arg in args.iter().skip(1) {
                 let arg = &borrow_value(&arg);
-                let list = downcast_value::<ListValue>(arg).unwrap();
-                call_args.push(list.elements[i].clone());
+                match arg.get_type() {
+                    ValueType::List => {
+                        let list = downcast_value::<ListValue>(arg).unwrap();
+                        if let Some(min_size) = min_size_opt {
+                            if list.elements.len() < min_size {
+                                min_size_opt = Some(list.elements.len());
+                            }
+                        } else {
+                            min_size_opt = Some(list.elements.len());
+                        }
+                    }
+                    _ => return error("map function expects a list as arguments"),
+                }
             }
 
-            let result = function.call(&call_args)?;
-            elements.push(result);
+            let min_size = min_size_opt.unwrap_or(0);
+
+            let mut elements = Vec::new();
+
+            for i in 0..min_size {
+                let mut call_args = Vec::new();
+                for arg in args.iter().skip(1) {
+                    let arg = &borrow_value(&arg);
+                    let list = downcast_value::<ListValue>(arg).unwrap();
+                    call_args.push(list.elements[i].clone());
+                }
+
+                let result = function.call(&call_args)?;
+                elements.push(result);
+            }
+
+            Ok(new_valueref(ListValue { elements }) as ValueRef)
+        } else {
+            let map_function = args[0].clone();
+            let mut sequences = vec![];
+            for lst in lists {
+                let value_type = lst.borrow().get_type();
+                match value_type {
+                    ValueType::List => {
+                        sequences.push(new_valueref(SequenceValue::new_list(lst.clone())?));
+                    }
+                    ValueType::Sequence => {
+                        sequences.push(lst.clone());
+                    }
+                    _ => return error("map function expects a list or a sequence as arguments"),
+                }
+            }
+            let mapped = SequenceValue::new_mapped(map_function, sequences)?;
+
+            Ok(new_valueref(mapped))
+        }
+    }
+}
+
+pub struct Drop {}
+
+impl Drop {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for Drop {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 2 {
+            return error("drop function expects exactly two arguments");
         }
 
-        Ok(new_valueref(ListValue { elements }) as ValueRef)
+        let first_type = args[0].borrow().get_type();
+
+        if first_type != ValueType::Int {
+            return error("drop function expects an integer as the first argument");
+        }
+
+        let second_type = args[1].borrow().get_type();
+
+        match second_type {
+            ValueType::List => {
+                let arg0 = &borrow_value(&args[0]);
+                let n = arg0.as_any().downcast_ref::<IntValue>().unwrap().value;
+
+                let arg1 = &borrow_value(&args[1]);
+                let list = downcast_value::<ListValue>(arg1).unwrap();
+                let elements = list.elements.iter().skip(n as usize).cloned().collect();
+
+                Ok(new_valueref(ListValue { elements }))
+            }
+            ValueType::Sequence => {
+                let dropped = SequenceValue::new_dropped(args[0].clone(), args[1].clone())?;
+                Ok(new_valueref(dropped))
+            }
+            _ => return error("drop function expects a list as the second argument"),
+        }
+    }
+}
+
+pub struct DropWhile {}
+
+impl DropWhile {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for DropWhile {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 2 {
+            return error("drop-while function expects exactly two arguments");
+        }
+
+        if !matches!(
+            args[0].borrow().get_type(),
+            ValueType::BuiltInFunction | ValueType::Lambda
+        ) {
+            return error("drop-while function expects a function as the first argument");
+        }
+
+        let arg1_type = args[1].borrow().get_type();
+
+        match arg1_type {
+            ValueType::List => {
+                let arg0 = &borrow_value(&args[0]);
+                let predicate: &dyn Callable = match arg0.get_type() {
+                    ValueType::BuiltInFunction => {
+                        downcast_value::<BuiltInFunctionValue>(arg0).unwrap()
+                    }
+                    ValueType::Lambda => downcast_value::<LambdaValue>(arg0).unwrap(),
+                    _ => unreachable!(),
+                };
+
+                let arg1 = &borrow_value(&args[1]);
+                let list = downcast_value::<ListValue>(arg1).unwrap();
+                let mut elements = Vec::new();
+                let mut drop = true;
+                for elem in &list.elements {
+                    if drop {
+                        let result = predicate.call(&vec![elem.clone()])?;
+                        if !is_truthy(&result) {
+                            drop = false;
+                            elements.push(elem.clone());
+                        }
+                    } else {
+                        elements.push(elem.clone());
+                    }
+                }
+                Ok(new_valueref(ListValue { elements }))
+            }
+            ValueType::Sequence => {
+                let dropped = SequenceValue::new_dropped_while(args[0].clone(), args[1].clone())?;
+                Ok(new_valueref(dropped))
+            }
+            _ => return error("drop-while function expects a list as the second argument"),
+        }
+    }
+}
+
+pub struct Take {}
+
+impl Take {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for Take {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 2 {
+            return error("take function expects exactly two arguments");
+        }
+
+        let first_type = args[0].borrow().get_type();
+
+        if first_type != ValueType::Int {
+            return error("take function expects an integer as the first argument");
+        }
+
+        let arg0 = &borrow_value(&args[0]);
+        let n = arg0.as_any().downcast_ref::<IntValue>().unwrap().value;
+
+        let second_type = args[1].borrow().get_type();
+
+        match second_type {
+            ValueType::List => {
+                let arg1 = &borrow_value(&args[1]);
+                let list = downcast_value::<ListValue>(arg1).unwrap();
+                let elements = list.elements.iter().take(n as usize).cloned().collect();
+
+                Ok(new_valueref(ListValue { elements }))
+            }
+            ValueType::Sequence => {
+                let arg1 = &borrow_value(&args[1]);
+                let mut seq = downcast_value::<SequenceValue>(arg1).unwrap().clone();
+                let mut elements = vec![];
+                for _ in 0..n {
+                    if let Some(elem) = seq.next() {
+                        elements.push(elem);
+                    }
+                }
+
+                Ok(new_valueref(ListValue { elements }))
+            }
+            _ => return error("take function expects a list as the second argument"),
+        }
+    }
+}
+
+pub struct TakeWhile {}
+
+impl TakeWhile {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for TakeWhile {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 2 {
+            return error("take-while function expects exactly two arguments");
+        }
+
+        let arg0 = &borrow_value(&args[0]);
+        let predicate: &dyn Callable = match arg0.get_type() {
+            ValueType::BuiltInFunction => downcast_value::<BuiltInFunctionValue>(arg0).unwrap(),
+            ValueType::Lambda => downcast_value::<LambdaValue>(arg0).unwrap(),
+            _ => return error("take-while function expects a function as the first argument"),
+        };
+
+        let arg1_type = &borrow_value(&args[1]).get_type();
+
+        match arg1_type {
+            ValueType::List => {
+                let arg1 = &borrow_value(&args[1]);
+                let list = downcast_value::<ListValue>(arg1).unwrap();
+                let mut elements = Vec::new();
+                for elem in &list.elements {
+                    let result = predicate.call(&vec![elem.clone()])?;
+                    if is_truthy(&result) {
+                        elements.push(elem.clone());
+                    } else {
+                        break;
+                    }
+                }
+                Ok(new_valueref(ListValue { elements }))
+            }
+            ValueType::Sequence => {
+                let arg1 = &borrow_value(&args[1]);
+                let mut seq = downcast_value::<SequenceValue>(arg1).unwrap().clone();
+                let mut elements = vec![];
+                while let Some(elem) = seq.next() {
+                    let result = predicate.call(&vec![elem.clone()])?;
+                    if is_truthy(&result) {
+                        elements.push(elem);
+                    } else {
+                        break;
+                    }
+                }
+                Ok(new_valueref(ListValue { elements }))
+            }
+            _ => return error("take-while function expects a list as the second argument"),
+        }
     }
 }
 
@@ -337,5 +608,124 @@ impl Callable for ListSetBang {
         Ok(new_valueref(ListValue {
             elements: list.elements.clone(),
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::interpreter;
+
+    #[test]
+    fn test_head_seq() {
+        let code = r#"
+        (head (iterator 0 (lambda (x) (+ x 1))))
+        "#;
+
+        let mut interpreter = interpreter::Interpreter::new();
+        let result = interpreter.eval(code).unwrap();
+
+        assert_eq!(result.borrow().to_string(), "0");
+    }
+
+    #[test]
+    fn test_tail_seq() {
+        let code = r#"
+        (head (tail (iterator 0 (lambda (x) (+ x 1)))))
+        "#;
+
+        let mut interpreter = interpreter::Interpreter::new();
+        let result = interpreter.eval(code).unwrap();
+
+        assert_eq!(result.borrow().to_string(), "1");
+    }
+
+    #[test]
+    fn test_filter_seq() {
+        let code = r#"
+        (def odds (filter (lambda (x) (= (% x 2) 1)) 
+                          (iterator 0 (lambda (x) (+ x 1)))))
+        (head odds)
+        "#;
+
+        let mut interpreter = interpreter::Interpreter::new();
+        let result = interpreter.eval(code).unwrap();
+
+        assert_eq!(result.borrow().to_string(), "1");
+    }
+
+    #[test]
+    fn test_map_seq() {
+        let code = r#"
+        (def squares (map (lambda (x) (* x x)) 
+                          (iterator 2 (lambda (x) (+ x 1)))))
+        (head squares)
+        "#;
+
+        let mut interpreter = interpreter::Interpreter::new();
+        let result = interpreter.eval(code).unwrap();
+
+        assert_eq!(result.borrow().to_string(), "4");
+    }
+
+    #[test]
+    fn test_drop_seq() {
+        let code = r#"
+        (def squares (map (lambda (x) (* x x)) 
+                          (iterator 0 (lambda (x) (+ x 1)))))
+        (head (drop 2 squares))
+        "#;
+
+        let mut interpreter = interpreter::Interpreter::new();
+        let result = interpreter.eval(code).unwrap();
+
+        assert_eq!(result.borrow().to_string(), "4");
+    }
+
+    #[test]
+    fn test_drop_while_seq() {
+        let code = r#"
+        (def squares (map (lambda (x) (* x x)) 
+                          (iterator 0 (lambda (x) (+ x 1)))))
+        (head (drop-while (λ (n) (< n 50)) squares))
+        "#;
+
+        let mut interpreter = interpreter::Interpreter::new();
+        let result = interpreter.eval(code).unwrap();
+
+        assert_eq!(result.borrow().to_string(), "64");
+    }
+
+    #[test]
+    fn test_take_seq() {
+        let code = r#"
+        (def naturals (iterator 0 (lambda (x) (+ x 1))))
+        (take 3 (drop 1 naturals))
+        (take 3 naturals)
+        "#;
+
+        let mut interpreter = interpreter::Interpreter::new();
+        let result = interpreter.eval(code).unwrap();
+
+        assert_eq!(result.borrow().to_string(), "(list 0 1 2)");
+    }
+
+    #[test]
+    fn test_take_while_seq() {
+        let code = r#"
+        (def (next-pair p)
+            (let [(a (head p))
+                  (b (head (tail p)))]
+                (list b (+ a b))))
+        (def fib (map head (iterator (list 0 1) next-pair)))
+        (take-while (λ (n) (< n 100)) fib)
+        "#;
+
+        let mut interpreter = interpreter::Interpreter::new();
+        let result = interpreter.eval(code).unwrap();
+
+        assert_eq!(
+            result.borrow().to_string(),
+            "(list 0 1 1 2 3 5 8 13 21 34 55 89)"
+        );
     }
 }

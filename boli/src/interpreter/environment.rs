@@ -179,6 +179,8 @@ impl Environment {
         env.borrow_mut().set_builtin("not", &Rc::new(Not::new()));
 
         env.borrow_mut().set_builtin("list", &Rc::new(List::new()));
+        env.borrow_mut()
+            .set_builtin("sequence", &Rc::new(Sequence::new()));
         env.borrow_mut().set_builtin("head", &Rc::new(Head::new()));
         env.borrow_mut().set_builtin("tail", &Rc::new(Tail::new()));
         env.borrow_mut().set_builtin("cons", &Rc::new(Cons::new()));
@@ -187,6 +189,12 @@ impl Environment {
         env.borrow_mut()
             .set_builtin("filter", &Rc::new(Filter::new()));
         env.borrow_mut().set_builtin("map", &Rc::new(Map::new()));
+        env.borrow_mut().set_builtin("drop", &Rc::new(Drop::new()));
+        env.borrow_mut()
+            .set_builtin("drop-while", &Rc::new(DropWhile::new()));
+        env.borrow_mut().set_builtin("take", &Rc::new(Take::new()));
+        env.borrow_mut()
+            .set_builtin("take-while", &Rc::new(TakeWhile::new()));
         env.borrow_mut()
             .set_builtin("list-ref", &Rc::new(ListRef::new()));
         env.borrow_mut()
