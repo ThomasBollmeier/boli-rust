@@ -16,6 +16,10 @@ pub enum Sequence {
         predicate_func: ValueRef,
         sequence: ValueRef,
     },
+    Mapped {
+        map_func: ValueRef,
+        sequences: Vec<ValueRef>,
+    },
 }
 
 impl Sequence {
@@ -67,6 +71,34 @@ impl Sequence {
         Ok(Self::Filtered {
             predicate_func: predicate_func.clone(),
             sequence: sequence.clone(),
+        })
+    }
+
+    pub fn new_mapped(
+        map_func: ValueRef,
+        sequences: Vec<ValueRef>,
+    ) -> Result<Self, InterpreterError> {
+        if !matches!(
+            map_func.borrow().get_type(),
+            ValueType::BuiltInFunction | ValueType::Lambda
+        ) {
+            return Err(InterpreterError::new(
+                "Mapped sequence requires a function as mapper.",
+            ));
+        }
+
+        if !sequences
+            .iter()
+            .all(|sequence| matches!(sequence.borrow().get_type(), ValueType::Sequence))
+        {
+            return Err(InterpreterError::new(
+                "Mapped sequence requires a sequence.",
+            ));
+        }
+
+        Ok(Self::Mapped {
+            map_func: map_func.clone(),
+            sequences: sequences.clone(),
         })
     }
 
@@ -134,6 +166,35 @@ impl Sequence {
                         return None;
                     }
                 }
+            }
+            Self::Mapped {
+                map_func,
+                sequences,
+            } => {
+                let func = &borrow_value(&map_func);
+                let func: &dyn Callable = match func.get_type() {
+                    ValueType::BuiltInFunction => {
+                        downcast_value::<BuiltInFunctionValue>(func).unwrap()
+                    }
+                    ValueType::Lambda => downcast_value::<LambdaValue>(func).unwrap(),
+                    _ => unreachable!(),
+                };
+
+                let mut args = Vec::new();
+                for sequence in sequences {
+                    if let Some(value) = borrow_mut_value(sequence)
+                        .as_any_mut()
+                        .downcast_mut::<Sequence>()
+                        .unwrap()
+                        .next()
+                    {
+                        args.push(value);
+                    } else {
+                        return None;
+                    }
+                }
+
+                func.call(&args).ok()
             }
         }
     }
@@ -228,6 +289,29 @@ mod tests {
         assert_eq!(
             take(10, &even_numbers).to_string(),
             "(list 0 2 4 6 8 10 12 14 16 18)"
+        );
+    }
+
+    #[test]
+    fn test_mapped() {
+        let mut interpreter = Interpreter::new();
+
+        let next_func = interpreter.eval("(λ (n) (+ n 1))").unwrap();
+        let start = new_valueref(IntValue { value: 0 });
+
+        let numbers = Sequence::new_iterator(next_func, start).unwrap();
+
+        let map_func = interpreter.eval("(λ (i j) (list i (* j j)))").unwrap();
+        let squared_numbers = Sequence::new_mapped(
+            map_func,
+            vec![new_valueref(numbers.clone()), new_valueref(numbers.clone())],
+        )
+        .unwrap();
+
+        assert_eq!(take(10, &numbers).to_string(), "(list 0 1 2 3 4 5 6 7 8 9)");
+        assert_eq!(
+            take(4, &squared_numbers).to_string(),
+            "(list (list 0 0) (list 1 1) (list 2 4) (list 3 9))"
         );
     }
 }
