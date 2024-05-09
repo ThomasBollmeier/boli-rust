@@ -1,15 +1,37 @@
-use std::io::{stdin, stdout, Result, Write};
+use std::{
+    env,
+    io::{stdin, stdout, Error, ErrorKind, Result, Write},
+};
 
-use crate::interpreter;
+use crate::interpreter::{
+    self, environment::Environment, module_mgmt::module_loader::ModuleLoader,
+};
 
-pub fn run() -> Result<()> {
-    let mut interpreter = interpreter::Interpreter::new();
+pub fn run(module_file: &str) -> Result<()> {
+    let env = Environment::new_ref();
+    let mut interpreter = interpreter::Interpreter::with_environment(&env);
     let mut input = String::new();
     let mut line = String::new();
     let mut continued = false;
     let mut result_count = 0;
 
     print_title();
+
+    if module_file != "-" {
+        let module_name = if module_file.ends_with(".boli") {
+            module_file[..module_file.len() - 5].to_string()
+        } else {
+            module_file.to_string()
+        };
+        let loader = ModuleLoader::new(&env);
+        let exported_values = loader.load_module(&module_name).map_err(|err| {
+            Error::new(
+                ErrorKind::Other,
+                format!("Error loading module: {}", err.message),
+            )
+        })?;
+        env.borrow_mut().import_values(exported_values);
+    }
 
     loop {
         if !continued {
