@@ -15,6 +15,7 @@ use std::rc::Rc;
 pub struct Environment {
     pub env: HashMap<String, EnvEntry>,
     module_search_dirs: Option<Vec<ModuleDirRef>>,
+    input: Option<InputRef>,
     output: Option<OutputRef>,
     parent: Option<EnvironmentRef>,
 }
@@ -31,6 +32,7 @@ impl Environment {
         let ret = Rc::new(RefCell::new(Self {
             env: HashMap::new(),
             module_search_dirs: None,
+            input: None,
             output: None,
             parent: None,
         }));
@@ -46,6 +48,7 @@ impl Environment {
         let ret = Rc::new(RefCell::new(Self {
             env: HashMap::new(),
             module_search_dirs: Some(search_dirs.clone()),
+            input: None,
             output: Some(output.clone()),
             parent: None,
         }));
@@ -58,6 +61,7 @@ impl Environment {
         Self {
             env: HashMap::new(),
             module_search_dirs: None,
+            input: None,
             output: None,
             parent: Some(parent.clone()),
         }
@@ -76,6 +80,19 @@ impl Environment {
                     return parent.borrow().get_module_search_dirs();
                 } else {
                     vec![new_directory(".", "")]
+                }
+            }
+        }
+    }
+
+    pub fn get_input(&self) -> InputRef {
+        match &self.input {
+            Some(input) => input.clone(),
+            None => {
+                if let Some(parent) = &self.parent {
+                    return parent.borrow().get_input();
+                } else {
+                    Rc::new(RefCell::new(StdInput::new()))
                 }
             }
         }
@@ -218,9 +235,17 @@ impl Environment {
             .set_builtin("str-upper", &Rc::new(StrUpper::new()));
         env.borrow_mut()
             .set_builtin("str-lower", &Rc::new(StrLower::new()));
+        env.borrow_mut()
+            .set_builtin("str->int", &Rc::new(StrToInt::new()));
+        env.borrow_mut()
+            .set_builtin("str->real", &Rc::new(StrToReal::new()));
 
         env.borrow_mut()
             .set_builtin("equal?", &Rc::new(IsEqual::new()));
+
+        let input = env.borrow().get_input().clone();
+        env.borrow_mut()
+            .set_builtin("read-line", &Rc::new(ReadLine::new(&input)));
 
         Self::init_output_builtins(env);
 

@@ -48,6 +48,8 @@ struct Options {
 
     #[arg(
         long = "module-dirs",
+        required = false,
+        default_value = "",
         help = "colon separated list of directories to search for BOLI modules"
     )]
     module_dirs: String,

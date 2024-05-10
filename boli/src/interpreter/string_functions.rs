@@ -1,3 +1,5 @@
+use core::str;
+
 use super::values::*;
 
 pub struct StrSub {}
@@ -161,5 +163,64 @@ impl Callable for StrLower {
         Ok(new_valueref(StrValue {
             value: string.value.to_lowercase(),
         }))
+    }
+}
+
+pub struct StrToInt {}
+
+impl StrToInt {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for StrToInt {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 1 {
+            return error("str-to-int function expects exactly one argument");
+        }
+
+        let arg0 = borrow_value(&args[0]);
+        let string = match arg0.get_type() {
+            ValueType::Str => downcast_value::<StrValue>(&arg0).unwrap(),
+            _ => return error("str-to-int function expects a string as the first argument"),
+        };
+
+        let string_val = str::replace(&string.value, ".", "");
+
+        match string_val.parse::<i64>() {
+            Ok(value) => Ok(new_valueref(IntValue { value })),
+            Err(_) => Ok(new_valueref(BoolValue { value: false })),
+        }
+    }
+}
+
+pub struct StrToReal {}
+
+impl StrToReal {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for StrToReal {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 1 {
+            return error("str-to-real function expects exactly one argument");
+        }
+
+        let arg0 = borrow_value(&args[0]);
+        let string = match arg0.get_type() {
+            ValueType::Str => downcast_value::<StrValue>(&arg0).unwrap(),
+            _ => return error("str-to-real function expects a string as the first argument"),
+        };
+
+        let mut string_val = str::replace(&string.value, ".", "");
+        string_val = string_val.replace(",", ".");
+
+        match string_val.parse::<f64>() {
+            Ok(value) => Ok(new_valueref(RealValue { value })),
+            Err(_) => Ok(new_valueref(BoolValue { value: false })),
+        }
     }
 }

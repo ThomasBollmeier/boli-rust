@@ -39,6 +39,54 @@ fn downcast_compareable_eq<'a>(value: &'a Ref<dyn Value>) -> Option<&'a dyn Comp
     }
 }
 
+pub trait Input: Debug {
+    fn read_line(&mut self) -> String;
+    fn as_any(&self) -> &dyn std::any::Any;
+}
+
+pub type InputRef = Rc<RefCell<dyn Input>>;
+
+#[derive(Debug)]
+pub struct StdInput {}
+
+impl StdInput {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Input for StdInput {
+    fn read_line(&mut self) -> String {
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input).unwrap();
+        input.trim_end().to_string()
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+pub struct ReadLine {
+    input: InputRef,
+}
+
+impl ReadLine {
+    pub fn new(input: &InputRef) -> Self {
+        Self {
+            input: input.clone(),
+        }
+    }
+}
+
+impl Callable for ReadLine {
+    fn call(&self, _args: &Vec<ValueRef>) -> EvalResult {
+        Ok(new_valueref(StrValue {
+            value: self.input.borrow_mut().read_line(),
+        }))
+    }
+}
+
 pub trait Output: Debug {
     fn print(&mut self, text: &str);
     fn print_line(&mut self, text: &str) {
