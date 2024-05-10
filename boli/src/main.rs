@@ -1,12 +1,20 @@
 use boli::{
     frontend::parser::{json_visitor::JsonData, Parser as BoliParser},
-    interpreter::{values::borrow_value, Interpreter},
+    interpreter::{
+        environment::Environment,
+        misc_functions::{Output, StdOutput},
+        module_mgmt::{file_system::new_directory, ModuleDirRef},
+        values::borrow_value,
+        Interpreter,
+    },
     repl,
 };
 use clap::Parser;
 use std::{
+    cell::RefCell,
     fs::File,
     io::{stdin, BufReader, Read, Result},
+    rc::Rc,
 };
 
 #[derive(Debug, Parser)]
@@ -37,10 +45,21 @@ struct Options {
 
     #[arg(short = 'r', long = "run", group = "action", help = "run interpreter")]
     run: bool,
+
+    #[arg(
+        long = "module-dirs",
+        help = "colon separated list of directories to search for BOLI modules"
+    )]
+    module_dirs: String,
 }
 
 fn main() -> Result<()> {
     let options = Options::parse();
+    let module_dirs = options
+        .module_dirs
+        .split(':')
+        .map(|s| s.to_string())
+        .collect();
     let mut code: String = String::new();
 
     if !options.interactive {
@@ -48,11 +67,11 @@ fn main() -> Result<()> {
     }
 
     if options.interactive {
-        repl::run(&options.input_file)?;
+        repl::run(&options.input_file, &module_dirs)?;
     } else if options.parse_only {
         parse(&code);
     } else {
-        interpret(&code);
+        interpret(&code, &module_dirs);
     }
 
     Ok(())
@@ -69,8 +88,20 @@ fn parse(code: &str) {
     }
 }
 
-fn interpret(code: &str) {
-    let mut interpreter = Interpreter::new();
+fn interpret(code: &str, module_dirs: &Vec<String>) {
+    let mut interpreter = if module_dirs.is_empty() {
+        Interpreter::new()
+    } else {
+        let mut search_dirs = vec![];
+        for path in module_dirs {
+            let dir: ModuleDirRef = new_directory(path, "");
+            search_dirs.push(Rc::clone(&dir));
+        }
+
+        let output: Rc<RefCell<dyn Output>> = Rc::new(RefCell::new(StdOutput::new()));
+        let env = Environment::ref_with_search_dirs_and_output(&search_dirs, &output);
+        Interpreter::with_environment(&env)
+    };
     let result = interpreter.eval(code);
 
     match result {

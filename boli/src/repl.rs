@@ -1,15 +1,22 @@
 use std::{
     env,
     io::{stdin, stdout, Error, ErrorKind, Result, Write},
+    rc::Rc,
 };
 
 use crate::interpreter::{
-    self, environment::Environment, module_mgmt::module_loader::ModuleLoader,
+    self,
+    environment::{Environment, EnvironmentRef},
+    module_mgmt::{file_system::new_directory, module_loader::ModuleLoader, ModuleDirRef},
 };
 
-pub fn run(module_file: &str) -> Result<()> {
+pub fn run(module_file: &str, module_dirs: &Vec<String>) -> Result<()> {
     let env = Environment::new_ref();
     let mut interpreter = interpreter::Interpreter::with_environment(&env);
+    if !module_dirs.is_empty() {
+        set_module_dirs(&env, &module_dirs);
+    }
+
     let mut input = String::new();
     let mut line = String::new();
     let mut continued = false;
@@ -94,6 +101,15 @@ pub fn run(module_file: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn set_module_dirs(env: &EnvironmentRef, module_dirs: &Vec<String>) {
+    let mut search_dirs = vec![];
+    for path in module_dirs {
+        let dir: ModuleDirRef = new_directory(path, "");
+        search_dirs.push(Rc::clone(&dir));
+    }
+    Environment::set_module_search_dirs(env, &search_dirs);
 }
 
 fn print_title() {
