@@ -266,7 +266,7 @@ impl Environment {
     fn init_output_builtins(env: &EnvironmentRef) {
         let output = env.borrow().get_output().clone();
         env.borrow_mut()
-            .set_builtin("write", &Rc::new(Write::new(&output)));
+            .set_builtin("write", &Rc::new(Write_::new(&output)));
         env.borrow_mut()
             .set_builtin("writeln", &Rc::new(WriteLn::new(&output)));
         env.borrow_mut()

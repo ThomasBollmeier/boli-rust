@@ -1,6 +1,7 @@
 use std::{
     cell::{Ref, RefCell},
     fmt::Debug,
+    io::{stdout, Write},
     rc::Rc,
 };
 
@@ -110,6 +111,7 @@ impl StdOutput {
 impl Output for StdOutput {
     fn print(&mut self, text: &str) {
         print!("{}", text);
+        stdout().flush().unwrap();
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -117,11 +119,11 @@ impl Output for StdOutput {
     }
 }
 
-pub struct Write {
+pub struct Write_ {
     output: OutputRef,
 }
 
-impl Write {
+impl Write_ {
     pub fn new(output: &OutputRef) -> Self {
         Self {
             output: output.clone(),
@@ -129,7 +131,7 @@ impl Write {
     }
 }
 
-impl Callable for Write {
+impl Callable for Write_ {
     fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         for arg in args {
             print_value(arg, PrintMode::Write { line_break: false }, &self.output);
