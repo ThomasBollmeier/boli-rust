@@ -61,6 +61,7 @@ fn main() -> Result<()> {
         .module_dirs
         .split(':')
         .map(|s| s.to_string())
+        .filter(|s| !s.is_empty())
         .collect();
     let mut code: String = String::new();
 

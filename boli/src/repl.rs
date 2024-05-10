@@ -15,6 +15,8 @@ pub fn run(module_file: &str, module_dirs: &Vec<String>) -> Result<()> {
     let mut interpreter = interpreter::Interpreter::with_environment(&env);
     if !module_dirs.is_empty() {
         set_module_dirs(&env, &module_dirs);
+    } else {
+        set_module_dirs(&env, &vec![".".to_string()]);
     }
 
     let mut input = String::new();
