@@ -247,6 +247,26 @@ impl Callable for Not {
     }
 }
 
+pub struct IsNil {}
+
+impl IsNil {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for IsNil {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 1 {
+            return error("nil? function expects exactly one argument");
+        }
+
+        Ok(new_valueref(BoolValue {
+            value: args[0].borrow().get_type() == ValueType::Nil,
+        }))
+    }
+}
+
 pub fn is_truthy(value: &ValueRef) -> bool {
     let value = &borrow_value(value);
     match value.get_type() {

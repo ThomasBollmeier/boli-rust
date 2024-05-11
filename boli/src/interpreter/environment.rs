@@ -196,6 +196,7 @@ impl Environment {
         env.borrow_mut().set_builtin("<=", &Rc::new(Le::new()));
 
         env.borrow_mut().set_builtin("not", &Rc::new(Not::new()));
+	env.borrow_mut().set_builtin("nil?", &Rc::new(IsNil::new()));
 
         env.borrow_mut().set_builtin("car", &Rc::new(Car::new()));
         env.borrow_mut().set_builtin("cdr", &Rc::new(Cdr::new()));
