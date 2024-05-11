@@ -104,6 +104,6 @@ fn test_reverse() {
 }
 
 #[test]
-fn test_vararags() {
+fn test_varargs() {
     run_file("varargs.boli", "varargs.out");
 }
