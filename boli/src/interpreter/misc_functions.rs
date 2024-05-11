@@ -267,6 +267,26 @@ impl Callable for IsNil {
     }
 }
 
+pub struct ErrorFn {}
+
+impl ErrorFn {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for ErrorFn {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 1 {
+            return error("error function expects exactly one argument");
+        }
+
+        let error_message = &borrow_value(&args[0]);
+        let error_message = downcast_value::<StrValue>(error_message).unwrap();
+        Err(InterpreterError::new(&error_message.value))
+    }
+}
+
 pub fn is_truthy(value: &ValueRef) -> bool {
     let value = &borrow_value(value);
     match value.get_type() {

@@ -1,5 +1,27 @@
 use super::{downcast_value, Callable, InterpreterError, PairValue, ValueType};
 
+pub struct IsPair {}
+
+impl IsPair {
+    pub fn new() -> Self {
+        IsPair {}
+    }
+}
+
+impl Callable for IsPair {
+    fn call(&self, args: &Vec<super::ValueRef>) -> super::EvalResult {
+        if args.len() != 1 {
+            return Err(InterpreterError::new(
+                "pair? function expects exactly one argument",
+            ));
+        }
+
+        Ok(super::new_valueref(super::BoolValue {
+            value: args[0].borrow().get_type() == super::ValueType::Pair,
+        }))
+    }
+}
+
 pub struct Car {}
 
 impl Car {

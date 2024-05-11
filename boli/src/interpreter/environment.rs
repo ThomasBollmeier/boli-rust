@@ -5,8 +5,7 @@ use super::module_mgmt::file_system::new_directory;
 use super::module_mgmt::module_loader::RequireFn;
 use super::module_mgmt::ModuleDirRef;
 use super::number_functions::*;
-use super::pair_functions::Car;
-use super::pair_functions::Cdr;
+use super::pair_functions::*;
 use super::string_functions::*;
 use super::struct_functions::*;
 use super::values::*;
@@ -196,8 +195,10 @@ impl Environment {
         env.borrow_mut().set_builtin("<=", &Rc::new(Le::new()));
 
         env.borrow_mut().set_builtin("not", &Rc::new(Not::new()));
-	env.borrow_mut().set_builtin("nil?", &Rc::new(IsNil::new()));
+        env.borrow_mut().set_builtin("nil?", &Rc::new(IsNil::new()));
 
+        env.borrow_mut()
+            .set_builtin("pair?", &Rc::new(IsPair::new()));
         env.borrow_mut().set_builtin("car", &Rc::new(Car::new()));
         env.borrow_mut().set_builtin("cdr", &Rc::new(Cdr::new()));
 
@@ -267,6 +268,9 @@ impl Environment {
             .set_builtin("hash-get", &Rc::new(HashGet::new()));
         env.borrow_mut()
             .set_builtin("hash-set!", &Rc::new(HashSetBang::new()));
+
+        env.borrow_mut()
+            .set_builtin("error", &Rc::new(ErrorFn::new()));
     }
 
     fn init_output_builtins(env: &EnvironmentRef) {
