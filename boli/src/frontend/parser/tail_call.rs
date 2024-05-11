@@ -47,6 +47,11 @@ impl AstMutVisitor for TailCallFinder {
 
     fn visit_logical_operator(&mut self, _operator: &mut LogicalOperator) {}
 
+    fn visit_pair(&mut self, pair: &mut Pair) {
+        pair.left.borrow_mut().accept_mut(self);
+        pair.right.borrow_mut().accept_mut(self);
+    }
+
     fn visit_list(&mut self, list: &mut List) {
         list.elements.iter_mut().for_each(|element| {
             element.borrow_mut().accept_mut(self);
@@ -124,6 +129,8 @@ impl AstMutVisitor for TailCallSetter {
     fn visit_operator(&mut self, _operator: &mut Operator) {}
 
     fn visit_logical_operator(&mut self, _operator: &mut LogicalOperator) {}
+
+    fn visit_pair(&mut self, _pair: &mut Pair) {}
 
     fn visit_list(&mut self, _list: &mut List) {}
 

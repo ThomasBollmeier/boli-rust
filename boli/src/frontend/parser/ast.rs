@@ -36,6 +36,7 @@ pub trait AstVisitor {
     fn visit_quote(&mut self, quote: &Quote);
     fn visit_operator(&mut self, operator: &Operator);
     fn visit_logical_operator(&mut self, operator: &LogicalOperator);
+    fn visit_pair(&mut self, pair: &Pair);
     fn visit_list(&mut self, list: &List);
     fn visit_def(&mut self, def: &Definition);
     fn visit_struct_def(&mut self, struct_def: &StructDefinition);
@@ -59,6 +60,7 @@ pub trait AstMutVisitor {
     fn visit_quote(&mut self, quote: &mut Quote);
     fn visit_operator(&mut self, operator: &mut Operator);
     fn visit_logical_operator(&mut self, operator: &mut LogicalOperator);
+    fn visit_pair(&mut self, pair: &mut Pair);
     fn visit_list(&mut self, list: &mut List);
     fn visit_def(&mut self, def: &mut Definition);
     fn visit_struct_def(&mut self, struct_def: &mut StructDefinition);
@@ -292,6 +294,25 @@ impl Ast for LogicalOperator {
 
     fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
         visitor.visit_logical_operator(self);
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+pub struct Pair {
+    pub left: AstRef,
+    pub right: AstRef,
+}
+
+impl Ast for Pair {
+    fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_pair(self);
+    }
+
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
+        visitor.visit_pair(self);
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

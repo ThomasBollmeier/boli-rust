@@ -231,6 +231,8 @@ impl Lexer {
             self.next_char();
             self.next_char();
             Some(Token::new(Dot3, line, column))
+        } else if next_chars.len() > 0 && next_chars.chars().next().unwrap().is_whitespace() {
+            Some(Token::new(Dot, line, column))
         } else {
             None
         }
@@ -543,6 +545,19 @@ mod tests {
             Some(TokenValue::Identifier("numbers".to_string()))
         );
         assert_eq!(lexer.next().unwrap().token_type, Dot3);
+        assert_eq!(lexer.next().unwrap().token_type, RightParen);
+        assert!(lexer.next().is_none());
+    }
+
+    #[test]
+    fn test_scan_pair() {
+        let code = r#"(1 . 2)"#;
+        let mut lexer = Lexer::new(code);
+
+        assert_eq!(lexer.next().unwrap().token_type, LeftParen);
+        assert_eq!(lexer.next().unwrap().token_type, Integer);
+        assert_eq!(lexer.next().unwrap().token_type, Dot);
+        assert_eq!(lexer.next().unwrap().token_type, Integer);
         assert_eq!(lexer.next().unwrap().token_type, RightParen);
         assert!(lexer.next().is_none());
     }

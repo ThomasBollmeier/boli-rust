@@ -96,6 +96,11 @@ impl Callable for Head {
                     None => error("head function expects a non-empty sequence"),
                 }
             }
+            ValueType::Pair => {
+                let pair = &borrow_value(&args[0]);
+                let pair = downcast_value::<PairValue>(pair).unwrap();
+                Ok(pair.left.clone())
+            }
             _ => error("head function expects a list"),
         }
     }
@@ -135,6 +140,11 @@ impl Callable for Tail {
                 sequence.next();
                 Ok(new_valueref(sequence))
             }
+            ValueType::Pair => {
+                let pair = &borrow_value(&args[0]);
+                let pair = downcast_value::<PairValue>(pair).unwrap();
+                Ok(pair.right.clone())
+            }
             _ => error("tail function expects a list"),
         }
     }
@@ -162,7 +172,10 @@ impl Callable for Cons {
 
                 Ok(new_valueref(ListValue { elements }) as ValueRef)
             }
-            None => error("cons function expects a list as the second argument"),
+            None => Ok(new_valueref(PairValue {
+                left: args[0].clone(),
+                right: args[1].clone(),
+            })),
         }
     }
 }

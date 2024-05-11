@@ -5,6 +5,8 @@ use super::module_mgmt::file_system::new_directory;
 use super::module_mgmt::module_loader::RequireFn;
 use super::module_mgmt::ModuleDirRef;
 use super::number_functions::*;
+use super::pair_functions::Car;
+use super::pair_functions::Cdr;
 use super::string_functions::*;
 use super::struct_functions::*;
 use super::values::*;
@@ -194,6 +196,9 @@ impl Environment {
         env.borrow_mut().set_builtin("<=", &Rc::new(Le::new()));
 
         env.borrow_mut().set_builtin("not", &Rc::new(Not::new()));
+
+        env.borrow_mut().set_builtin("car", &Rc::new(Car::new()));
+        env.borrow_mut().set_builtin("cdr", &Rc::new(Cdr::new()));
 
         env.borrow_mut().set_builtin("list", &Rc::new(List::new()));
         env.borrow_mut()

@@ -316,6 +316,16 @@ impl Parser {
         end_token_type: TokenType,
     ) -> Result<AstRef, ParseError> {
         let callee = self.expression(stream, false)?;
+
+        // Check if it's a pair
+        if Self::peek_token(stream, &vec![&TokenType::Dot]).is_some() {
+            let left = callee;
+            Self::next_token(stream, &vec![&TokenType::Dot])?; // consume dot
+            let right = self.expression(stream, false)?;
+            Self::next_token(stream, &vec![&end_token_type])?; // consume closing token
+            return Ok(new_astref(ast::Pair { left, right }));
+        }
+
         let mut arguments = Vec::new();
 
         while Self::peek_token(stream, &vec![&end_token_type]).is_none() {
@@ -961,5 +971,27 @@ mod tests {
         let tail_call = downcast_ast::<Call>(tail_call).unwrap();
 
         assert!(tail_call.is_tail_call);
+    }
+
+    #[test]
+    fn test_pair() {
+        let parser = super::Parser::new();
+        let code = r#"
+        (1 . 2)
+        "#;
+        let program = parser.parse(code);
+        assert!(program.is_ok(), "{}", program.err().unwrap());
+        let program = program.unwrap();
+
+        let child0 = &borrow_ast(&program.children[0]);
+        let pair = downcast_ast::<Pair>(child0).unwrap();
+
+        let left = &borrow_ast(&pair.left);
+        let left = downcast_ast::<Integer>(left).unwrap();
+        assert_eq!(left.value, 1);
+
+        let right = &borrow_ast(&pair.right);
+        let right = downcast_ast::<Integer>(right).unwrap();
+        assert_eq!(right.value, 2);
     }
 }

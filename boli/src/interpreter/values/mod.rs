@@ -21,6 +21,7 @@ pub enum ValueType {
     Str,
     Symbol,
     Quote,
+    Pair,
     List,
     Sequence,
     StructType,
@@ -285,6 +286,32 @@ impl Debug for QuoteValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let token_str = self.token.get_display_str().unwrap_or("".to_string());
         write!(f, "'{}", token_str)
+    }
+}
+
+#[derive(Debug)]
+pub struct PairValue {
+    pub left: ValueRef,
+    pub right: ValueRef,
+}
+
+impl Value for PairValue {
+    fn get_type(&self) -> ValueType {
+        ValueType::Pair
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
+impl Display for PairValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({} . {})", self.left.borrow(), self.right.borrow())
     }
 }
 

@@ -4,6 +4,7 @@ pub mod list_functions;
 pub mod misc_functions;
 pub mod module_mgmt;
 pub mod number_functions;
+pub mod pair_functions;
 pub mod string_functions;
 pub mod struct_functions;
 pub mod values;
@@ -211,6 +212,27 @@ impl AstVisitor for Interpreter {
                 self.stack.push(Ok(le.clone()));
             }
         }
+    }
+
+    fn visit_pair(&mut self, pair: &Pair) {
+        let left = self.eval_ast(&pair.left);
+        if left.is_err() {
+            self.stack.push(left);
+            return;
+        }
+        let left = left.unwrap();
+
+        let right = self.eval_ast(&pair.right);
+        if right.is_err() {
+            self.stack.push(right);
+            return;
+        }
+        let right = right.unwrap();
+
+        self.stack.push(Ok(new_valueref(PairValue {
+            left: left.clone(),
+            right: right.clone(),
+        })));
     }
 
     fn visit_list(&mut self, list: &List) {
@@ -446,6 +468,15 @@ mod tests {
         let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Str);
         assert_eq!(result.to_string(), "\"Hello, World!\"");
+    }
+
+    #[test]
+    fn test_eval_pair() {
+        let mut interpreter = Interpreter::new();
+        let result = interpreter.eval("(1 . 2)").unwrap();
+        let result = &borrow_value(&result);
+        assert_eq!(result.get_type(), ValueType::Pair);
+        assert_eq!(result.to_string(), "(1 . 2)");
     }
 
     #[test]
