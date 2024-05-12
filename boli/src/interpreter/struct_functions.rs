@@ -24,7 +24,7 @@ impl Callable for StructGet {
         let struct_value = arg0.unwrap();
 
         let arg1 = &borrow_value(&args[1]);
-        let arg1 = downcast_value::<ListValue>(arg1);
+        let arg1 = downcast_value::<VectorValue>(arg1);
         if arg1.is_none() {
             return error("struct-get expects a list as the second argument");
         }
@@ -57,7 +57,7 @@ impl Callable for StructGet {
             return Ok(field_value.clone());
         }
 
-        let new_path = new_valueref(ListValue {
+        let new_path = new_valueref(VectorValue {
             elements: path.elements[1..].to_vec(),
         });
 
@@ -87,7 +87,7 @@ impl Callable for StructSet {
         let struct_value = arg0.unwrap();
 
         let arg1 = &borrow_value(&args[1]);
-        let arg1 = downcast_value::<ListValue>(arg1);
+        let arg1 = downcast_value::<VectorValue>(arg1);
         if arg1.is_none() {
             return error("struct-set expects a list as the second argument");
         }
@@ -122,7 +122,7 @@ impl Callable for StructSet {
         }
         let inner_struct = field_value.unwrap().clone();
 
-        let new_path = new_valueref(ListValue {
+        let new_path = new_valueref(VectorValue {
             elements: path.elements[1..].to_vec(),
         });
 

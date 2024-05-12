@@ -18,6 +18,7 @@ pub fn run(module_file: &str, module_dirs: &Vec<String>) -> Result<()> {
     } else {
         set_module_dirs(&env, &vec![".".to_string()]);
     }
+    Environment::read_stdlib(&env);
 
     let mut input = String::new();
     let mut line = String::new();

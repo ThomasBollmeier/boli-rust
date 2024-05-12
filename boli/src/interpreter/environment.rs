@@ -1,11 +1,13 @@
 use super::count_functions::*;
-use super::list_functions::*;
 use super::misc_functions::*;
+use super::module_mgmt::extension::Extension;
 use super::module_mgmt::file_system::new_directory;
 use super::module_mgmt::module_loader::RequireFn;
+use super::module_mgmt::ExtensionModule;
 use super::module_mgmt::ModuleDirRef;
 use super::number_functions::*;
 use super::pair_functions::*;
+use super::seq_collection_functions::*;
 use super::string_functions::*;
 use super::struct_functions::*;
 use super::values::*;
@@ -137,6 +139,13 @@ impl Environment {
         self.env.insert(key, EnvEntry { value, owned: true }); // true: value is owned by the environment
     }
 
+    pub fn read_stdlib(env: &EnvironmentRef) {
+        let list_code = include_str!("stdlib/list.boli");
+        let list_module = Extension::with_code("list", list_code);
+        env.borrow_mut()
+            .import_values_with_alias(list_module.get_values(), "l");
+    }
+
     fn set_unowned(&mut self, key: String, value: ValueRef) {
         self.env.insert(
             key,
@@ -202,7 +211,8 @@ impl Environment {
         env.borrow_mut().set_builtin("car", &Rc::new(Car::new()));
         env.borrow_mut().set_builtin("cdr", &Rc::new(Cdr::new()));
 
-        env.borrow_mut().set_builtin("list", &Rc::new(List::new()));
+        env.borrow_mut()
+            .set_builtin("vector", &Rc::new(Vector::new()));
         env.borrow_mut()
             .set_builtin("sequence", &Rc::new(Sequence::new()));
         env.borrow_mut().set_builtin("head", &Rc::new(Head::new()));
@@ -220,9 +230,9 @@ impl Environment {
         env.borrow_mut()
             .set_builtin("take-while", &Rc::new(TakeWhile::new()));
         env.borrow_mut()
-            .set_builtin("list-ref", &Rc::new(ListRef::new()));
+            .set_builtin("vector-ref", &Rc::new(VectorRef::new()));
         env.borrow_mut()
-            .set_builtin("list-set!", &Rc::new(ListSetBang::new()));
+            .set_builtin("vector-set!", &Rc::new(VectorSetBang::new()));
 
         env.borrow_mut()
             .set_builtin("iterator", &Rc::new(Iterator::new()));

@@ -145,7 +145,7 @@ impl ModuleObject for File {
 impl ModuleFile for File {
     fn read(&self) -> String {
         let mut buffer = String::new();
-        let file_path = self.path.clone() + "/" + &self.name;
+        let file_path = self.path.clone() + std::path::MAIN_SEPARATOR_STR + &self.name;
         match FsFile::open(&file_path) {
             Ok(file) => {
                 let mut reader = BufReader::new(file);

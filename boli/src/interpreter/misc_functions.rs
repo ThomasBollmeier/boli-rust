@@ -299,8 +299,8 @@ pub fn is_truthy(value: &ValueRef) -> bool {
             let int_value = downcast_value::<IntValue>(value).unwrap();
             int_value.value != 0
         }
-        ValueType::List => {
-            let list_value = downcast_value::<ListValue>(value).unwrap();
+        ValueType::Vector => {
+            let list_value = downcast_value::<VectorValue>(value).unwrap();
             !list_value.elements.is_empty()
         }
         _ => true,

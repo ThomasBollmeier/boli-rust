@@ -35,7 +35,7 @@ pub enum SequenceValue {
 
 impl SequenceValue {
     pub fn new_list(list: ValueRef) -> Result<Self, InterpreterError> {
-        if list.borrow().get_type() != ValueType::List {
+        if list.borrow().get_type() != ValueType::Vector {
             return Err(InterpreterError::new(
                 "Expected list value to create sequence.",
             ));
@@ -164,7 +164,7 @@ impl SequenceValue {
         match self {
             Self::List { list, index } => {
                 let list = &borrow_value(list);
-                let list = downcast_value::<ListValue>(list).unwrap();
+                let list = downcast_value::<VectorValue>(list).unwrap();
                 if *index < list.elements.len() {
                     let value = list.elements.get(*index).unwrap();
                     *index += 1;
@@ -406,7 +406,7 @@ impl Display for SequenceValue {
 mod tests {
     use super::*;
 
-    fn take(n: usize, sequence: &SequenceValue) -> ListValue {
+    fn take(n: usize, sequence: &SequenceValue) -> VectorValue {
         let mut seq = sequence.clone();
         let mut elements = Vec::new();
         for _ in 0..n {
@@ -416,12 +416,12 @@ mod tests {
                 break;
             }
         }
-        ListValue { elements }
+        VectorValue { elements }
     }
 
     #[test]
     fn test_list() {
-        let list = new_valueref(ListValue {
+        let list = new_valueref(VectorValue {
             elements: vec![
                 new_valueref(IntValue { value: 1 }),
                 new_valueref(IntValue { value: 2 }),
@@ -431,7 +431,7 @@ mod tests {
 
         let mut sequence = SequenceValue::new_list(list).unwrap();
 
-        assert_eq!(take(10, &mut sequence).to_string(), "(list 1 2 3)");
+        assert_eq!(take(10, &mut sequence).to_string(), "(vector 1 2 3)");
     }
 
     #[test]
@@ -445,12 +445,12 @@ mod tests {
 
         assert_eq!(
             take(10, &mut sequence).to_string(),
-            "(list 0 1 2 3 4 5 6 7 8 9)"
+            "(vector 0 1 2 3 4 5 6 7 8 9)"
         );
 
         assert_eq!(
             take(10, &mut sequence).to_string(),
-            "(list 0 1 2 3 4 5 6 7 8 9)"
+            "(vector 0 1 2 3 4 5 6 7 8 9)"
         );
     }
 
@@ -467,10 +467,13 @@ mod tests {
         let even_numbers =
             SequenceValue::new_filtered(predicate_func, new_valueref(numbers.clone())).unwrap();
 
-        assert_eq!(take(10, &numbers).to_string(), "(list 0 1 2 3 4 5 6 7 8 9)");
+        assert_eq!(
+            take(10, &numbers).to_string(),
+            "(vector 0 1 2 3 4 5 6 7 8 9)"
+        );
         assert_eq!(
             take(10, &even_numbers).to_string(),
-            "(list 0 2 4 6 8 10 12 14 16 18)"
+            "(vector 0 2 4 6 8 10 12 14 16 18)"
         );
     }
 
@@ -483,17 +486,20 @@ mod tests {
 
         let numbers = SequenceValue::new_iterator(next_func, start).unwrap();
 
-        let map_func = interpreter.eval("(λ (i j) (list i (* j j)))").unwrap();
+        let map_func = interpreter.eval("(λ (i j) (i . (* j j)))").unwrap();
         let squared_numbers = SequenceValue::new_mapped(
             map_func,
             vec![new_valueref(numbers.clone()), new_valueref(numbers.clone())],
         )
         .unwrap();
 
-        assert_eq!(take(10, &numbers).to_string(), "(list 0 1 2 3 4 5 6 7 8 9)");
+        assert_eq!(
+            take(10, &numbers).to_string(),
+            "(vector 0 1 2 3 4 5 6 7 8 9)"
+        );
         assert_eq!(
             take(4, &squared_numbers).to_string(),
-            "(list (list 0 0) (list 1 1) (list 2 4) (list 3 9))"
+            "(vector (0 . 0) (1 . 1) (2 . 4) (3 . 9))"
         );
     }
 
@@ -514,7 +520,7 @@ mod tests {
 
         assert_eq!(
             take(10, &dropped).to_string(),
-            "(list 5 6 7 8 9 10 11 12 13 14)"
+            "(vector 5 6 7 8 9 10 11 12 13 14)"
         );
     }
 
@@ -534,7 +540,7 @@ mod tests {
 
         assert_eq!(
             take(10, &dropped).to_string(),
-            "(list 5 6 7 8 9 10 11 12 13 14)"
+            "(vector 5 6 7 8 9 10 11 12 13 14)"
         );
     }
 }

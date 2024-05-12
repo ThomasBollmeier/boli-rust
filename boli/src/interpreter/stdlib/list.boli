@@ -1,0 +1,120 @@
+;; Module with list related functions
+
+(def (vec-reverse xs)
+     (def (helper xs acc)
+     	  (if (empty? xs)
+	      acc
+	      (helper (tail xs)
+	      	      (cons (head xs) acc))))
+     (helper xs nil))
+
+(def (list elems...)
+     (def (helper elems acc)
+     	  (if (nil? elems)
+	      	acc
+	      	(helper (cdr elems) (cons (car elems) acc))))
+     (helper (vec-reverse elems) nil))
+
+(def (vector->list v)
+	(list ...v))
+
+(def (list->vector lst)
+	(def (helper lst acc)
+		(if (nil? lst)
+			acc
+			(helper (cdr lst) (cons (car lst) acc))))
+	(helper (reverse lst) (vector)))
+
+(def (list? val)
+     (if (pair? val)
+     	 (list? (cdr val))
+	 (nil? val)))
+
+(def (list-ref lst n)
+     (if (nil? lst)
+     	 #f
+	 (if (= n 0)
+	     (car lst)
+	     (list-ref (cdr lst) (- n 1)))))
+
+(def (list-set lst n val)
+     (def (prepend front back)
+     	  (if (nil? front)
+	      back
+	      (prepend (cdr front)
+	      	       (cons (car front)
+		       	     back))))
+     (def (set-val lst n acc)
+     	  (if (nil? lst)
+	      #f
+	      (if (= n 0)
+	      	  (prepend acc
+		  	   (cons val
+		  	   	 (cdr lst)))
+		  (set-val (cdr lst)
+		  	   (- n 1)
+			   (cons (car lst)
+			   	 acc)))))
+     (set-val lst n nil))
+
+(def (reverse lst)
+     (def (helper lst acc)
+     	(if (nil? lst)
+	    	acc
+	      	(helper (cdr lst)
+	      		    (cons (car lst) acc))))
+     (helper lst nil))
+
+(def (append lst val)
+     (reverse (cons val (reverse lst))))
+
+(def (concat lst1 lst2)
+     (def (helper lst1 lst2)
+     	  (if (nil? lst1)
+	      lst2
+	      (helper (cdr lst1) (cons (car lst1) lst2))))
+     (helper (reverse lst1) lst2))
+
+(def (filter pred? lst)
+     (def (helper lst acc)
+     	  (if (nil? lst)
+	      (reverse acc)
+	      (let ([elem (car lst)])
+	      	   (helper (cdr lst)
+		   	   (if (pred? elem)
+		       	       (cons elem acc)
+		       	       acc)))))
+     (helper lst nil))
+
+(def (map f lst)
+     (def (helper lst acc)
+     	  (if (nil? lst)
+	      (reverse acc)
+	      (let ([elem (car lst)])
+	      	   (helper (cdr lst)
+		   	   (cons (f elem) acc)))))
+     (helper lst nil))
+
+(def (foldl f init-val lst)
+     (def (helper lst acc)
+     	  (if (nil? lst)
+	      acc
+	      (helper (cdr lst)
+	      	      (f acc (car lst)))))
+     (helper lst init-val))
+
+(def (foldr f init-val lst)
+     (def (helper lst acc)
+     	  (if (nil? lst)
+	      acc
+	      (helper (cdr lst)
+	      	      (f (car lst) acc))))
+     (helper (reverse lst) init-val))
+
+(def (reduce f lst)
+     (if (nil? lst)
+     	 (error "Cannot call reduce on empty list")
+	 (foldl f (car lst) (cdr lst))))
+
+(def (count lst)
+     (foldl (λ (acc el) (+ acc 1)) 0 lst))

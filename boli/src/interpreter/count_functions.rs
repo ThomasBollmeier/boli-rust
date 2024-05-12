@@ -57,7 +57,7 @@ impl Callable for IsEmpty {
 fn downcast_countable<'a>(value: &'a Ref<dyn Value>) -> Option<&'a dyn Countable> {
     match value.get_type() {
         ValueType::Str => Some(value.as_any().downcast_ref::<StrValue>().unwrap()),
-        ValueType::List => Some(value.as_any().downcast_ref::<ListValue>().unwrap()),
+        ValueType::Vector => Some(value.as_any().downcast_ref::<VectorValue>().unwrap()),
         _ => None,
     }
 }

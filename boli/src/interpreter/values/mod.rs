@@ -22,7 +22,7 @@ pub enum ValueType {
     Symbol,
     Quote,
     Pair,
-    List,
+    Vector,
     Sequence,
     StructType,
     Struct,
@@ -295,6 +295,32 @@ pub struct PairValue {
     pub right: ValueRef,
 }
 
+impl PairValue {
+    pub fn new(left: &ValueRef, right: &ValueRef) -> Self {
+        Self {
+            left: left.clone(),
+            right: right.clone(),
+        }
+    }
+
+    fn is_list(&self) -> bool {
+        let right = borrow_value(&self.right);
+        if let Some(right) = downcast_value::<PairValue>(&right) {
+            right.is_list()
+        } else {
+            right.get_type() == ValueType::Nil
+        }
+    }
+
+    fn get_list_elements(&self, elements: &mut Vec<ValueRef>) {
+        elements.push(self.left.clone());
+        let right = borrow_value(&self.right);
+        if let Some(right) = downcast_value::<PairValue>(&right) {
+            right.get_list_elements(elements);
+        }
+    }
+}
+
 impl Value for PairValue {
     fn get_type(&self) -> ValueType {
         ValueType::Pair
@@ -311,18 +337,26 @@ impl Value for PairValue {
 
 impl Display for PairValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({} . {})", self.left.borrow(), self.right.borrow())
+        if !self.is_list() {
+            write!(f, "({} . {})", self.left.borrow(), self.right.borrow())
+        } else {
+            let mut elements = vec![];
+            self.get_list_elements(&mut elements);
+            let elements_str: Vec<String> =
+                elements.iter().map(|e| format!("{}", e.borrow())).collect();
+            write!(f, "(list {})", elements_str.join(" "))
+        }
     }
 }
 
 #[derive(Debug)]
-pub struct ListValue {
+pub struct VectorValue {
     pub elements: Vec<ValueRef>,
 }
 
-impl Value for ListValue {
+impl Value for VectorValue {
     fn get_type(&self) -> ValueType {
-        ValueType::List
+        ValueType::Vector
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -334,18 +368,18 @@ impl Value for ListValue {
     }
 }
 
-impl Display for ListValue {
+impl Display for VectorValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let elements_str: Vec<String> = self
             .elements
             .iter()
             .map(|e| format!("{}", e.borrow()))
             .collect();
-        write!(f, "(list {})", elements_str.join(" "))
+        write!(f, "(vector {})", elements_str.join(" "))
     }
 }
 
-impl Countable for ListValue {
+impl Countable for VectorValue {
     fn count(&self) -> usize {
         self.elements.len()
     }
@@ -630,9 +664,9 @@ impl LambdaValue {
                     .skip(num_params)
                     .map(|val| val.clone())
                     .collect();
-                ListValue { elements }
+                VectorValue { elements }
             } else {
-                ListValue { elements: vec![] }
+                VectorValue { elements: vec![] }
             };
             call_env
                 .borrow_mut()

@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::interpreter::ValueRef;
+use crate::interpreter::{environment::Environment, Interpreter, ValueRef};
 
 use super::{ExtensionModule, ModuleDirectory, ModuleObject, ModuleObjectType};
 
@@ -90,6 +90,20 @@ impl Extension {
         Self {
             name: name.to_string(),
             values,
+        }
+    }
+
+    pub fn with_code(name: &str, code: &str) -> Self {
+        let env = Environment::new_ref();
+        let mut interpreter = Interpreter::with_environment(&env);
+
+        match interpreter.eval(code) {
+            Ok(_) => {
+                let env = env.borrow();
+                let values = env.get_exported_values();
+                Self::new(name, values)
+            }
+            Err(_) => Self::new(name, HashMap::new()),
         }
     }
 }

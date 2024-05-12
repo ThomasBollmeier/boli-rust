@@ -3,17 +3,17 @@ use crate::interpreter::misc_functions::is_truthy;
 use super::values::sequence::*;
 use super::values::*;
 
-pub struct List {}
+pub struct Vector {}
 
-impl List {
+impl Vector {
     pub fn new() -> Self {
         Self {}
     }
 }
 
-impl Callable for List {
+impl Callable for Vector {
     fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
-        Ok(new_valueref(ListValue {
+        Ok(new_valueref(VectorValue {
             elements: args.clone(),
         }))
     }
@@ -33,7 +33,7 @@ impl Callable for Sequence {
             return error("sequence function expects one argument");
         }
 
-        if args[0].borrow().get_type() != ValueType::List {
+        if args[0].borrow().get_type() != ValueType::Vector {
             return error("sequence function expects a list as the argument");
         }
 
@@ -79,9 +79,9 @@ impl Callable for Head {
         let value_type = args[0].borrow().get_type();
 
         match value_type {
-            ValueType::List => {
+            ValueType::Vector => {
                 let list = &borrow_value(&args[0]);
-                let list = downcast_value::<ListValue>(list).unwrap();
+                let list = downcast_value::<VectorValue>(list).unwrap();
                 if list.elements.is_empty() {
                     return error("head function expects a non-empty list");
                 }
@@ -123,13 +123,13 @@ impl Callable for Tail {
         let value_type = args[0].borrow().get_type();
 
         match value_type {
-            ValueType::List => {
+            ValueType::Vector => {
                 let list = &borrow_value(&args[0]);
-                let list = downcast_value::<ListValue>(list).unwrap();
+                let list = downcast_value::<VectorValue>(list).unwrap();
                 if list.elements.is_empty() {
                     return error("tail function expects a non-empty list");
                 }
-                Ok(new_valueref(ListValue {
+                Ok(new_valueref(VectorValue {
                     elements: list.elements[1..].to_vec(),
                 }))
             }
@@ -165,12 +165,12 @@ impl Callable for Cons {
         }
 
         let second_arg = args[1].borrow();
-        match second_arg.as_any().downcast_ref::<ListValue>() {
+        match second_arg.as_any().downcast_ref::<VectorValue>() {
             Some(list) => {
                 let mut elements = vec![args[0].clone()];
                 elements.extend(list.elements.clone());
 
-                Ok(new_valueref(ListValue { elements }) as ValueRef)
+                Ok(new_valueref(VectorValue { elements }) as ValueRef)
             }
             None => Ok(new_valueref(PairValue {
                 left: args[0].clone(),
@@ -194,13 +194,13 @@ impl Callable for Concat {
 
         for arg in args {
             let arg = arg.borrow();
-            match arg.as_any().downcast_ref::<ListValue>() {
+            match arg.as_any().downcast_ref::<VectorValue>() {
                 Some(list) => elements.extend(list.elements.clone()),
                 None => return error("concat function expects a list as arguments"),
             }
         }
 
-        Ok(new_valueref(ListValue { elements }) as ValueRef)
+        Ok(new_valueref(VectorValue { elements }) as ValueRef)
     }
 }
 
@@ -221,7 +221,7 @@ impl Callable for Filter {
         let value_type = args[1].borrow().get_type();
 
         match value_type {
-            ValueType::List => {
+            ValueType::Vector => {
                 let arg0 = &borrow_value(&args[0]);
                 let predicate: &dyn Callable =
                     match arg0.get_type() {
@@ -235,7 +235,7 @@ impl Callable for Filter {
                     };
 
                 let arg1 = &borrow_value(&args[1]);
-                let list = downcast_value::<ListValue>(arg1).unwrap();
+                let list = downcast_value::<VectorValue>(arg1).unwrap();
                 let mut elements = Vec::new();
                 for elem in &list.elements {
                     let result = predicate.call(&vec![elem.clone()])?;
@@ -253,7 +253,7 @@ impl Callable for Filter {
                         }
                     }
                 }
-                Ok(new_valueref(ListValue { elements }) as ValueRef)
+                Ok(new_valueref(VectorValue { elements }) as ValueRef)
             }
             ValueType::Sequence => {
                 let filtered = SequenceValue::new_filtered(args[0].clone(), args[1].clone())?;
@@ -281,7 +281,7 @@ impl Callable for Map {
         let lists = &args[1..];
         let all_eager = lists.iter().all(|arg| {
             let arg = borrow_value(&arg);
-            arg.get_type() == ValueType::List
+            arg.get_type() == ValueType::Vector
         });
 
         if all_eager {
@@ -297,8 +297,8 @@ impl Callable for Map {
             for arg in args.iter().skip(1) {
                 let arg = &borrow_value(&arg);
                 match arg.get_type() {
-                    ValueType::List => {
-                        let list = downcast_value::<ListValue>(arg).unwrap();
+                    ValueType::Vector => {
+                        let list = downcast_value::<VectorValue>(arg).unwrap();
                         if let Some(min_size) = min_size_opt {
                             if list.elements.len() < min_size {
                                 min_size_opt = Some(list.elements.len());
@@ -319,7 +319,7 @@ impl Callable for Map {
                 let mut call_args = Vec::new();
                 for arg in args.iter().skip(1) {
                     let arg = &borrow_value(&arg);
-                    let list = downcast_value::<ListValue>(arg).unwrap();
+                    let list = downcast_value::<VectorValue>(arg).unwrap();
                     call_args.push(list.elements[i].clone());
                 }
 
@@ -327,14 +327,14 @@ impl Callable for Map {
                 elements.push(result);
             }
 
-            Ok(new_valueref(ListValue { elements }) as ValueRef)
+            Ok(new_valueref(VectorValue { elements }) as ValueRef)
         } else {
             let map_function = args[0].clone();
             let mut sequences = vec![];
             for lst in lists {
                 let value_type = lst.borrow().get_type();
                 match value_type {
-                    ValueType::List => {
+                    ValueType::Vector => {
                         sequences.push(new_valueref(SequenceValue::new_list(lst.clone())?));
                     }
                     ValueType::Sequence => {
@@ -373,15 +373,15 @@ impl Callable for Drop {
         let second_type = args[1].borrow().get_type();
 
         match second_type {
-            ValueType::List => {
+            ValueType::Vector => {
                 let arg0 = &borrow_value(&args[0]);
                 let n = arg0.as_any().downcast_ref::<IntValue>().unwrap().value;
 
                 let arg1 = &borrow_value(&args[1]);
-                let list = downcast_value::<ListValue>(arg1).unwrap();
+                let list = downcast_value::<VectorValue>(arg1).unwrap();
                 let elements = list.elements.iter().skip(n as usize).cloned().collect();
 
-                Ok(new_valueref(ListValue { elements }))
+                Ok(new_valueref(VectorValue { elements }))
             }
             ValueType::Sequence => {
                 let dropped = SequenceValue::new_dropped(args[0].clone(), args[1].clone())?;
@@ -416,7 +416,7 @@ impl Callable for DropWhile {
         let arg1_type = args[1].borrow().get_type();
 
         match arg1_type {
-            ValueType::List => {
+            ValueType::Vector => {
                 let arg0 = &borrow_value(&args[0]);
                 let predicate: &dyn Callable = match arg0.get_type() {
                     ValueType::BuiltInFunction => {
@@ -427,7 +427,7 @@ impl Callable for DropWhile {
                 };
 
                 let arg1 = &borrow_value(&args[1]);
-                let list = downcast_value::<ListValue>(arg1).unwrap();
+                let list = downcast_value::<VectorValue>(arg1).unwrap();
                 let mut elements = Vec::new();
                 let mut drop = true;
                 for elem in &list.elements {
@@ -441,7 +441,7 @@ impl Callable for DropWhile {
                         elements.push(elem.clone());
                     }
                 }
-                Ok(new_valueref(ListValue { elements }))
+                Ok(new_valueref(VectorValue { elements }))
             }
             ValueType::Sequence => {
                 let dropped = SequenceValue::new_dropped_while(args[0].clone(), args[1].clone())?;
@@ -478,12 +478,12 @@ impl Callable for Take {
         let second_type = args[1].borrow().get_type();
 
         match second_type {
-            ValueType::List => {
+            ValueType::Vector => {
                 let arg1 = &borrow_value(&args[1]);
-                let list = downcast_value::<ListValue>(arg1).unwrap();
+                let list = downcast_value::<VectorValue>(arg1).unwrap();
                 let elements = list.elements.iter().take(n as usize).cloned().collect();
 
-                Ok(new_valueref(ListValue { elements }))
+                Ok(new_valueref(VectorValue { elements }))
             }
             ValueType::Sequence => {
                 let arg1 = &borrow_value(&args[1]);
@@ -495,7 +495,7 @@ impl Callable for Take {
                     }
                 }
 
-                Ok(new_valueref(ListValue { elements }))
+                Ok(new_valueref(VectorValue { elements }))
             }
             _ => return error("take function expects a list as the second argument"),
         }
@@ -526,9 +526,9 @@ impl Callable for TakeWhile {
         let arg1_type = &borrow_value(&args[1]).get_type();
 
         match arg1_type {
-            ValueType::List => {
+            ValueType::Vector => {
                 let arg1 = &borrow_value(&args[1]);
-                let list = downcast_value::<ListValue>(arg1).unwrap();
+                let list = downcast_value::<VectorValue>(arg1).unwrap();
                 let mut elements = Vec::new();
                 for elem in &list.elements {
                     let result = predicate.call(&vec![elem.clone()])?;
@@ -538,7 +538,7 @@ impl Callable for TakeWhile {
                         break;
                     }
                 }
-                Ok(new_valueref(ListValue { elements }))
+                Ok(new_valueref(VectorValue { elements }))
             }
             ValueType::Sequence => {
                 let arg1 = &borrow_value(&args[1]);
@@ -552,29 +552,29 @@ impl Callable for TakeWhile {
                         break;
                     }
                 }
-                Ok(new_valueref(ListValue { elements }))
+                Ok(new_valueref(VectorValue { elements }))
             }
             _ => return error("take-while function expects a list as the second argument"),
         }
     }
 }
 
-pub struct ListRef {}
+pub struct VectorRef {}
 
-impl ListRef {
+impl VectorRef {
     pub fn new() -> Self {
         Self {}
     }
 }
 
-impl Callable for ListRef {
+impl Callable for VectorRef {
     fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         if args.len() != 2 {
             return error("list-ref function expects exactly two arguments");
         }
 
         let arg0 = &borrow_value(&args[0]);
-        let list = match arg0.as_any().downcast_ref::<ListValue>() {
+        let list = match arg0.as_any().downcast_ref::<VectorValue>() {
             Some(list) => list,
             None => return error("list-ref function expects a list"),
         };
@@ -589,22 +589,22 @@ impl Callable for ListRef {
     }
 }
 
-pub struct ListSetBang {}
+pub struct VectorSetBang {}
 
-impl ListSetBang {
+impl VectorSetBang {
     pub fn new() -> Self {
         Self {}
     }
 }
 
-impl Callable for ListSetBang {
+impl Callable for VectorSetBang {
     fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         if args.len() != 3 {
             return error("list-set! function expects exactly three arguments");
         }
 
         let arg0 = &mut borrow_mut_value(&args[0]);
-        let list = match arg0.as_any_mut().downcast_mut::<ListValue>() {
+        let list = match arg0.as_any_mut().downcast_mut::<VectorValue>() {
             Some(list) => list,
             None => return error("list-set! function expects a list"),
         };
@@ -618,7 +618,7 @@ impl Callable for ListSetBang {
         let arg2 = args[2].clone();
         list.elements[index as usize] = arg2;
 
-        Ok(new_valueref(ListValue {
+        Ok(new_valueref(VectorValue {
             elements: list.elements.clone(),
         }))
     }
@@ -719,17 +719,17 @@ mod tests {
         let mut interpreter = interpreter::Interpreter::new();
         let result = interpreter.eval(code).unwrap();
 
-        assert_eq!(result.borrow().to_string(), "(list 0 1 2)");
+        assert_eq!(result.borrow().to_string(), "(vector 0 1 2)");
     }
 
     #[test]
     fn test_take_while_seq() {
         let code = r#"
         (def (next-pair p)
-            (let [(a (head p))
-                  (b (head (tail p)))]
-                (list b (+ a b))))
-        (def fib (map head (iterator (list 0 1) next-pair)))
+            (let [(a (car p))
+                  (b (cdr p))]
+                (b . (+ a b))))
+        (def fib (map head (iterator (0 . 1) next-pair)))
         (take-while (λ (n) (< n 100)) fib)
         "#;
 
@@ -738,7 +738,34 @@ mod tests {
 
         assert_eq!(
             result.borrow().to_string(),
-            "(list 0 1 1 2 3 5 8 13 21 34 55 89)"
+            "(vector 0 1 1 2 3 5 8 13 21 34 55 89)"
         );
+    }
+
+    #[test]
+    fn test_vector_ref() {
+        let code = r#"
+        (def v (vector 1 2 3))
+        (vector-ref v 1)
+        "#;
+
+        let mut interpreter = interpreter::Interpreter::new();
+        let result = interpreter.eval(code).unwrap();
+
+        assert_eq!(result.borrow().to_string(), "2");
+    }
+
+    #[test]
+    fn test_vector_set() {
+        let code = r#"
+        (def v (vector 1 2 3))
+        (vector-set! v 1 4)
+        v
+        "#;
+
+        let mut interpreter = interpreter::Interpreter::new();
+        let result = interpreter.eval(code).unwrap();
+
+        assert_eq!(result.borrow().to_string(), "(vector 1 4 3)");
     }
 }

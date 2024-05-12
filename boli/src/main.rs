@@ -92,19 +92,22 @@ fn parse(code: &str) {
 }
 
 fn interpret(code: &str, module_dirs: &Vec<String>) {
-    let mut interpreter = if module_dirs.is_empty() {
-        Interpreter::new()
+    let search_dirs: Vec<ModuleDirRef> = if module_dirs.is_empty() {
+        vec![new_directory(".", "")]
     } else {
         let mut search_dirs = vec![];
         for path in module_dirs {
             let dir: ModuleDirRef = new_directory(path, "");
             search_dirs.push(Rc::clone(&dir));
         }
-
-        let output: Rc<RefCell<dyn Output>> = Rc::new(RefCell::new(StdOutput::new()));
-        let env = Environment::ref_with_search_dirs_and_output(&search_dirs, &output);
-        Interpreter::with_environment(&env)
+        search_dirs
     };
+    let output: Rc<RefCell<dyn Output>> = Rc::new(RefCell::new(StdOutput::new()));
+    let env = Environment::ref_with_search_dirs_and_output(&search_dirs, &output);
+    Environment::read_stdlib(&env);
+
+    let mut interpreter = Interpreter::with_environment(&env);
+
     let result = interpreter.eval(code);
 
     match result {

@@ -1,10 +1,10 @@
 pub mod count_functions;
 pub mod environment;
-pub mod list_functions;
 pub mod misc_functions;
 pub mod module_mgmt;
 pub mod number_functions;
 pub mod pair_functions;
+pub mod seq_collection_functions;
 pub mod string_functions;
 pub mod struct_functions;
 pub mod values;
@@ -247,7 +247,7 @@ impl AstVisitor for Interpreter {
             elements.push(elem_result.unwrap());
         }
 
-        self.stack.push(Ok(new_valueref(ListValue { elements })));
+        self.stack.push(Ok(new_valueref(VectorValue { elements })));
     }
 
     fn visit_def(&mut self, def: &Definition) {
@@ -411,7 +411,7 @@ impl AstVisitor for Interpreter {
 
         let spread_value = spread_value.unwrap();
         let spread_value = &borrow_value(&spread_value);
-        let spread_value = downcast_value::<ListValue>(spread_value);
+        let spread_value = downcast_value::<VectorValue>(spread_value);
 
         if spread_value.is_none() {
             let err = self.new_eval_error("Spread expression must be a list");
@@ -484,8 +484,8 @@ mod tests {
         let mut interpreter = Interpreter::new();
         let result = interpreter.eval("'(1 2 3 (4 5))").unwrap();
         let result = borrow_value(&result);
-        assert_eq!(result.get_type(), ValueType::List);
-        assert_eq!(result.to_string(), "(list 1 2 3 (list 4 5))");
+        assert_eq!(result.get_type(), ValueType::Vector);
+        assert_eq!(result.to_string(), "(vector 1 2 3 (vector 4 5))");
     }
 
     #[test]
@@ -656,8 +656,11 @@ mod tests {
         "#;
         let result = interpreter.eval(code).unwrap();
         let result = borrow_value(&result);
-        assert_eq!(result.get_type(), ValueType::List);
-        assert_eq!(result.to_string(), "(list (list '+ 1 2) (list 'a 'b))");
+        assert_eq!(result.get_type(), ValueType::Vector);
+        assert_eq!(
+            result.to_string(),
+            "(vector (vector '+ 1 2) (vector 'a 'b))"
+        );
     }
 
     #[test]
