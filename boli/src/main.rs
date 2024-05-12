@@ -104,7 +104,7 @@ fn interpret(code: &str, module_dirs: &Vec<String>) {
     };
     let output: Rc<RefCell<dyn Output>> = Rc::new(RefCell::new(StdOutput::new()));
     let env = Environment::ref_with_search_dirs_and_output(&search_dirs, &output);
-    Environment::read_stdlib(&env);
+    Environment::include_stdlib(&env);
 
     let mut interpreter = Interpreter::with_environment(&env);
 

@@ -5,6 +5,7 @@ pub mod module_mgmt;
 pub mod number_functions;
 pub mod pair_functions;
 pub mod seq_collection_functions;
+pub mod stdlib;
 pub mod string_functions;
 pub mod struct_functions;
 pub mod values;

@@ -1,13 +1,12 @@
 use super::count_functions::*;
 use super::misc_functions::*;
-use super::module_mgmt::extension::Extension;
 use super::module_mgmt::file_system::new_directory;
 use super::module_mgmt::module_loader::RequireFn;
-use super::module_mgmt::ExtensionModule;
 use super::module_mgmt::ModuleDirRef;
 use super::number_functions::*;
 use super::pair_functions::*;
 use super::seq_collection_functions::*;
+use super::stdlib;
 use super::string_functions::*;
 use super::struct_functions::*;
 use super::values::*;
@@ -139,11 +138,11 @@ impl Environment {
         self.env.insert(key, EnvEntry { value, owned: true }); // true: value is owned by the environment
     }
 
-    pub fn read_stdlib(env: &EnvironmentRef) {
-        let list_code = include_str!("stdlib/list.boli");
-        let list_module = Extension::with_code("list", list_code);
-        env.borrow_mut()
-            .import_values_with_alias(list_module.get_values(), "l");
+    pub fn include_stdlib(env: &EnvironmentRef) {
+        let stdlib = stdlib::create_stdlib();
+        let mut search_dirs = env.borrow().get_module_search_dirs();
+        search_dirs.push(stdlib);
+        env.borrow_mut().module_search_dirs = Some(search_dirs);
     }
 
     fn set_unowned(&mut self, key: String, value: ValueRef) {
