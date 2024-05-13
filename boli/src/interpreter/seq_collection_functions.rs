@@ -725,6 +725,7 @@ mod tests {
     #[test]
     fn test_take_while_seq() {
         let code = r#"
+        (require 'list)
         (def (next-pair p)
             (let [(a (car p))
                   (b (cdr p))]
@@ -733,7 +734,7 @@ mod tests {
         (take-while (λ (n) (< n 100)) fib)
         "#;
 
-        let mut interpreter = interpreter::Interpreter::new();
+        let mut interpreter = interpreter::Interpreter::with_stdlib();
         let result = interpreter.eval(code).unwrap();
 
         assert_eq!(
@@ -745,11 +746,12 @@ mod tests {
     #[test]
     fn test_vector_ref() {
         let code = r#"
+        (require 'vector)
         (def v (vector 1 2 3))
         (vector-ref v 1)
         "#;
 
-        let mut interpreter = interpreter::Interpreter::new();
+        let mut interpreter = interpreter::Interpreter::with_stdlib();
         let result = interpreter.eval(code).unwrap();
 
         assert_eq!(result.borrow().to_string(), "2");
@@ -758,12 +760,13 @@ mod tests {
     #[test]
     fn test_vector_set() {
         let code = r#"
+        (require 'vector)
         (def v (vector 1 2 3))
         (vector-set! v 1 4)
         v
         "#;
 
-        let mut interpreter = interpreter::Interpreter::new();
+        let mut interpreter = interpreter::Interpreter::with_stdlib();
         let result = interpreter.eval(code).unwrap();
 
         assert_eq!(result.borrow().to_string(), "(vector 1 4 3)");

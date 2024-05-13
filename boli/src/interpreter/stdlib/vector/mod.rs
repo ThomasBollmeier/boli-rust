@@ -1,0 +1,217 @@
+use std::rc::Rc;
+
+use crate::interpreter::{
+    borrow_mut_value, borrow_value, downcast_value,
+    environment::Environment,
+    error,
+    module_mgmt::extension::{new_extension, ExtensionRef},
+    new_valueref, Callable, EvalResult, IntValue, ValueRef, ValueType, VectorValue,
+};
+
+pub fn create_vector_extension() -> ExtensionRef {
+    let core_env = Environment::new_ref();
+    let mut env = Environment::with_parent(&core_env);
+    env.set_callable("vector", &Rc::new(Vector::new()));
+    env.set_callable("vector-head", &Rc::new(VecHead::new()));
+    env.set_callable("vector-tail", &Rc::new(VecTail::new()));
+    env.set_callable("vector-cons", &Rc::new(VecCons::new()));
+    env.set_callable("vector-concat", &Rc::new(VecConcat::new()));
+    env.set_callable("vector-ref", &Rc::new(VecRef::new()));
+    env.set_callable("vector-set!", &Rc::new(VecSetBang::new()));
+
+    new_extension("vector", env.get_exported_values())
+}
+
+struct Vector {}
+
+impl Vector {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for Vector {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        Ok(new_valueref(VectorValue {
+            elements: args.clone(),
+        }))
+    }
+}
+
+struct VecHead {}
+
+impl VecHead {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for VecHead {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 1 {
+            return error("head function expects exactly one argument");
+        }
+
+        let value_type = args[0].borrow().get_type();
+
+        match value_type {
+            ValueType::Vector => {
+                let list = &borrow_value(&args[0]);
+                let list = downcast_value::<VectorValue>(list).unwrap();
+                if list.elements.is_empty() {
+                    return error("head function expects a non-empty list");
+                }
+                Ok(list.elements[0].clone())
+            }
+            _ => error("head function expects a list"),
+        }
+    }
+}
+
+struct VecTail {}
+
+impl VecTail {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for VecTail {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 1 {
+            return error("vector-tail function expects exactly one argument");
+        }
+
+        let value_type = args[0].borrow().get_type();
+
+        match value_type {
+            ValueType::Vector => {
+                let list = &borrow_value(&args[0]);
+                let list = downcast_value::<VectorValue>(list).unwrap();
+                if list.elements.is_empty() {
+                    return error("vector-tail function expects a non-empty vector");
+                }
+                Ok(new_valueref(VectorValue {
+                    elements: list.elements[1..].to_vec(),
+                }))
+            }
+            _ => error("vector-tail function expects a vector"),
+        }
+    }
+}
+
+struct VecCons {}
+
+impl VecCons {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for VecCons {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 2 {
+            return error("vector-cons function expects exactly two arguments");
+        }
+
+        let second_arg = args[1].borrow();
+        match second_arg.as_any().downcast_ref::<VectorValue>() {
+            Some(list) => {
+                let mut elements = vec![args[0].clone()];
+                elements.extend(list.elements.clone());
+
+                Ok(new_valueref(VectorValue { elements }) as ValueRef)
+            }
+            None => error("vector-cons function expects a vector as second argument"),
+        }
+    }
+}
+
+struct VecConcat {}
+
+impl VecConcat {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for VecConcat {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        let mut elements = Vec::new();
+
+        for arg in args {
+            let arg = arg.borrow();
+            match arg.as_any().downcast_ref::<VectorValue>() {
+                Some(list) => elements.extend(list.elements.clone()),
+                None => return error("vector-concat function expects vectors as arguments"),
+            }
+        }
+
+        Ok(new_valueref(VectorValue { elements }) as ValueRef)
+    }
+}
+
+struct VecRef {}
+
+impl VecRef {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for VecRef {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 2 {
+            return error("list-ref function expects exactly two arguments");
+        }
+
+        let arg0 = &borrow_value(&args[0]);
+        let list = match arg0.as_any().downcast_ref::<VectorValue>() {
+            Some(list) => list,
+            None => return error("list-ref function expects a list"),
+        };
+
+        let arg1 = &borrow_value(&args[1]);
+        let index = match arg1.as_any().downcast_ref::<IntValue>() {
+            Some(index) => index.value,
+            None => return error("list-ref function expects an integer as the second argument"),
+        };
+
+        Ok(list.elements[index as usize].clone())
+    }
+}
+
+struct VecSetBang {}
+
+impl VecSetBang {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for VecSetBang {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 3 {
+            return error("list-set! function expects exactly three arguments");
+        }
+
+        let arg0 = &mut borrow_mut_value(&args[0]);
+        let list = match arg0.as_any_mut().downcast_mut::<VectorValue>() {
+            Some(list) => list,
+            None => return error("list-set! function expects a list"),
+        };
+
+        let arg1 = &borrow_value(&args[1]);
+        let index = match arg1.as_any().downcast_ref::<IntValue>() {
+            Some(index) => index.value,
+            None => return error("list-set! function expects an integer as the second argument"),
+        };
+
+        let arg2 = args[2].clone();
+        list.elements[index as usize] = arg2;
+
+        Ok(new_valueref(VectorValue {
+            elements: list.elements.clone(),
+        }))
+    }
+}

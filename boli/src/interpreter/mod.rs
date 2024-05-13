@@ -3,7 +3,6 @@ pub mod environment;
 pub mod misc_functions;
 pub mod module_mgmt;
 pub mod number_functions;
-pub mod pair_functions;
 pub mod seq_collection_functions;
 pub mod stdlib;
 pub mod string_functions;
@@ -44,6 +43,12 @@ impl Interpreter {
             env: env.clone(),
             call_nesting: 0,
         }
+    }
+
+    pub fn with_stdlib() -> Self {
+        let env = Environment::new_ref();
+        Environment::include_stdlib(&env);
+        Self::with_environment(&env)
     }
 
     pub fn set_value(&mut self, key: String, value: ValueRef) {
@@ -275,6 +280,11 @@ impl AstVisitor for Interpreter {
             &create_struct_name,
             &Rc::new(CreateStructValue::new(&struct_type)),
         );
+
+        let type_query_name = format!("{}?", &struct_def.name);
+        self.env
+            .borrow_mut()
+            .set_builtin(&type_query_name, &Rc::new(IsStructType::new(&struct_type)));
 
         for field in &struct_def.fields {
             let getter_name = format!("{}-{}", &struct_def.name, &field);
@@ -679,6 +689,33 @@ mod tests {
             result.to_string(),
             r#"(struct person 'name "Nietzsche" 'first-name "Friedrich")"#
         );
+    }
+
+    #[test]
+    fn test_is_struct_ok() {
+        let mut interpreter = Interpreter::new();
+        let code = r#"
+            (def-struct person (name first-name))
+            (def philosophus (create-person "Nietzsche" "Friedrich"))
+            (person? philosophus)
+        "#;
+        let result = interpreter.eval(code).unwrap();
+        let result = borrow_value(&result);
+        assert_eq!(result.get_type(), ValueType::Bool);
+        assert_eq!(result.to_string(), "#true");
+    }
+
+    #[test]
+    fn test_is_struct_no_struct() {
+        let mut interpreter = Interpreter::new();
+        let code = r#"
+            (def-struct person (name first-name))
+            (person? 42)
+        "#;
+        let result = interpreter.eval(code).unwrap();
+        let result = borrow_value(&result);
+        assert_eq!(result.get_type(), ValueType::Bool);
+        assert_eq!(result.to_string(), "#false");
     }
 
     #[test]

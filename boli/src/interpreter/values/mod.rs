@@ -455,6 +455,53 @@ impl Callable for CreateStructValue {
     }
 }
 
+pub struct IsStructType {
+    struct_type: ValueRef,
+}
+
+impl IsStructType {
+    pub fn new(struct_type: &ValueRef) -> Self {
+        Self {
+            struct_type: struct_type.clone(),
+        }
+    }
+}
+
+impl Callable for IsStructType {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 1 {
+            return error("function expects exactly one argument");
+        }
+
+        let struct_value = borrow_value(&args[0]);
+        let struct_value = downcast_value::<StructValue>(&struct_value);
+        if struct_value.is_none() {
+            return Ok(new_valueref(BoolValue { value: false }));
+        }
+        let struct_value = struct_value.unwrap();
+
+        let struct_type = borrow_value(&self.struct_type);
+        let struct_type = downcast_value::<StructTypeValue>(&struct_type);
+        if struct_type.is_none() {
+            return error("Invalid struct type");
+        }
+        let struct_type = struct_type.unwrap();
+
+        if let Some(arg_type) = &struct_value.struct_type {
+            let arg_type = borrow_value(&arg_type);
+            let arg_type = downcast_value::<StructTypeValue>(&arg_type);
+            match arg_type {
+                Some(arg_type) => Ok(new_valueref(BoolValue {
+                    value: arg_type.name == struct_type.name,
+                })),
+                None => Ok(new_valueref(BoolValue { value: false })),
+            }
+        } else {
+            Ok(new_valueref(BoolValue { value: false }))
+        }
+    }
+}
+
 pub struct GetStructField {
     field: String,
 }

@@ -4,7 +4,6 @@ use super::module_mgmt::file_system::new_directory;
 use super::module_mgmt::module_loader::RequireFn;
 use super::module_mgmt::ModuleDirRef;
 use super::number_functions::*;
-use super::pair_functions::*;
 use super::seq_collection_functions::*;
 use super::stdlib;
 use super::string_functions::*;
@@ -206,13 +205,6 @@ impl Environment {
         env.borrow_mut().set_builtin("nil?", &Rc::new(IsNil::new()));
 
         env.borrow_mut()
-            .set_builtin("pair?", &Rc::new(IsPair::new()));
-        env.borrow_mut().set_builtin("car", &Rc::new(Car::new()));
-        env.borrow_mut().set_builtin("cdr", &Rc::new(Cdr::new()));
-
-        env.borrow_mut()
-            .set_builtin("vector", &Rc::new(Vector::new()));
-        env.borrow_mut()
             .set_builtin("sequence", &Rc::new(Sequence::new()));
         env.borrow_mut().set_builtin("head", &Rc::new(Head::new()));
         env.borrow_mut().set_builtin("tail", &Rc::new(Tail::new()));
@@ -228,10 +220,6 @@ impl Environment {
         env.borrow_mut().set_builtin("take", &Rc::new(Take::new()));
         env.borrow_mut()
             .set_builtin("take-while", &Rc::new(TakeWhile::new()));
-        env.borrow_mut()
-            .set_builtin("vector-ref", &Rc::new(VectorRef::new()));
-        env.borrow_mut()
-            .set_builtin("vector-set!", &Rc::new(VectorSetBang::new()));
 
         env.borrow_mut()
             .set_builtin("iterator", &Rc::new(Iterator::new()));
@@ -301,6 +289,16 @@ impl Environment {
 
     pub fn set_builtin<T: Callable + 'static>(&mut self, name: &str, function: &Rc<T>) {
         self.set_unowned(
+            name.to_string(),
+            new_valueref(BuiltInFunctionValue {
+                name: name.to_string(),
+                function: function.clone(),
+            }),
+        );
+    }
+
+    pub fn set_callable<T: Callable + 'static>(&mut self, name: &str, function: &Rc<T>) {
+        self.set(
             name.to_string(),
             new_valueref(BuiltInFunctionValue {
                 name: name.to_string(),
