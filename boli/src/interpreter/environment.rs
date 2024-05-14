@@ -6,7 +6,6 @@ use super::module_mgmt::ModuleDirRef;
 use super::number_functions::*;
 use super::seq_collection_functions::*;
 use super::stdlib;
-use super::string_functions::*;
 use super::struct_functions::*;
 use super::values::*;
 use std::cell::RefCell;
@@ -224,25 +223,10 @@ impl Environment {
         env.borrow_mut()
             .set_builtin("iterator", &Rc::new(Iterator::new()));
 
-        env.borrow_mut()
-            .set_builtin("count", &Rc::new(Count::new()));
+        //env.borrow_mut()
+        //    .set_builtin("count", &Rc::new(Count::new()));
         env.borrow_mut()
             .set_builtin("empty?", &Rc::new(IsEmpty::new()));
-
-        env.borrow_mut()
-            .set_builtin("str-sub", &Rc::new(StrSub::new()));
-        env.borrow_mut()
-            .set_builtin("str-replace", &Rc::new(StrReplace::new()));
-        env.borrow_mut()
-            .set_builtin("str-concat", &Rc::new(StrConcat::new()));
-        env.borrow_mut()
-            .set_builtin("str-upper", &Rc::new(StrUpper::new()));
-        env.borrow_mut()
-            .set_builtin("str-lower", &Rc::new(StrLower::new()));
-        env.borrow_mut()
-            .set_builtin("str->int", &Rc::new(StrToInt::new()));
-        env.borrow_mut()
-            .set_builtin("str->real", &Rc::new(StrToReal::new()));
 
         env.borrow_mut()
             .set_builtin("equal?", &Rc::new(IsEqual::new()));

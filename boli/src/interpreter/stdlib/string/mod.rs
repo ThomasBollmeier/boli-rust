@@ -1,8 +1,52 @@
-use core::str;
+use std::rc::Rc;
 
-use super::values::*;
+use crate::interpreter::{
+    environment::Environment,
+    module_mgmt::extension::{new_extension, ExtensionRef},
+    values::*,
+};
 
-pub struct StrSub {}
+pub fn create_string_extension() -> ExtensionRef {
+    let core_env = Environment::new_ref();
+    let mut env = Environment::with_parent(&core_env);
+
+    env.set_callable("string?", &Rc::new(IsString::new()));
+    env.set_callable("string-sub", &Rc::new(StrSub::new()));
+    env.set_callable("string-replace", &Rc::new(StrReplace::new()));
+    env.set_callable("string-concat", &Rc::new(StrConcat::new()));
+    env.set_callable("string-upper", &Rc::new(StrUpper::new()));
+    env.set_callable("string-lower", &Rc::new(StrLower::new()));
+    env.set_callable("string->int", &Rc::new(StrToInt::new()));
+    env.set_callable("string->real", &Rc::new(StrToReal::new()));
+    env.set_callable("string-count", &Rc::new(StrCount::new()));
+
+    let values = env.get_exported_values();
+
+    new_extension("string", values)
+}
+
+struct IsString {}
+
+impl IsString {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for IsString {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 1 {
+            return error("string? function expects exactly one argument");
+        }
+
+        let arg0 = borrow_value(&args[0]);
+        Ok(new_valueref(BoolValue {
+            value: arg0.get_type() == ValueType::Str,
+        }))
+    }
+}
+
+struct StrSub {}
 
 impl StrSub {
     pub fn new() -> Self {
@@ -49,7 +93,7 @@ impl Callable for StrSub {
     }
 }
 
-pub struct StrReplace {}
+struct StrReplace {}
 
 impl StrReplace {
     pub fn new() -> Self {
@@ -87,7 +131,7 @@ impl Callable for StrReplace {
     }
 }
 
-pub struct StrConcat {}
+struct StrConcat {}
 
 impl StrConcat {
     pub fn new() -> Self {
@@ -114,7 +158,7 @@ impl Callable for StrConcat {
     }
 }
 
-pub struct StrUpper {}
+struct StrUpper {}
 
 impl StrUpper {
     pub fn new() -> Self {
@@ -140,7 +184,7 @@ impl Callable for StrUpper {
     }
 }
 
-pub struct StrLower {}
+struct StrLower {}
 
 impl StrLower {
     pub fn new() -> Self {
@@ -166,7 +210,7 @@ impl Callable for StrLower {
     }
 }
 
-pub struct StrToInt {}
+struct StrToInt {}
 
 impl StrToInt {
     pub fn new() -> Self {
@@ -195,7 +239,7 @@ impl Callable for StrToInt {
     }
 }
 
-pub struct StrToReal {}
+struct StrToReal {}
 
 impl StrToReal {
     pub fn new() -> Self {
@@ -222,5 +266,31 @@ impl Callable for StrToReal {
             Ok(value) => Ok(new_valueref(RealValue { value })),
             Err(_) => Ok(new_valueref(BoolValue { value: false })),
         }
+    }
+}
+
+struct StrCount {}
+
+impl StrCount {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for StrCount {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 1 {
+            return error("str-count function expects exactly two arguments");
+        }
+
+        let arg0 = borrow_value(&args[0]);
+        let string = match arg0.get_type() {
+            ValueType::Str => downcast_value::<StrValue>(&arg0).unwrap(),
+            _ => return error("str-count function expects a string as the first argument"),
+        };
+
+        Ok(new_valueref(IntValue {
+            value: string.value.len() as i64,
+        }))
     }
 }

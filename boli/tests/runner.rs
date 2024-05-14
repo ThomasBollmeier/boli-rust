@@ -75,6 +75,7 @@ fn run_file(input_file_name: &str, expected_output_file: &str) {
     let code_dir: ModuleDirRef = new_directory("tests", "input");
     let output: OutputRef = Rc::new(RefCell::new(StringOutput::new()));
     let env = Environment::ref_with_search_dirs_and_output(&vec![code_dir.clone()], &output);
+    Environment::include_stdlib(&env);
 
     let file = code_dir.borrow().get_file(input_file_name).unwrap();
     let code = file.borrow().read();

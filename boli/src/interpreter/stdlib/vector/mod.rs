@@ -5,13 +5,15 @@ use crate::interpreter::{
     environment::Environment,
     error,
     module_mgmt::extension::{new_extension, ExtensionRef},
-    new_valueref, Callable, EvalResult, IntValue, ValueRef, ValueType, VectorValue,
+    new_valueref, BoolValue, Callable, EvalResult, IntValue, ValueRef, ValueType, VectorValue,
 };
 
 pub fn create_vector_extension() -> ExtensionRef {
     let core_env = Environment::new_ref();
     let mut env = Environment::with_parent(&core_env);
     env.set_callable("vector", &Rc::new(Vector::new()));
+    env.set_callable("vector?", &Rc::new(IsVector::new()));
+    env.set_callable("vector-count", &Rc::new(VecCount::new()));
     env.set_callable("vector-head", &Rc::new(VecHead::new()));
     env.set_callable("vector-tail", &Rc::new(VecTail::new()));
     env.set_callable("vector-cons", &Rc::new(VecCons::new()));
@@ -35,6 +37,56 @@ impl Callable for Vector {
         Ok(new_valueref(VectorValue {
             elements: args.clone(),
         }))
+    }
+}
+
+struct IsVector {}
+
+impl IsVector {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for IsVector {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 1 {
+            return error("vector? function expects exactly one argument");
+        }
+
+        let arg0 = borrow_value(&args[0]);
+        Ok(new_valueref(BoolValue {
+            value: arg0.get_type() == ValueType::Vector,
+        }))
+    }
+}
+
+struct VecCount {}
+
+impl VecCount {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for VecCount {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 1 {
+            return error("vector-count function expects exactly one argument");
+        }
+
+        let value_type = args[0].borrow().get_type();
+
+        match value_type {
+            ValueType::Vector => {
+                let list = &borrow_value(&args[0]);
+                let list = downcast_value::<VectorValue>(list).unwrap();
+                Ok(new_valueref(IntValue {
+                    value: list.elements.len() as i64,
+                }))
+            }
+            _ => error("vector-count function expects a vector"),
+        }
     }
 }
 

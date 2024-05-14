@@ -1,0 +1,9 @@
+(require 'vector)
+(require 'list)
+(require 'string)
+
+(def (count val)
+    (cond 
+        [(vector? val) (vector-count val)]
+        [(list? val) (list-count val)]
+        [(string? val) (string-count val)]))
