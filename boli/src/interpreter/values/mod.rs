@@ -23,7 +23,7 @@ pub enum ValueType {
     Quote,
     Pair,
     Vector,
-    Sequence,
+    Stream,
     StructType,
     Struct,
     Lambda,

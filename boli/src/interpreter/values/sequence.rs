@@ -3,9 +3,9 @@ use crate::interpreter::misc_functions::is_truthy;
 use super::*;
 
 #[derive(Debug)]
-pub enum SequenceValue {
-    List {
-        list: ValueRef,
+pub enum StreamValue {
+    Vector {
+        vector: ValueRef,
         index: usize,
     },
     Iterator {
@@ -33,15 +33,18 @@ pub enum SequenceValue {
     },
 }
 
-impl SequenceValue {
+impl StreamValue {
     pub fn new_list(list: ValueRef) -> Result<Self, InterpreterError> {
         if list.borrow().get_type() != ValueType::Vector {
             return Err(InterpreterError::new(
-                "Expected list value to create sequence.",
+                "Expected vector value to create stream.",
             ));
         }
 
-        Ok(Self::List { list, index: 0 })
+        Ok(Self::Vector {
+            vector: list,
+            index: 0,
+        })
     }
 
     pub fn new_iterator(next_func: ValueRef, start: ValueRef) -> Result<Self, InterpreterError> {
@@ -50,7 +53,7 @@ impl SequenceValue {
             ValueType::BuiltInFunction | ValueType::Lambda
         ) {
             return Err(InterpreterError::new(
-                "Expected function value to create sequence.",
+                "Expected function value to create stream.",
             ));
         }
 
@@ -70,14 +73,12 @@ impl SequenceValue {
             ValueType::BuiltInFunction | ValueType::Lambda
         ) {
             return Err(InterpreterError::new(
-                "Filtered sequence requires a function as predicate.",
+                "Filtered stream requires a function as predicate.",
             ));
         }
 
-        if sequence.borrow().get_type() != ValueType::Sequence {
-            return Err(InterpreterError::new(
-                "Filtered sequence requires a sequence.",
-            ));
+        if sequence.borrow().get_type() != ValueType::Stream {
+            return Err(InterpreterError::new("Filtered stream requires a stream."));
         }
 
         Ok(Self::Filtered {
@@ -95,17 +96,15 @@ impl SequenceValue {
             ValueType::BuiltInFunction | ValueType::Lambda
         ) {
             return Err(InterpreterError::new(
-                "Mapped sequence requires a function as mapper.",
+                "Mapped stream requires a function as mapper.",
             ));
         }
 
         if !sequences
             .iter()
-            .all(|sequence| matches!(sequence.borrow().get_type(), ValueType::Sequence))
+            .all(|sequence| matches!(sequence.borrow().get_type(), ValueType::Stream))
         {
-            return Err(InterpreterError::new(
-                "Mapped sequence requires a sequence.",
-            ));
+            return Err(InterpreterError::new("Mapped stream requires a stream."));
         }
 
         Ok(Self::Mapped {
@@ -116,15 +115,11 @@ impl SequenceValue {
 
     pub fn new_dropped(n: ValueRef, sequence: ValueRef) -> Result<Self, InterpreterError> {
         if n.borrow().get_type() != ValueType::Int {
-            return Err(InterpreterError::new(
-                "Dropped sequence requires an integer.",
-            ));
+            return Err(InterpreterError::new("Dropped stream requires an integer."));
         }
 
-        if sequence.borrow().get_type() != ValueType::Sequence {
-            return Err(InterpreterError::new(
-                "Dropped sequence requires a sequence.",
-            ));
+        if sequence.borrow().get_type() != ValueType::Stream {
+            return Err(InterpreterError::new("Dropped stream requires a stream."));
         }
 
         Ok(Self::Dropped {
@@ -143,11 +138,11 @@ impl SequenceValue {
             ValueType::BuiltInFunction | ValueType::Lambda
         ) {
             return Err(InterpreterError::new(
-                "DroppedWhile sequence requires a function as predicate.",
+                "DroppedWhile stream requires a function as predicate.",
             ));
         }
 
-        if sequence.borrow().get_type() != ValueType::Sequence {
+        if sequence.borrow().get_type() != ValueType::Stream {
             return Err(InterpreterError::new(
                 "DroppedWhile sequence requires a sequence.",
             ));
@@ -162,7 +157,10 @@ impl SequenceValue {
 
     pub fn next(&mut self) -> Option<ValueRef> {
         match self {
-            Self::List { list, index } => {
+            Self::Vector {
+                vector: list,
+                index,
+            } => {
                 let list = &borrow_value(list);
                 let list = downcast_value::<VectorValue>(list).unwrap();
                 if *index < list.elements.len() {
@@ -212,7 +210,7 @@ impl SequenceValue {
                 };
 
                 let mut seq = borrow_mut_value(sequence);
-                let seq = seq.as_any_mut().downcast_mut::<SequenceValue>().unwrap();
+                let seq = seq.as_any_mut().downcast_mut::<StreamValue>().unwrap();
 
                 loop {
                     if let Some(value) = seq.next() {
@@ -246,7 +244,7 @@ impl SequenceValue {
                 for sequence in sequences {
                     if let Some(value) = borrow_mut_value(sequence)
                         .as_any_mut()
-                        .downcast_mut::<SequenceValue>()
+                        .downcast_mut::<StreamValue>()
                         .unwrap()
                         .next()
                     {
@@ -264,10 +262,7 @@ impl SequenceValue {
                 initial,
             } => {
                 let mut sequence = borrow_mut_value(sequence);
-                let sequence = sequence
-                    .as_any_mut()
-                    .downcast_mut::<SequenceValue>()
-                    .unwrap();
+                let sequence = sequence.as_any_mut().downcast_mut::<StreamValue>().unwrap();
 
                 if *initial {
                     let n = borrow_value(n);
@@ -298,7 +293,7 @@ impl SequenceValue {
                 };
 
                 let mut seq = borrow_mut_value(sequence);
-                let seq = seq.as_any_mut().downcast_mut::<SequenceValue>().unwrap();
+                let seq = seq.as_any_mut().downcast_mut::<StreamValue>().unwrap();
 
                 if *initial {
                     loop {
@@ -325,16 +320,19 @@ impl SequenceValue {
 
     fn clone_sequence(value: &ValueRef) -> ValueRef {
         let value = borrow_value(&value);
-        let value = value.as_any().downcast_ref::<SequenceValue>().unwrap();
+        let value = value.as_any().downcast_ref::<StreamValue>().unwrap();
         new_valueref(value.clone())
     }
 }
 
-impl Clone for SequenceValue {
+impl Clone for StreamValue {
     fn clone(&self) -> Self {
         match self {
-            Self::List { list, index } => Self::List {
-                list: list.clone(),
+            Self::Vector {
+                vector: list,
+                index,
+            } => Self::Vector {
+                vector: list.clone(),
                 index: index.clone(),
             },
             Self::Iterator {
@@ -382,9 +380,9 @@ impl Clone for SequenceValue {
     }
 }
 
-impl Value for SequenceValue {
+impl Value for StreamValue {
     fn get_type(&self) -> ValueType {
-        ValueType::Sequence
+        ValueType::Stream
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -396,9 +394,9 @@ impl Value for SequenceValue {
     }
 }
 
-impl Display for SequenceValue {
+impl Display for StreamValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "<sequence>")
+        write!(f, "<stream>")
     }
 }
 
@@ -406,7 +404,7 @@ impl Display for SequenceValue {
 mod tests {
     use super::*;
 
-    fn take(n: usize, sequence: &SequenceValue) -> VectorValue {
+    fn take(n: usize, sequence: &StreamValue) -> VectorValue {
         let mut seq = sequence.clone();
         let mut elements = Vec::new();
         for _ in 0..n {
@@ -429,7 +427,7 @@ mod tests {
             ],
         });
 
-        let mut sequence = SequenceValue::new_list(list).unwrap();
+        let mut sequence = StreamValue::new_list(list).unwrap();
 
         assert_eq!(take(10, &mut sequence).to_string(), "(vector 1 2 3)");
     }
@@ -441,7 +439,7 @@ mod tests {
         let next_func = interpreter.eval("(λ (n) (+ n 1))").unwrap();
         let start = new_valueref(IntValue { value: 0 });
 
-        let mut sequence = SequenceValue::new_iterator(next_func, start).unwrap();
+        let mut sequence = StreamValue::new_iterator(next_func, start).unwrap();
 
         assert_eq!(
             take(10, &mut sequence).to_string(),
@@ -461,11 +459,11 @@ mod tests {
         let next_func = interpreter.eval("(λ (n) (+ n 1))").unwrap();
         let start = new_valueref(IntValue { value: 0 });
 
-        let numbers = SequenceValue::new_iterator(next_func, start).unwrap();
+        let numbers = StreamValue::new_iterator(next_func, start).unwrap();
 
         let predicate_func = interpreter.eval("(λ (n) (= (% n 2) 0))").unwrap();
         let even_numbers =
-            SequenceValue::new_filtered(predicate_func, new_valueref(numbers.clone())).unwrap();
+            StreamValue::new_filtered(predicate_func, new_valueref(numbers.clone())).unwrap();
 
         assert_eq!(
             take(10, &numbers).to_string(),
@@ -484,10 +482,10 @@ mod tests {
         let next_func = interpreter.eval("(λ (n) (+ n 1))").unwrap();
         let start = new_valueref(IntValue { value: 0 });
 
-        let numbers = SequenceValue::new_iterator(next_func, start).unwrap();
+        let numbers = StreamValue::new_iterator(next_func, start).unwrap();
 
         let map_func = interpreter.eval("(λ (i j) (i . (* j j)))").unwrap();
-        let squared_numbers = SequenceValue::new_mapped(
+        let squared_numbers = StreamValue::new_mapped(
             map_func,
             vec![new_valueref(numbers.clone()), new_valueref(numbers.clone())],
         )
@@ -510,9 +508,9 @@ mod tests {
         let next_func = interpreter.eval("(λ (n) (+ n 1))").unwrap();
         let start = new_valueref(IntValue { value: 0 });
 
-        let numbers = SequenceValue::new_iterator(next_func, start).unwrap();
+        let numbers = StreamValue::new_iterator(next_func, start).unwrap();
 
-        let dropped = SequenceValue::new_dropped(
+        let dropped = StreamValue::new_dropped(
             new_valueref(IntValue { value: 5 }),
             new_valueref(numbers.clone()),
         )
@@ -531,12 +529,11 @@ mod tests {
         let next_func = interpreter.eval("(λ (n) (+ n 1))").unwrap();
         let start = new_valueref(IntValue { value: 0 });
 
-        let numbers = SequenceValue::new_iterator(next_func, start).unwrap();
+        let numbers = StreamValue::new_iterator(next_func, start).unwrap();
 
         let predicate_func = interpreter.eval("(λ (n) (< n 5))").unwrap();
         let dropped =
-            SequenceValue::new_dropped_while(predicate_func, new_valueref(numbers.clone()))
-                .unwrap();
+            StreamValue::new_dropped_while(predicate_func, new_valueref(numbers.clone())).unwrap();
 
         assert_eq!(
             take(10, &dropped).to_string(),

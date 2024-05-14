@@ -6,7 +6,7 @@ use crate::interpreter::environment::Environment;
 use crate::interpreter::module_mgmt::extension::{new_extension, new_extension_dir, ExtensionRef};
 use crate::interpreter::stdlib::load_module_code;
 
-pub fn create_seq_collectiob_extension(extension_deps: &Vec<ExtensionRef>) -> ExtensionRef {
+pub fn create_seq_collection_extension(extension_deps: &Vec<ExtensionRef>) -> ExtensionRef {
     let core_env = Environment::new_ref();
     let env = Environment::with_parent(&core_env);
     let collection_env = Rc::new(RefCell::new(env));

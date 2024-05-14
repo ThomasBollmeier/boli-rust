@@ -37,7 +37,7 @@ impl Callable for Sequence {
             return error("sequence function expects a list as the argument");
         }
 
-        Ok(new_valueref(SequenceValue::new_list(args[0].clone())?))
+        Ok(new_valueref(StreamValue::new_list(args[0].clone())?))
     }
 }
 
@@ -56,7 +56,7 @@ impl Callable for Iterator {
         }
 
         let (start, next_function) = (&args[0], &args[1]);
-        let iterator = SequenceValue::new_iterator(next_function.clone(), start.clone())?;
+        let iterator = StreamValue::new_iterator(next_function.clone(), start.clone())?;
 
         Ok(new_valueref(iterator))
     }
@@ -87,10 +87,10 @@ impl Callable for Head {
                 }
                 Ok(list.elements[0].clone())
             }
-            ValueType::Sequence => {
+            ValueType::Stream => {
                 let sequence = args[0].clone();
                 let sequence = borrow_value(&sequence);
-                let mut sequence = downcast_value::<SequenceValue>(&sequence).unwrap().clone();
+                let mut sequence = downcast_value::<StreamValue>(&sequence).unwrap().clone();
                 match sequence.next() {
                     Some(head) => Ok(head),
                     None => error("head function expects a non-empty sequence"),
@@ -133,10 +133,10 @@ impl Callable for Tail {
                     elements: list.elements[1..].to_vec(),
                 }))
             }
-            ValueType::Sequence => {
+            ValueType::Stream => {
                 let sequence = args[0].clone();
                 let sequence = borrow_value(&sequence);
-                let mut sequence = downcast_value::<SequenceValue>(&sequence).unwrap().clone();
+                let mut sequence = downcast_value::<StreamValue>(&sequence).unwrap().clone();
                 sequence.next();
                 Ok(new_valueref(sequence))
             }
@@ -255,8 +255,8 @@ impl Callable for Filter {
                 }
                 Ok(new_valueref(VectorValue { elements }) as ValueRef)
             }
-            ValueType::Sequence => {
-                let filtered = SequenceValue::new_filtered(args[0].clone(), args[1].clone())?;
+            ValueType::Stream => {
+                let filtered = StreamValue::new_filtered(args[0].clone(), args[1].clone())?;
                 Ok(new_valueref(filtered))
             }
             _ => return error("filter function expects a list as the second argument"),
@@ -335,15 +335,15 @@ impl Callable for Map {
                 let value_type = lst.borrow().get_type();
                 match value_type {
                     ValueType::Vector => {
-                        sequences.push(new_valueref(SequenceValue::new_list(lst.clone())?));
+                        sequences.push(new_valueref(StreamValue::new_list(lst.clone())?));
                     }
-                    ValueType::Sequence => {
+                    ValueType::Stream => {
                         sequences.push(lst.clone());
                     }
                     _ => return error("map function expects a list or a sequence as arguments"),
                 }
             }
-            let mapped = SequenceValue::new_mapped(map_function, sequences)?;
+            let mapped = StreamValue::new_mapped(map_function, sequences)?;
 
             Ok(new_valueref(mapped))
         }
@@ -383,8 +383,8 @@ impl Callable for Drop {
 
                 Ok(new_valueref(VectorValue { elements }))
             }
-            ValueType::Sequence => {
-                let dropped = SequenceValue::new_dropped(args[0].clone(), args[1].clone())?;
+            ValueType::Stream => {
+                let dropped = StreamValue::new_dropped(args[0].clone(), args[1].clone())?;
                 Ok(new_valueref(dropped))
             }
             _ => return error("drop function expects a list as the second argument"),
@@ -443,8 +443,8 @@ impl Callable for DropWhile {
                 }
                 Ok(new_valueref(VectorValue { elements }))
             }
-            ValueType::Sequence => {
-                let dropped = SequenceValue::new_dropped_while(args[0].clone(), args[1].clone())?;
+            ValueType::Stream => {
+                let dropped = StreamValue::new_dropped_while(args[0].clone(), args[1].clone())?;
                 Ok(new_valueref(dropped))
             }
             _ => return error("drop-while function expects a list as the second argument"),
@@ -485,9 +485,9 @@ impl Callable for Take {
 
                 Ok(new_valueref(VectorValue { elements }))
             }
-            ValueType::Sequence => {
+            ValueType::Stream => {
                 let arg1 = &borrow_value(&args[1]);
-                let mut seq = downcast_value::<SequenceValue>(arg1).unwrap().clone();
+                let mut seq = downcast_value::<StreamValue>(arg1).unwrap().clone();
                 let mut elements = vec![];
                 for _ in 0..n {
                     if let Some(elem) = seq.next() {
@@ -540,9 +540,9 @@ impl Callable for TakeWhile {
                 }
                 Ok(new_valueref(VectorValue { elements }))
             }
-            ValueType::Sequence => {
+            ValueType::Stream => {
                 let arg1 = &borrow_value(&args[1]);
-                let mut seq = downcast_value::<SequenceValue>(arg1).unwrap().clone();
+                let mut seq = downcast_value::<StreamValue>(arg1).unwrap().clone();
                 let mut elements = vec![];
                 while let Some(elem) = seq.next() {
                     let result = predicate.call(&vec![elem.clone()])?;
@@ -569,7 +569,7 @@ mod tests {
         (head (iterator 0 (lambda (x) (+ x 1))))
         "#;
 
-        let mut interpreter = interpreter::Interpreter::new();
+        let mut interpreter = interpreter::Interpreter::with_stdlib();
         let result = interpreter.eval(code).unwrap();
 
         assert_eq!(result.borrow().to_string(), "0");
@@ -581,7 +581,7 @@ mod tests {
         (head (tail (iterator 0 (lambda (x) (+ x 1)))))
         "#;
 
-        let mut interpreter = interpreter::Interpreter::new();
+        let mut interpreter = interpreter::Interpreter::with_stdlib();
         let result = interpreter.eval(code).unwrap();
 
         assert_eq!(result.borrow().to_string(), "1");
@@ -595,7 +595,7 @@ mod tests {
         (head odds)
         "#;
 
-        let mut interpreter = interpreter::Interpreter::new();
+        let mut interpreter = interpreter::Interpreter::with_stdlib();
         let result = interpreter.eval(code).unwrap();
 
         assert_eq!(result.borrow().to_string(), "1");
@@ -609,7 +609,7 @@ mod tests {
         (head squares)
         "#;
 
-        let mut interpreter = interpreter::Interpreter::new();
+        let mut interpreter = interpreter::Interpreter::with_stdlib();
         let result = interpreter.eval(code).unwrap();
 
         assert_eq!(result.borrow().to_string(), "4");
@@ -623,7 +623,7 @@ mod tests {
         (head (drop 2 squares))
         "#;
 
-        let mut interpreter = interpreter::Interpreter::new();
+        let mut interpreter = interpreter::Interpreter::with_stdlib();
         let result = interpreter.eval(code).unwrap();
 
         assert_eq!(result.borrow().to_string(), "4");
@@ -637,7 +637,7 @@ mod tests {
         (head (drop-while (λ (n) (< n 50)) squares))
         "#;
 
-        let mut interpreter = interpreter::Interpreter::new();
+        let mut interpreter = interpreter::Interpreter::with_stdlib();
         let result = interpreter.eval(code).unwrap();
 
         assert_eq!(result.borrow().to_string(), "64");
@@ -651,7 +651,7 @@ mod tests {
         (take 3 naturals)
         "#;
 
-        let mut interpreter = interpreter::Interpreter::new();
+        let mut interpreter = interpreter::Interpreter::with_stdlib();
         let result = interpreter.eval(code).unwrap();
 
         assert_eq!(result.borrow().to_string(), "(vector 0 1 2)");
@@ -660,7 +660,6 @@ mod tests {
     #[test]
     fn test_take_while_seq() {
         let code = r#"
-        (require 'list)
         (def (next-pair p)
             (let [(a (car p))
                   (b (cdr p))]
@@ -681,7 +680,6 @@ mod tests {
     #[test]
     fn test_vector_ref() {
         let code = r#"
-        (require 'vector)
         (def v (vector 1 2 3))
         (vector-ref v 1)
         "#;
@@ -695,7 +693,6 @@ mod tests {
     #[test]
     fn test_vector_set() {
         let code = r#"
-        (require 'vector)
         (def v (vector 1 2 3))
         (vector-set! v 1 4)
         v

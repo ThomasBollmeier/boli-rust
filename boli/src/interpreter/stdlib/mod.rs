@@ -6,6 +6,7 @@ use std::collections::HashMap;
 
 mod list;
 mod seq_collection;
+mod stream;
 mod string;
 mod vector;
 
@@ -18,11 +19,14 @@ pub fn create_stdlib() -> ModuleDirRef {
     let list_ext = list::create_list_extension(&vector_ext);
     stdlib.borrow_mut().add_extension(&list_ext);
 
+    let stream_ext = stream::create_stream_extension();
+    stdlib.borrow_mut().add_extension(&stream_ext);
+
     let string_ext = string::create_string_extension();
     stdlib.borrow_mut().add_extension(&string_ext);
 
     let seq_collection =
-        seq_collection::create_seq_collectiob_extension(&vec![vector_ext, list_ext, string_ext]);
+        seq_collection::create_seq_collection_extension(&vec![vector_ext, list_ext, string_ext]);
     stdlib.borrow_mut().add_extension(&seq_collection);
 
     stdlib

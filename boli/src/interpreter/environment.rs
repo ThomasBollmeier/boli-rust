@@ -136,11 +136,25 @@ impl Environment {
         self.env.insert(key, EnvEntry { value, owned: true }); // true: value is owned by the environment
     }
 
-    pub fn include_stdlib(env: &EnvironmentRef) {
+    pub fn load_stdlib(env: &EnvironmentRef) {
         let stdlib = stdlib::create_stdlib();
+
+        Self::import_extension(env, &stdlib, "vector");
+        Self::import_extension(env, &stdlib, "list");
+        Self::import_extension(env, &stdlib, "stream");
+        Self::import_extension(env, &stdlib, "string");
+        Self::import_extension(env, &stdlib, "seqcol");
+        /*
         let mut search_dirs = env.borrow().get_module_search_dirs();
         search_dirs.push(stdlib);
         env.borrow_mut().module_search_dirs = Some(search_dirs);
+        */
+    }
+
+    fn import_extension(env: &EnvironmentRef, extension_dir: &ModuleDirRef, name: &str) {
+        let extension = extension_dir.borrow().get_extension(name).unwrap();
+        env.borrow_mut()
+            .import_values(extension.borrow().get_values());
     }
 
     fn set_unowned(&mut self, key: String, value: ValueRef) {
@@ -203,8 +217,6 @@ impl Environment {
         env.borrow_mut().set_builtin("not", &Rc::new(Not::new()));
         env.borrow_mut().set_builtin("nil?", &Rc::new(IsNil::new()));
 
-        env.borrow_mut()
-            .set_builtin("sequence", &Rc::new(Sequence::new()));
         env.borrow_mut().set_builtin("head", &Rc::new(Head::new()));
         env.borrow_mut().set_builtin("tail", &Rc::new(Tail::new()));
         env.borrow_mut().set_builtin("cons", &Rc::new(Cons::new()));
@@ -220,11 +232,6 @@ impl Environment {
         env.borrow_mut()
             .set_builtin("take-while", &Rc::new(TakeWhile::new()));
 
-        env.borrow_mut()
-            .set_builtin("iterator", &Rc::new(Iterator::new()));
-
-        //env.borrow_mut()
-        //    .set_builtin("count", &Rc::new(Count::new()));
         env.borrow_mut()
             .set_builtin("empty?", &Rc::new(IsEmpty::new()));
 

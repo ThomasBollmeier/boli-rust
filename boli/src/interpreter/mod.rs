@@ -46,7 +46,7 @@ impl Interpreter {
 
     pub fn with_stdlib() -> Self {
         let env = Environment::new_ref();
-        Environment::include_stdlib(&env);
+        Environment::load_stdlib(&env);
         Self::with_environment(&env)
     }
 
