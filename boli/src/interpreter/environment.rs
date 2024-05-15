@@ -144,11 +144,6 @@ impl Environment {
         Self::import_extension(env, &stdlib, "stream");
         Self::import_extension(env, &stdlib, "string");
         Self::import_extension(env, &stdlib, "seqcol");
-        /*
-        let mut search_dirs = env.borrow().get_module_search_dirs();
-        search_dirs.push(stdlib);
-        env.borrow_mut().module_search_dirs = Some(search_dirs);
-        */
     }
 
     fn import_extension(env: &EnvironmentRef, extension_dir: &ModuleDirRef, name: &str) {
@@ -217,11 +212,8 @@ impl Environment {
         env.borrow_mut().set_builtin("not", &Rc::new(Not::new()));
         env.borrow_mut().set_builtin("nil?", &Rc::new(IsNil::new()));
 
-        env.borrow_mut().set_builtin("head", &Rc::new(Head::new()));
-        env.borrow_mut().set_builtin("tail", &Rc::new(Tail::new()));
-        env.borrow_mut().set_builtin("cons", &Rc::new(Cons::new()));
-        env.borrow_mut()
-            .set_builtin("concat", &Rc::new(Concat::new()));
+        //env.borrow_mut()
+        //    .set_builtin("concat", &Rc::new(Concat::new()));
         env.borrow_mut()
             .set_builtin("filter", &Rc::new(Filter::new()));
         env.borrow_mut().set_builtin("map", &Rc::new(Map::new()));

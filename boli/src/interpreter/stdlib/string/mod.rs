@@ -46,7 +46,7 @@ impl Callable for IsString {
     }
 }
 
-struct StrSub {}
+pub struct StrSub {}
 
 impl StrSub {
     pub fn new() -> Self {
@@ -131,7 +131,7 @@ impl Callable for StrReplace {
     }
 }
 
-struct StrConcat {}
+pub struct StrConcat {}
 
 impl StrConcat {
     pub fn new() -> Self {

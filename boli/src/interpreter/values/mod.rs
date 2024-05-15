@@ -12,7 +12,7 @@ use super::{AstRef, Interpreter};
 
 pub mod sequence;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum ValueType {
     Nil,
     Bool,
@@ -289,7 +289,7 @@ impl Debug for QuoteValue {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PairValue {
     pub left: ValueRef,
     pub right: ValueRef,
@@ -304,12 +304,24 @@ impl PairValue {
     }
 
     fn is_list(&self) -> bool {
-        let right = borrow_value(&self.right);
-        if let Some(right) = downcast_value::<PairValue>(&right) {
-            right.is_list()
-        } else {
-            right.get_type() == ValueType::Nil
+        let mut current = new_valueref(self.clone());
+        loop {
+            let current_type = current.borrow().get_type();
+
+            match current_type {
+                ValueType::Nil => return true,
+                ValueType::Pair => {
+                    current = Self::get_right(&current);
+                }
+                _ => return false,
+            }
         }
+    }
+
+    fn get_right(value: &ValueRef) -> ValueRef {
+        let pair = borrow_value(value);
+        let pair = downcast_value::<PairValue>(&pair).unwrap();
+        pair.right.clone()
     }
 
     fn get_list_elements(&self, elements: &mut Vec<ValueRef>) {

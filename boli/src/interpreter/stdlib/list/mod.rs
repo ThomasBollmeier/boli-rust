@@ -34,7 +34,7 @@ pub fn create_list_extension(vector: &ExtensionRef) -> ExtensionRef {
     new_extension("list", values)
 }
 
-struct PairCons {}
+pub struct PairCons {}
 
 impl PairCons {
     pub fn new() -> Self {
@@ -77,10 +77,10 @@ impl Callable for IsPair {
     }
 }
 
-struct Car {}
+pub struct Car {}
 
 impl Car {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Car {}
     }
 }
@@ -102,10 +102,10 @@ impl Callable for Car {
     }
 }
 
-struct Cdr {}
+pub struct Cdr {}
 
 impl Cdr {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Cdr {}
     }
 }

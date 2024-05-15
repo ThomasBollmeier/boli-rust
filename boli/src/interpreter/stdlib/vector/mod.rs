@@ -61,7 +61,7 @@ impl Callable for IsVector {
     }
 }
 
-struct VecCount {}
+pub struct VecCount {}
 
 impl VecCount {
     pub fn new() -> Self {
@@ -90,7 +90,7 @@ impl Callable for VecCount {
     }
 }
 
-struct VecHead {}
+pub struct VecHead {}
 
 impl VecHead {
     pub fn new() -> Self {
@@ -120,7 +120,7 @@ impl Callable for VecHead {
     }
 }
 
-struct VecTail {}
+pub struct VecTail {}
 
 impl VecTail {
     pub fn new() -> Self {
@@ -152,7 +152,7 @@ impl Callable for VecTail {
     }
 }
 
-struct VecCons {}
+pub struct VecCons {}
 
 impl VecCons {
     pub fn new() -> Self {
@@ -179,7 +179,7 @@ impl Callable for VecCons {
     }
 }
 
-struct VecConcat {}
+pub struct VecConcat {}
 
 impl VecConcat {
     pub fn new() -> Self {
