@@ -212,10 +212,6 @@ impl Environment {
         env.borrow_mut().set_builtin("not", &Rc::new(Not::new()));
         env.borrow_mut().set_builtin("nil?", &Rc::new(IsNil::new()));
 
-        //env.borrow_mut()
-        //    .set_builtin("concat", &Rc::new(Concat::new()));
-        env.borrow_mut()
-            .set_builtin("filter", &Rc::new(Filter::new()));
         env.borrow_mut().set_builtin("map", &Rc::new(Map::new()));
         env.borrow_mut().set_builtin("drop", &Rc::new(Drop::new()));
         env.borrow_mut()

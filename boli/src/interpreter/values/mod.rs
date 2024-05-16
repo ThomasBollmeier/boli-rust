@@ -10,7 +10,7 @@ use crate::frontend::lexer::tokens::Token;
 use super::environment::Environment;
 use super::{AstRef, Interpreter};
 
-pub mod sequence;
+pub mod stream;
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum ValueType {
@@ -303,7 +303,7 @@ impl PairValue {
         }
     }
 
-    fn is_list(&self) -> bool {
+    pub fn is_list(&self) -> bool {
         let mut current = new_valueref(self.clone());
         loop {
             let current_type = current.borrow().get_type();
@@ -318,18 +318,65 @@ impl PairValue {
         }
     }
 
+    pub fn count(&self) -> usize {
+        let mut count = 0;
+        let mut current = new_valueref(self.clone());
+
+        loop {
+            let current_type = current.borrow().get_type();
+
+            match current_type {
+                ValueType::Nil => return count,
+                ValueType::Pair => {
+                    count += 1;
+                    current = Self::get_right(&current);
+                }
+                _ => return count,
+            }
+        }
+    }
+
+    pub fn concat(&self, other: &ValueRef) -> ValueRef {
+        let mut elements = self.get_elements();
+        let other = borrow_value(other);
+        let other = downcast_value::<PairValue>(&other).unwrap();
+        let other_elements = other.get_elements();
+        elements.extend(other_elements);
+
+        let mut result = new_valueref(NilValue {});
+        for element in elements.iter().rev() {
+            result = new_valueref(PairValue::new(element, &result));
+        }
+
+        result
+    }
+
+    fn get_elements(&self) -> Vec<ValueRef> {
+        let mut elements = vec![];
+        let mut current = new_valueref(self.clone());
+
+        loop {
+            let current_type = current.borrow().get_type();
+
+            match current_type {
+                ValueType::Nil => return elements,
+                ValueType::Pair => {
+                    {
+                        let pair = borrow_value(&current);
+                        let pair = downcast_value::<PairValue>(&pair).unwrap();
+                        elements.push(pair.left.clone());
+                    }
+                    current = Self::get_right(&current);
+                }
+                _ => return elements,
+            }
+        }
+    }
+
     fn get_right(value: &ValueRef) -> ValueRef {
         let pair = borrow_value(value);
         let pair = downcast_value::<PairValue>(&pair).unwrap();
         pair.right.clone()
-    }
-
-    fn get_list_elements(&self, elements: &mut Vec<ValueRef>) {
-        elements.push(self.left.clone());
-        let right = borrow_value(&self.right);
-        if let Some(right) = downcast_value::<PairValue>(&right) {
-            right.get_list_elements(elements);
-        }
     }
 }
 
@@ -352,8 +399,7 @@ impl Display for PairValue {
         if !self.is_list() {
             write!(f, "({} . {})", self.left.borrow(), self.right.borrow())
         } else {
-            let mut elements = vec![];
-            self.get_list_elements(&mut elements);
+            let elements = self.get_elements();
             let elements_str: Vec<String> =
                 elements.iter().map(|e| format!("{}", e.borrow())).collect();
             write!(f, "(list {})", elements_str.join(" "))

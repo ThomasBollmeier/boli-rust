@@ -5,7 +5,7 @@ use crate::interpreter::{
     error,
     module_mgmt::extension::{new_extension, ExtensionRef},
     new_valueref,
-    sequence::StreamValue,
+    stream::StreamValue,
     BoolValue, Callable, EvalResult, ValueRef, ValueType,
 };
 

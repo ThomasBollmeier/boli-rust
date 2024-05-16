@@ -69,13 +69,6 @@
 (def (list-append lst val)
      (list-reverse (pair-cons val (reverse lst))))
 
-(def (list-concat lst1 lst2)
-     (def (helper lst1 lst2)
-     	  (if (nil? lst1)
-	      	lst2
-	      	(helper (cdr lst1) (pair-cons (car lst1) lst2))))
-     (helper (list-reverse lst1) lst2))
-
 (def (list-filter pred? lst)
      (def (helper lst acc)
      	  (if (nil? lst)

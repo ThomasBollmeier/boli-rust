@@ -26,7 +26,7 @@ pub fn create_stdlib() -> ModuleDirRef {
     stdlib.borrow_mut().add_extension(&string_ext);
 
     let seq_collection =
-        seq_collection::create_seq_collection_extension(&vec![vector_ext, list_ext, string_ext]);
+        seq_collection::create_seq_collection_extension(&vector_ext, &list_ext, &string_ext);
     stdlib.borrow_mut().add_extension(&seq_collection);
 
     stdlib

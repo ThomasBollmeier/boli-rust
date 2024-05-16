@@ -1,6 +1,6 @@
 use crate::interpreter::misc_functions::is_truthy;
 
-use super::values::sequence::*;
+use super::values::stream::*;
 use super::values::*;
 
 pub struct Vector {}
