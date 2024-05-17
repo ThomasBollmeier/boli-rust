@@ -16,6 +16,7 @@ pub fn create_stream_extension() -> ExtensionRef {
     env.set_callable("stream?", &Rc::new(IsStream::new()));
     env.set_callable("vector->stream", &Rc::new(VectorToStream::new()));
     env.set_callable("iterator", &Rc::new(Iterator::new()));
+    env.set_callable("stream-map", &Rc::new(StreamMap::new()));
 
     let values = env.get_exported_values();
 
@@ -82,5 +83,27 @@ impl Callable for Iterator {
         let iterator = StreamValue::new_iterator(next_function.clone(), start.clone())?;
 
         Ok(new_valueref(iterator))
+    }
+}
+
+struct StreamMap {}
+
+impl StreamMap {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for StreamMap {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() < 2 {
+            return error("map function expects at least two arguments");
+        }
+
+        let map_function = args[0].clone();
+        let streams = &args[1..].to_vec();
+        let mapped = StreamValue::new_mapped(map_function, streams.clone())?;
+
+        Ok(new_valueref(mapped))
     }
 }

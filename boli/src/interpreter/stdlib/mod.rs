@@ -25,8 +25,12 @@ pub fn create_stdlib() -> ModuleDirRef {
     let string_ext = string::create_string_extension();
     stdlib.borrow_mut().add_extension(&string_ext);
 
-    let seq_collection =
-        seq_collection::create_seq_collection_extension(&vector_ext, &list_ext, &string_ext);
+    let seq_collection = seq_collection::create_seq_collection_extension(
+        &vector_ext,
+        &list_ext,
+        &string_ext,
+        &stream_ext,
+    );
     stdlib.borrow_mut().add_extension(&seq_collection);
 
     stdlib

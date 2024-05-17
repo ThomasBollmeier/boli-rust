@@ -12,7 +12,7 @@ use super::{AstRef, Interpreter};
 
 pub mod stream;
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Clone, Copy, Eq, Hash)]
 pub enum ValueType {
     Nil,
     Bool,

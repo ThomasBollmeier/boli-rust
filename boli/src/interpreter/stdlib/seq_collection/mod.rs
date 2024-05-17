@@ -22,6 +22,7 @@ pub fn create_seq_collection_extension(
     vector_ext: &ExtensionRef,
     list_ext: &ExtensionRef,
     string_ext: &ExtensionRef,
+    stream_ext: &ExtensionRef,
 ) -> ExtensionRef {
     let core_env = Environment::new_ref();
     let mut env = Environment::with_parent(&core_env);
@@ -31,11 +32,12 @@ pub fn create_seq_collection_extension(
     env.set_callable("cons", &Rc::new(Cons::new()));
     env.set_callable("concat", &Rc::new(Concat::new()));
     env.set_callable("filter", &Rc::new(Filter::new(list_ext)));
+    env.set_callable("map", &Rc::new(Map::new()));
 
     let collection_env = Rc::new(RefCell::new(env));
 
     let deps = new_extension_dir("deps");
-    for dep in vec![vector_ext, list_ext, string_ext] {
+    for dep in vec![vector_ext, list_ext, string_ext, stream_ext] {
         deps.borrow_mut().add_extension(dep);
     }
 
@@ -83,7 +85,7 @@ impl Callable for Head {
                 let args = vec![args[0].clone(), start, length];
                 StrSub::new().call(&args)
             }
-            _ => error("head function expects a sequential collection"),
+            _ => error("head function expects a non empty sequential collection"),
         }
     }
 }
@@ -270,6 +272,7 @@ impl Callable for Filter {
                 let filter = downcast_value::<LambdaValue>(filter).unwrap();
                 filter.call(args)
             }
+            ValueType::Nil => Ok(args[1].clone()),
             ValueType::Stream => {
                 let filtered = StreamValue::new_filtered(args[0].clone(), args[1].clone())?;
                 Ok(new_valueref(filtered))
@@ -280,5 +283,133 @@ impl Callable for Filter {
                 )
             }
         }
+    }
+}
+
+struct Map {}
+
+impl Map {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for Map {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() < 2 {
+            return error("map function expects at least two arguments");
+        }
+
+        let mut type_stats: HashMap<ValueType, usize> = HashMap::new();
+        for arg in args.iter().skip(1) {
+            let arg = &borrow_value(&arg);
+            let arg_type = arg.get_type();
+
+            if !matches!(
+                arg_type,
+                ValueType::Vector | ValueType::Pair | ValueType::Nil | ValueType::Stream
+            ) {
+                return error(
+                    "map function expects a vector, list, string, or stream as arguments",
+                );
+            }
+
+            let count = type_stats.get(&arg_type).unwrap_or(&0) + 1;
+            type_stats.insert(arg_type, count);
+        }
+
+        let total_count: usize = type_stats.values().sum();
+
+        if &total_count == type_stats.get(&ValueType::Stream).unwrap_or(&0) {
+            return Ok(new_valueref(StreamValue::new_mapped(
+                args[0].clone(),
+                args[1..].to_vec(),
+            )?));
+        }
+
+        if type_stats.contains_key(&ValueType::Nil) {
+            return Ok(new_valueref(VectorValue {
+                elements: Vec::new(),
+            }));
+        }
+
+        let arg0 = &borrow_value(&args[0]);
+        let function: &dyn Callable = match arg0.get_type() {
+            ValueType::BuiltInFunction => downcast_value::<BuiltInFunctionValue>(arg0).unwrap(),
+            ValueType::Lambda => downcast_value::<LambdaValue>(arg0).unwrap(),
+            _ => return error("map function expects a function as the first argument"),
+        };
+
+        let mut values = Vec::new();
+        let mut cols = args
+            .iter()
+            .skip(1)
+            .map(|arg| arg.clone())
+            .collect::<Vec<ValueRef>>();
+        let mut done = false;
+
+        loop {
+            let mut function_args = Vec::new();
+            let mut next_cols = Vec::new();
+
+            for col in cols.iter() {
+                let head_tail_opt = match col.borrow().get_type() {
+                    ValueType::Vector => {
+                        let vector = borrow_value(col);
+                        let vector = downcast_value::<VectorValue>(&vector).unwrap();
+                        if !vector.elements.is_empty() {
+                            Some((
+                                VecHead::new().call(&vec![col.clone()]).unwrap(),
+                                VecTail::new().call(&vec![col.clone()]).unwrap(),
+                            ))
+                        } else {
+                            None
+                        }
+                    }
+                    ValueType::Pair => {
+                        let pair = borrow_value(col);
+                        let pair = downcast_value::<PairValue>(&pair).unwrap();
+                        Some((pair.left.clone(), pair.right.clone()))
+                    }
+                    ValueType::Stream => {
+                        let mut stream = downcast_value::<StreamValue>(&col.borrow())
+                            .unwrap()
+                            .clone();
+                        match stream.next() {
+                            Some(head) => {
+                                let tail = StreamValue::new_dropped(
+                                    new_valueref(IntValue { value: 1 }),
+                                    col.clone(),
+                                )
+                                .unwrap();
+                                Some((head, new_valueref(tail)))
+                            }
+                            None => None,
+                        }
+                    }
+                    ValueType::Nil => None,
+                    _ => unreachable!(),
+                };
+
+                if let Some((head, tail)) = head_tail_opt {
+                    function_args.push(head);
+                    next_cols.push(tail);
+                } else {
+                    done = true;
+                    break;
+                }
+            }
+
+            if done {
+                break;
+            }
+
+            let value = function.call(&function_args)?;
+            values.push(value);
+
+            cols = next_cols;
+        }
+
+        Ok(new_valueref(VectorValue { elements: values }))
     }
 }

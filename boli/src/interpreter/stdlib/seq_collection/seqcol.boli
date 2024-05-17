@@ -1,9 +1,59 @@
 (require 'vector)
 (require 'list)
 (require 'string)
+(require 'stream)
 
-(def (count val)
+(def (count xs)
     (cond 
-        [(vector? val) (vector-count val)]
-        [(list? val) (list-count val)]
-        [(string? val) (string-count val)]))
+        [(vector? xs) (vector-count xs)]
+        [(list? xs) (list-count xs)]
+        [(string? xs) (string-count xs)]
+        [#t (error "count function not supported for this type")]))
+
+(def (empty? xs)
+    (if (stream? xs)
+        #f
+        (if (list? xs)
+            (nil? xs)
+            (= (count xs) 0))))
+
+(def (all? pred? xs)
+    (if (empty? xs)
+        #t
+        (let ([x (head xs)])
+            (if (pred? x)
+                (all? pred? (tail xs))
+                #f))))
+
+(def (any? pred? xs)
+    (if (empty? xs)
+        #f
+        (if (pred? (head xs))
+            #t
+            (any? pred? (tail xs)))))
+
+(def (empty-col xs)
+    (cond 
+        [(vector? xs) (vector)]
+        [(list? xs) (list)]
+        [(string? xs) ""]
+        [#t (error "empty-col function not supported for this type")]))
+
+(def (reverse xs)
+    (def (helper xs acc)
+        (if (empty? xs)
+            acc
+            (helper (tail xs) (cons (head xs) acc))))
+    (helper xs (empty-col xs)))
+
+(def (drop n xs)
+    (cond 
+        [(= n 0) xs]
+        [(empty? xs) xs]
+        [#t (drop (- n 1) (tail xs))]))
+
+(def (drop-while pred? xs)
+    (cond 
+        [(empty? xs) xs]
+        [(pred? (head xs)) (drop-while pred? (tail xs))]
+        [#t xs]))

@@ -1,4 +1,3 @@
-use super::count_functions::*;
 use super::misc_functions::*;
 use super::module_mgmt::file_system::new_directory;
 use super::module_mgmt::module_loader::RequireFn;
@@ -212,16 +211,9 @@ impl Environment {
         env.borrow_mut().set_builtin("not", &Rc::new(Not::new()));
         env.borrow_mut().set_builtin("nil?", &Rc::new(IsNil::new()));
 
-        env.borrow_mut().set_builtin("map", &Rc::new(Map::new()));
-        env.borrow_mut().set_builtin("drop", &Rc::new(Drop::new()));
-        env.borrow_mut()
-            .set_builtin("drop-while", &Rc::new(DropWhile::new()));
         env.borrow_mut().set_builtin("take", &Rc::new(Take::new()));
         env.borrow_mut()
             .set_builtin("take-while", &Rc::new(TakeWhile::new()));
-
-        env.borrow_mut()
-            .set_builtin("empty?", &Rc::new(IsEmpty::new()));
 
         env.borrow_mut()
             .set_builtin("equal?", &Rc::new(IsEqual::new()));

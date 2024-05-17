@@ -4,7 +4,7 @@
 
 (def (vec-reverse v)
      (def (helper v acc)
-     	  (if (empty? v)
+     	  (if (= (vector-count v) 0)
 	      acc
 	      (helper (vector-tail v)
 	      	      (pair-cons (vector-head v) acc))))
@@ -30,7 +30,7 @@
 (def (list? val)
      (if (pair? val)
      	 (list? (cdr val))
-	 (nil? val)))
+	 	 (nil? val)))
 
 (def (list-ref lst n)
      (if (nil? lst)
