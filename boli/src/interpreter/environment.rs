@@ -143,7 +143,27 @@ impl Environment {
     }
 
     pub fn set(&mut self, key: String, value: ValueRef) {
-        self.env.insert(key, EnvEntry { value, owned: true }); // true: value is owned by the environment
+        let value_type = value.borrow().get_type();
+        match value_type {
+            ValueType::Lambda => {
+                if self.env.contains_key(&key) {
+                    let existing_value = self.env.get(&key).unwrap().value.clone();
+                    let existing_value = &mut borrow_mut_value(&existing_value);
+                    let existing_lambda = existing_value
+                        .as_any_mut()
+                        .downcast_mut::<LambdaValue>()
+                        .unwrap();
+                    let new_value = &borrow_value(&value);
+                    let new_lambda = new_value.as_any().downcast_ref::<LambdaValue>().unwrap();
+                    existing_lambda.merge_lambda(new_lambda).unwrap();
+                } else {
+                    self.set_owned(key.clone(), value);
+                }
+            }
+            _ => {
+                self.set_owned(key.clone(), value);
+            }
+        }
     }
 
     pub fn load_stdlib(env: &EnvironmentRef) {
@@ -160,6 +180,10 @@ impl Environment {
         let extension = extension_dir.borrow().get_extension(name).unwrap();
         env.borrow_mut()
             .import_values(extension.borrow().get_values());
+    }
+
+    fn set_owned(&mut self, key: String, value: ValueRef) {
+        self.env.insert(key, EnvEntry { value, owned: true }); // true: value is owned by the environment
     }
 
     fn set_unowned(&mut self, key: String, value: ValueRef) {

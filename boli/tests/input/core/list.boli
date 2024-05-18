@@ -1,6 +1,0 @@
-(def (reverse l)
-    (def (helper l acc)
-        (if (empty? l)
-            acc
-            (helper (tail l) (cons (head l) acc))))
-    (helper l '()))

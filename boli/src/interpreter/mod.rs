@@ -338,13 +338,13 @@ impl AstVisitor for Interpreter {
     }
 
     fn visit_lambda(&mut self, lambda: &Lambda) {
-        let lambda_value = new_valueref(LambdaValue {
-            name: lambda.name.clone(),
-            parameters: lambda.parameters.clone(),
-            variadic: lambda.variadic.clone(),
-            body: lambda.body.clone(),
-            env: self.env.clone(),
-        });
+        let lambda_value = new_valueref(LambdaValue::new(
+            lambda.name.clone(),
+            lambda.parameters.clone(),
+            lambda.variadic.clone(),
+            &lambda.body,
+            &self.env,
+        ));
         self.stack.push(Ok(lambda_value));
     }
 
@@ -866,5 +866,20 @@ mod tests {
         let result = interpreter.eval(code).unwrap();
         assert_eq!(result.borrow().get_type(), ValueType::Int);
         assert_eq!(result.borrow().to_string(), "43");
+    }
+
+    #[test]
+    fn test_mult_arities() {
+        let mut interpreter = Interpreter::new();
+        let code = r#"
+            (def (add x)
+                (add x 1))
+            (def (add x y)
+                (+ x y))
+            (+ (add 42) (add 42 43))
+        "#;
+        let result = interpreter.eval(code).unwrap();
+        assert_eq!(result.borrow().get_type(), ValueType::Int);
+        assert_eq!(result.borrow().to_string(), "128");
     }
 }

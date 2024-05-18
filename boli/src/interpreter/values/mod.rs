@@ -716,27 +716,66 @@ pub trait ComparableEq {
     fn is_equal(&self, other: &ValueRef) -> bool;
 }
 
+pub enum LambdaVariant {
+    Arities(HashMap<usize, (Vec<String>, AstRef)>),
+    Variadic(Vec<String>, String, AstRef),
+}
+
+impl LambdaVariant {
+    pub fn new(parameters: &Vec<String>, variadic: &Option<String>, body: &AstRef) -> Self {
+        match variadic {
+            Some(variadic) => {
+                LambdaVariant::Variadic(parameters.clone(), variadic.clone(), body.clone())
+            }
+            None => {
+                let mut arities = HashMap::new();
+                arities.insert(parameters.len(), (parameters.clone(), body.clone()));
+                LambdaVariant::Arities(arities)
+            }
+        }
+    }
+}
+
 pub struct LambdaValue {
     pub name: Option<String>,
-    pub parameters: Vec<String>,
-    pub variadic: Option<String>,
-    pub body: AstRef,
+    pub variant: LambdaVariant,
     pub env: Rc<RefCell<Environment>>,
 }
 
 impl LambdaValue {
     pub fn new(
+        name: Option<String>,
         parameters: Vec<String>,
         variadic: Option<String>,
         body: &AstRef,
         env: &Rc<RefCell<Environment>>,
     ) -> Self {
         Self {
-            name: None,
-            parameters,
-            variadic,
-            body: body.clone(),
+            name: name.clone(),
+            variant: LambdaVariant::new(&parameters, &variadic, body),
             env: env.clone(),
+        }
+    }
+
+    pub fn merge_lambda(&mut self, other: &LambdaValue) -> Result<(), InterpreterError> {
+        match &mut self.variant {
+            LambdaVariant::Arities(arities) => match &other.variant {
+                LambdaVariant::Arities(other_arities) => {
+                    for (arity, (parameters, body)) in other_arities {
+                        if arities.contains_key(arity) {
+                            return Err(InterpreterError::new("Arities already defined"));
+                        }
+                        arities.insert(*arity, (parameters.clone(), body.clone()));
+                    }
+                    Ok(())
+                }
+                LambdaVariant::Variadic(_, _, _) => {
+                    Err(InterpreterError::new("Arities already defined"))
+                }
+            },
+            LambdaVariant::Variadic(_, _, _) => Err(InterpreterError::new(
+                "Cannot have multiple arities for variadic lambda",
+            )),
         }
     }
 
@@ -744,11 +783,32 @@ impl LambdaValue {
         &self,
         args: &Vec<ValueRef>,
     ) -> Result<Rc<RefCell<Environment>>, InterpreterError> {
+        match &self.variant {
+            LambdaVariant::Arities(arities) => {
+                let arity_variant = arities.get(&args.len());
+                match arity_variant {
+                    Some((parameters, _)) => self.init_call_env_with_params(parameters, None, args),
+                    None => Err(InterpreterError::new(
+                        "Number of arguments differs from number of parameters",
+                    )),
+                }
+            }
+            LambdaVariant::Variadic(parameters, variadic, _) => {
+                self.init_call_env_with_params(parameters, Some(variadic.clone()), args)
+            }
+        }
+    }
+
+    fn init_call_env_with_params(
+        &self,
+        parameters: &Vec<String>,
+        variadic: Option<String>,
+        args: &Vec<ValueRef>,
+    ) -> Result<Rc<RefCell<Environment>>, InterpreterError> {
         let num_args = args.len();
-        let num_params = self.parameters.len();
-        if self.variadic.is_none() && num_args != num_params
-            || self.variadic.is_some() && num_args < num_params
-        {
+        let num_params = parameters.len();
+
+        if variadic.is_some() && num_args < num_params {
             return Err(InterpreterError::new(
                 "Number of arguments differs from number of parameters",
             ));
@@ -756,13 +816,13 @@ impl LambdaValue {
 
         let call_env = Rc::new(RefCell::new(Environment::with_parent(&self.env.clone())));
 
-        for (i, param) in self.parameters.iter().enumerate() {
+        for (i, param) in parameters.iter().enumerate() {
             call_env
                 .borrow_mut()
                 .set(param.to_string(), args[i].clone());
         }
 
-        if let Some(var_param) = &self.variadic {
+        if let Some(var_param) = &variadic {
             let arg_list = if num_args > num_params {
                 let elements = args
                     .iter()
@@ -779,6 +839,21 @@ impl LambdaValue {
         }
 
         Ok(call_env)
+    }
+
+    fn get_body(&self, num_args: usize) -> Result<AstRef, InterpreterError> {
+        match &self.variant {
+            LambdaVariant::Arities(arities) => {
+                let arity_variant = arities.get(&num_args);
+                match arity_variant {
+                    Some((_, body)) => Ok(body.clone()),
+                    None => Err(InterpreterError::new(
+                        "Number of arguments differs from number of parameters",
+                    )),
+                }
+            }
+            LambdaVariant::Variadic(_, _, body) => Ok(body.clone()),
+        }
     }
 }
 
@@ -821,7 +896,8 @@ impl Callable for LambdaValue {
         let call_env = self.init_call_env(args)?;
         let mut interpreter = Interpreter::with_environment(&call_env);
 
-        self.body.borrow().accept(&mut interpreter);
+        let body = self.get_body(args.len())?;
+        body.borrow().accept(&mut interpreter);
         interpreter.stack.pop().unwrap()
     }
 }

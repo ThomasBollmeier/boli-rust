@@ -1,7 +1,5 @@
-(require 'core::list 'l)
-
 (def (main)
     (def lst '(1 2 3 4 5))
-    (displayln (l::reverse lst)))
+    (displayln (reverse lst)))
 
 (main)
