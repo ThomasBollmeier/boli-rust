@@ -1,9 +1,7 @@
-pub mod count_functions;
 pub mod environment;
 pub mod misc_functions;
 pub mod module_mgmt;
 pub mod number_functions;
-pub mod seq_collection_functions;
 pub mod stdlib;
 pub mod struct_functions;
 pub mod values;

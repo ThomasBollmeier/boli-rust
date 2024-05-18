@@ -1,0 +1,2 @@
+(def (range from)
+    (iterator from (λ (n) (+ n 1))))

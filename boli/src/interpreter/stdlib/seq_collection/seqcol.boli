@@ -57,3 +57,19 @@
         [(empty? xs) xs]
         [(pred? (head xs)) (drop-while pred? (tail xs))]
         [#t xs]))
+
+(def (take n xs)
+    (def (helper n xs acc)
+        (cond 
+            [(= n 0) (reverse acc)]
+            [(empty? xs) (reverse acc)]
+            [#t (helper (- n 1) (tail xs) (cons (head xs) acc))]))
+    (helper n xs (vector)))
+
+(def (take-while pred? xs)
+    (def (helper xs acc)
+        (cond 
+            [(not (pred? (head xs))) (reverse acc)]
+            [(empty? xs) (reverse acc)]
+            [#t (helper (tail xs) (cons (head xs) acc))]))
+    (helper xs (vector)))

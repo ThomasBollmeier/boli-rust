@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::interpreter::{
     environment::Environment,
@@ -9,6 +9,8 @@ use crate::interpreter::{
     BoolValue, Callable, EvalResult, ValueRef, ValueType,
 };
 
+use super::load_module_code;
+
 pub fn create_stream_extension() -> ExtensionRef {
     let core_env = Environment::new_ref();
     let mut env = Environment::with_parent(&core_env);
@@ -18,7 +20,10 @@ pub fn create_stream_extension() -> ExtensionRef {
     env.set_callable("iterator", &Rc::new(Iterator::new()));
     env.set_callable("stream-map", &Rc::new(StreamMap::new()));
 
-    let values = env.get_exported_values();
+    let stream_env = Rc::new(RefCell::new(env));
+
+    let values =
+        load_module_code(&stream_env, include_str!("stream.boli")).unwrap_or(HashMap::new());
 
     new_extension("stream", values)
 }

@@ -413,3 +413,149 @@ impl Callable for Map {
         Ok(new_valueref(VectorValue { elements: values }))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::interpreter;
+
+    #[test]
+    fn test_head_seq() {
+        let code = r#"
+        (head (iterator 0 (lambda (x) (+ x 1))))
+        "#;
+
+        let mut interpreter = interpreter::Interpreter::with_stdlib();
+        let result = interpreter.eval(code).unwrap();
+
+        assert_eq!(result.borrow().to_string(), "0");
+    }
+
+    #[test]
+    fn test_tail_seq() {
+        let code = r#"
+        (head (tail (iterator 0 (lambda (x) (+ x 1)))))
+        "#;
+
+        let mut interpreter = interpreter::Interpreter::with_stdlib();
+        let result = interpreter.eval(code).unwrap();
+
+        assert_eq!(result.borrow().to_string(), "1");
+    }
+
+    #[test]
+    fn test_filter_seq() {
+        let code = r#"
+        (def odds (filter (lambda (x) (= (% x 2) 1)) 
+                          (iterator 0 (lambda (x) (+ x 1)))))
+        (head odds)
+        "#;
+
+        let mut interpreter = interpreter::Interpreter::with_stdlib();
+        let result = interpreter.eval(code).unwrap();
+
+        assert_eq!(result.borrow().to_string(), "1");
+    }
+
+    #[test]
+    fn test_map_seq() {
+        let code = r#"
+        (def squares (map (lambda (x) (* x x)) 
+                          (iterator 2 (lambda (x) (+ x 1)))))
+        (head squares)
+        "#;
+
+        let mut interpreter = interpreter::Interpreter::with_stdlib();
+        let result = interpreter.eval(code).unwrap();
+
+        assert_eq!(result.borrow().to_string(), "4");
+    }
+
+    #[test]
+    fn test_drop_seq() {
+        let code = r#"
+        (def squares (map (lambda (x) (* x x)) 
+                          (iterator 0 (lambda (x) (+ x 1)))))
+        (head (drop 2 squares))
+        "#;
+
+        let mut interpreter = interpreter::Interpreter::with_stdlib();
+        let result = interpreter.eval(code).unwrap();
+
+        assert_eq!(result.borrow().to_string(), "4");
+    }
+
+    #[test]
+    fn test_drop_while_seq() {
+        let code = r#"
+        (def squares (map (lambda (x) (* x x)) 
+                          (iterator 0 (lambda (x) (+ x 1)))))
+        (head (drop-while (λ (n) (< n 50)) squares))
+        "#;
+
+        let mut interpreter = interpreter::Interpreter::with_stdlib();
+        let result = interpreter.eval(code).unwrap();
+
+        assert_eq!(result.borrow().to_string(), "64");
+    }
+
+    #[test]
+    fn test_take_seq() {
+        let code = r#"
+        (def naturals (iterator 0 (lambda (x) (+ x 1))))
+        (take 3 (drop 1 naturals))
+        (take 3 naturals)
+        "#;
+
+        let mut interpreter = interpreter::Interpreter::with_stdlib();
+        let result = interpreter.eval(code).unwrap();
+
+        assert_eq!(result.borrow().to_string(), "(vector 0 1 2)");
+    }
+
+    #[test]
+    fn test_take_while_seq() {
+        let code = r#"
+        (def (next-pair p)
+            (let [(a (car p))
+                  (b (cdr p))]
+                (b . (+ a b))))
+        (def fib (map head (iterator (0 . 1) next-pair)))
+        (take-while (λ (n) (< n 100)) fib)
+        "#;
+
+        let mut interpreter = interpreter::Interpreter::with_stdlib();
+        let result = interpreter.eval(code).unwrap();
+
+        assert_eq!(
+            result.borrow().to_string(),
+            "(vector 0 1 1 2 3 5 8 13 21 34 55 89)"
+        );
+    }
+
+    #[test]
+    fn test_vector_ref() {
+        let code = r#"
+        (def v (vector 1 2 3))
+        (vector-ref v 1)
+        "#;
+
+        let mut interpreter = interpreter::Interpreter::with_stdlib();
+        let result = interpreter.eval(code).unwrap();
+
+        assert_eq!(result.borrow().to_string(), "2");
+    }
+
+    #[test]
+    fn test_vector_set() {
+        let code = r#"
+        (def v (vector 1 2 3))
+        (vector-set! v 1 4)
+        v
+        "#;
+
+        let mut interpreter = interpreter::Interpreter::with_stdlib();
+        let result = interpreter.eval(code).unwrap();
+
+        assert_eq!(result.borrow().to_string(), "(vector 1 4 3)");
+    }
+}

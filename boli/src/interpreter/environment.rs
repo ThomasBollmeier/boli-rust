@@ -3,7 +3,6 @@ use super::module_mgmt::file_system::new_directory;
 use super::module_mgmt::module_loader::RequireFn;
 use super::module_mgmt::ModuleDirRef;
 use super::number_functions::*;
-use super::seq_collection_functions::*;
 use super::stdlib;
 use super::struct_functions::*;
 use super::values::*;
@@ -210,10 +209,6 @@ impl Environment {
 
         env.borrow_mut().set_builtin("not", &Rc::new(Not::new()));
         env.borrow_mut().set_builtin("nil?", &Rc::new(IsNil::new()));
-
-        env.borrow_mut().set_builtin("take", &Rc::new(Take::new()));
-        env.borrow_mut()
-            .set_builtin("take-while", &Rc::new(TakeWhile::new()));
 
         env.borrow_mut()
             .set_builtin("equal?", &Rc::new(IsEqual::new()));
