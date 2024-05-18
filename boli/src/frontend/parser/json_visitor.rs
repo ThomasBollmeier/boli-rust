@@ -439,6 +439,26 @@ impl AstVisitor for AstToJsonVisitor {
         self.stack.push(JsonData::Object(data, fields));
     }
 
+    fn visit_set_bang(&mut self, set_bang: &SetBang) {
+        let (mut data, mut fields) = Self::new_object_content();
+        Self::add_field(
+            "type",
+            JsonData::String("Redefinition".to_string()),
+            &mut data,
+            &mut fields,
+        );
+        Self::add_field(
+            "name",
+            JsonData::String(set_bang.name.clone()),
+            &mut data,
+            &mut fields,
+        );
+
+        set_bang.value.borrow().accept(self);
+        Self::add_field("value", self.stack.pop().unwrap(), &mut data, &mut fields);
+        self.stack.push(JsonData::Object(data, fields));
+    }
+
     fn visit_if(&mut self, if_expr: &IfExpression) {
         let (mut data, mut fields) = Self::new_object_content();
         Self::add_field(

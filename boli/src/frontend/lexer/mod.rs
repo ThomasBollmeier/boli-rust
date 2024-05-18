@@ -182,6 +182,7 @@ impl Lexer {
         let token = match identifier.as_str() {
             "def" => Token::new(Def, line, column),
             "def-struct" => Token::new(DefStruct, line, column),
+            "set!" => Token::new(SetBang, line, column),
             "if" => Token::new(If, line, column),
             "and" => Token::new(Conjunction, line, column),
             "or" => Token::new(Disjunction, line, column),
@@ -557,6 +558,22 @@ mod tests {
         assert_eq!(lexer.next().unwrap().token_type, LeftParen);
         assert_eq!(lexer.next().unwrap().token_type, Integer);
         assert_eq!(lexer.next().unwrap().token_type, Dot);
+        assert_eq!(lexer.next().unwrap().token_type, Integer);
+        assert_eq!(lexer.next().unwrap().token_type, RightParen);
+        assert!(lexer.next().is_none());
+    }
+
+    #[test]
+    fn test_scan_set_bang() {
+        let code = r#"(set! x 42)"#;
+        let mut lexer = Lexer::new(code);
+
+        assert_eq!(lexer.next().unwrap().token_type, LeftParen);
+        assert_eq!(lexer.next().unwrap().token_type, SetBang);
+        assert_eq!(
+            lexer.next().unwrap().token_value,
+            Some(TokenValue::Identifier("x".to_string()))
+        );
         assert_eq!(lexer.next().unwrap().token_type, Integer);
         assert_eq!(lexer.next().unwrap().token_type, RightParen);
         assert!(lexer.next().is_none());

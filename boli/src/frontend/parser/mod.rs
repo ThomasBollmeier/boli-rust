@@ -210,6 +210,13 @@ impl Parser {
                     Err(ParseError::new("Definition not allowed here"))
                 }
             }
+            SetBang => {
+                if define_allowed {
+                    self.set_bang(stream, end_token_type)
+                } else {
+                    Err(ParseError::new("Redefinition not allowed here"))
+                }
+            }
             If => self.if_expression(stream, end_token_type),
             Cond => self.cond_expression(stream, end_token_type),
             Conjunction => self.conjunction(stream, end_token_type),
@@ -584,6 +591,21 @@ impl Parser {
         Self::next_token(stream, &vec![&end_token_type])?; // consume closing token
 
         Ok(new_astref(ast::StructDefinition { name, fields }))
+    }
+
+    fn set_bang(
+        &self,
+        stream: &mut BufferedStream<Token>,
+        end_token_type: TokenType,
+    ) -> Result<AstRef, ParseError> {
+        let name_token = Self::next_token(stream, &vec![&Identifier])?;
+        let name = name_token.get_string_value().unwrap();
+
+        let value = self.expression(stream, false)?;
+
+        Self::next_token(stream, &vec![&end_token_type])?; // consume closing token
+
+        Ok(new_astref(ast::SetBang { name, value }))
     }
 }
 
@@ -993,5 +1015,25 @@ mod tests {
         let right = &borrow_ast(&pair.right);
         let right = downcast_ast::<Integer>(right).unwrap();
         assert_eq!(right.value, 2);
+    }
+
+    #[test]
+    fn test_set_bang() {
+        let parser = super::Parser::new();
+        let code = r#"
+        (set! a 1)
+        "#;
+        let program = parser.parse(code);
+        assert!(program.is_ok(), "{}", program.err().unwrap());
+        let program = program.unwrap();
+
+        let child0 = &borrow_ast(&program.children[0]);
+        let set_bang = downcast_ast::<SetBang>(child0).unwrap();
+
+        assert_eq!(set_bang.name, "a");
+
+        let value = &borrow_ast(&set_bang.value);
+        let value = downcast_ast::<Integer>(value).unwrap();
+        assert_eq!(value.value, 1);
     }
 }

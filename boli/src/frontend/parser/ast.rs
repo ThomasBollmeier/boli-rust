@@ -40,6 +40,7 @@ pub trait AstVisitor {
     fn visit_list(&mut self, list: &List);
     fn visit_def(&mut self, def: &Definition);
     fn visit_struct_def(&mut self, struct_def: &StructDefinition);
+    fn visit_set_bang(&mut self, set_bang: &SetBang);
     fn visit_if(&mut self, if_expr: &IfExpression);
     fn visit_lambda(&mut self, lambda: &Lambda);
     fn visit_call(&mut self, call: &Call);
@@ -64,6 +65,7 @@ pub trait AstMutVisitor {
     fn visit_list(&mut self, list: &mut List);
     fn visit_def(&mut self, def: &mut Definition);
     fn visit_struct_def(&mut self, struct_def: &mut StructDefinition);
+    fn visit_set_bang(&mut self, set_bang: &mut SetBang);
     fn visit_if(&mut self, if_expr: &mut IfExpression);
     fn visit_lambda(&mut self, lambda: &mut Lambda);
     fn visit_call(&mut self, call: &mut Call);
@@ -369,6 +371,25 @@ impl Ast for StructDefinition {
 
     fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
         visitor.visit_struct_def(self);
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+pub struct SetBang {
+    pub name: String,
+    pub value: AstRef,
+}
+
+impl Ast for SetBang {
+    fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_set_bang(self);
+    }
+
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
+        visitor.visit_set_bang(self);
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

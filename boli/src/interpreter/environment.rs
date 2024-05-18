@@ -130,6 +130,18 @@ impl Environment {
         None
     }
 
+    pub fn get_defining_env(env: &EnvironmentRef, key: &str) -> Option<EnvironmentRef> {
+        if env.borrow().env.contains_key(key) {
+            return Some(env.clone());
+        }
+
+        if let Some(parent) = env.borrow().get_parent() {
+            return Self::get_defining_env(&parent, key);
+        }
+
+        None
+    }
+
     pub fn set(&mut self, key: String, value: ValueRef) {
         self.env.insert(key, EnvEntry { value, owned: true }); // true: value is owned by the environment
     }

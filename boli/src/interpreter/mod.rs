@@ -298,6 +298,28 @@ impl AstVisitor for Interpreter {
         self.stack.push(Ok(new_valueref(NilValue {})));
     }
 
+    fn visit_set_bang(&mut self, set_bang: &SetBang) {
+        let defining_env = Environment::get_defining_env(&self.env, &set_bang.name);
+        match defining_env {
+            Some(env) => {
+                let value = self.eval_ast(&set_bang.value);
+                if value.is_err() {
+                    self.stack.push(value);
+                    return;
+                }
+
+                env.borrow_mut()
+                    .set(set_bang.name.clone(), value.unwrap().clone());
+
+                self.stack.push(Ok(new_valueref(NilValue {})));
+            }
+            None => {
+                let err = self.new_eval_error(&format!("Undefined identifier: {}", set_bang.name));
+                self.stack.push(err);
+            }
+        }
+    }
+
     fn visit_if(&mut self, if_expr: &IfExpression) {
         let condition = self.eval_ast(&if_expr.condition);
         if condition.is_err() {
@@ -828,5 +850,21 @@ mod tests {
         let result = interpreter.eval(code).unwrap();
         assert_eq!(result.borrow().get_type(), ValueType::Bool);
         assert_eq!(result.borrow().to_string(), "#true");
+    }
+
+    #[test]
+    fn test_eval_set_bang() {
+        let mut interpreter = Interpreter::new();
+        let code = r#"
+            (def x 42)
+            (def (main)
+                (set! x 43)
+                42)
+            (main)
+            x
+        "#;
+        let result = interpreter.eval(code).unwrap();
+        assert_eq!(result.borrow().get_type(), ValueType::Int);
+        assert_eq!(result.borrow().to_string(), "43");
     }
 }

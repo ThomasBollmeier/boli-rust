@@ -64,6 +64,10 @@ impl AstMutVisitor for TailCallFinder {
 
     fn visit_struct_def(&mut self, _struct_def: &mut StructDefinition) {}
 
+    fn visit_set_bang(&mut self, set_bang: &mut SetBang) {
+        set_bang.value.borrow_mut().accept_mut(self);
+    }
+
     fn visit_if(&mut self, if_expr: &mut IfExpression) {
         if_expr.condition.borrow_mut().accept_mut(self);
         if_expr.consequent.borrow_mut().accept_mut(self);
@@ -137,6 +141,8 @@ impl AstMutVisitor for TailCallSetter {
     fn visit_def(&mut self, _def: &mut Definition) {}
 
     fn visit_struct_def(&mut self, _struct_def: &mut StructDefinition) {}
+
+    fn visit_set_bang(&mut self, _set_bang: &mut SetBang) {}
 
     fn visit_if(&mut self, if_expr: &mut IfExpression) {
         if_expr.consequent.borrow_mut().accept_mut(self);
