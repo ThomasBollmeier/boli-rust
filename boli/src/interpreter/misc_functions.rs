@@ -218,13 +218,24 @@ fn print_value(value: &ValueRef, mode: PrintMode, output: &OutputRef) {
         }
         PrintMode::Display { line_break } => {
             let value_str = format!("{}", value.borrow());
-            let value_str = value_str.trim_matches('"');
+            let value_str = if value.borrow().get_type() == ValueType::Str {
+                remove_quotes(&value_str)
+            } else {
+                &value_str
+            };
             output.borrow_mut().print(value_str);
             if line_break {
                 output.borrow_mut().print_line("");
             }
         }
     }
+}
+
+fn remove_quotes(value: &str) -> &str {
+    let mut chars = value.chars();
+    chars.next();
+    chars.next_back();
+    chars.as_str()
 }
 
 pub struct Not {}

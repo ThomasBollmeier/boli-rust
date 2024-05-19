@@ -120,14 +120,36 @@ impl Lexer {
         let mut terminated = false;
 
         while let Some(c) = self.next_char() {
-            if c == '"' {
-                if previous_char == Some('\\') {
-                    string.pop();
-                } else {
-                    terminated = true;
-                    break;
-                }
+            if previous_char == Some('\\') {
+                match c {
+                    '"' => {
+                        string.pop();
+                    }
+                    'n' => {
+                        string.pop();
+                        string.push('\n');
+                        previous_char = Some(c);
+                        continue;
+                    }
+                    't' => {
+                        string.pop();
+                        string.push('\t');
+                        previous_char = Some(c);
+                        continue;
+                    }
+                    '\\' => {
+                        string.pop();
+                        string.push('\\');
+                        previous_char = None;
+                        continue;
+                    }
+                    _ => (),
+                };
+            } else if c == '"' {
+                terminated = true;
+                break;
             }
+
             string.push(c);
             previous_char = Some(c);
         }
