@@ -17,6 +17,16 @@
 	      	(helper (cdr elems) (pair-cons (car elems) acc))))
      (helper (vec-reverse elems) nil))
 
+(def (create-list element size)
+	(def (helper n acc)
+		(if (= n 0)
+			acc
+			(helper (- n 1) (pair-cons element acc))))
+	(helper size nil))
+
+(def (create-vector element size)
+	(list->vector (create-list element size)))
+
 (def (vector->list v)
 	(list ...v))
 
