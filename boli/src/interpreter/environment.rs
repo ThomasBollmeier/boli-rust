@@ -153,15 +153,20 @@ impl Environment {
         match value_type {
             ValueType::Lambda => {
                 if self.env.contains_key(&key) {
-                    let existing_value = self.env.get(&key).unwrap().value.clone();
-                    let existing_value = &mut borrow_mut_value(&existing_value);
-                    let existing_lambda = existing_value
-                        .as_any_mut()
-                        .downcast_mut::<LambdaValue>()
-                        .unwrap();
-                    let new_value = &borrow_value(&value);
-                    let new_lambda = new_value.as_any().downcast_ref::<LambdaValue>().unwrap();
-                    existing_lambda.merge_lambda(new_lambda).unwrap();
+                    let existing_entry = self.env.get(&key).unwrap();
+                    if !existing_entry.owned {
+                        self.set_owned(key.clone(), value);
+                    } else {
+                        let existing_value = existing_entry.value.clone();
+                        let existing_value = &mut borrow_mut_value(&existing_value);
+                        let existing_lambda = existing_value
+                            .as_any_mut()
+                            .downcast_mut::<LambdaValue>()
+                            .unwrap();
+                        let new_value = &borrow_value(&value);
+                        let new_lambda = new_value.as_any().downcast_ref::<LambdaValue>().unwrap();
+                        existing_lambda.merge_lambda(new_lambda).unwrap();
+                    }
                 } else {
                     self.set_owned(key.clone(), value);
                 }

@@ -762,9 +762,6 @@ impl LambdaValue {
             LambdaVariant::Arities(arities) => match &other.variant {
                 LambdaVariant::Arities(other_arities) => {
                     for (arity, (parameters, body)) in other_arities {
-                        if arities.contains_key(arity) {
-                            return Err(InterpreterError::new("Arities already defined"));
-                        }
                         arities.insert(*arity, (parameters.clone(), body.clone()));
                     }
                     Ok(())
