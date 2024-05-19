@@ -1,5 +1,6 @@
 use super::misc_functions::*;
 use super::module_mgmt::file_system::new_directory;
+use super::module_mgmt::module_loader::ProvideFn;
 use super::module_mgmt::module_loader::RequireFn;
 use super::module_mgmt::ModuleDirRef;
 use super::number_functions::*;
@@ -8,6 +9,7 @@ use super::struct_functions::*;
 use super::values::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::rc::Rc;
 
 pub struct Environment {
@@ -16,6 +18,7 @@ pub struct Environment {
     input: Option<InputRef>,
     output: Option<OutputRef>,
     parent: Option<EnvironmentRef>,
+    export_set: Option<HashSet<String>>,
 }
 
 pub struct EnvEntry {
@@ -33,6 +36,7 @@ impl Environment {
             input: None,
             output: None,
             parent: None,
+            export_set: None,
         }));
         Self::init_builtins(&ret);
 
@@ -49,6 +53,7 @@ impl Environment {
             input: None,
             output: Some(output.clone()),
             parent: None,
+            export_set: None,
         }));
         Self::init_builtins(&ret);
 
@@ -62,6 +67,7 @@ impl Environment {
             input: None,
             output: None,
             parent: Some(parent.clone()),
+            export_set: None,
         }
     }
 
@@ -197,13 +203,22 @@ impl Environment {
     }
 
     pub fn get_exported_values(&self) -> HashMap<String, ValueRef> {
-        HashMap::from(
-            self.env
-                .iter()
-                .filter(|(_, EnvEntry { value: _, owned })| *owned)
-                .map(|(key, EnvEntry { value, owned: _ })| (key.clone(), value.clone()))
-                .collect::<HashMap<String, ValueRef>>(),
-        )
+        match &self.export_set {
+            None => HashMap::from(
+                self.env
+                    .iter()
+                    .filter(|(_, EnvEntry { value: _, owned })| *owned)
+                    .map(|(key, EnvEntry { value, owned: _ })| (key.clone(), value.clone()))
+                    .collect::<HashMap<String, ValueRef>>(),
+            ),
+            Some(exp_set) => HashMap::from(
+                self.env
+                    .iter()
+                    .filter(|(key, EnvEntry { value: _, owned })| *owned && exp_set.contains(*key))
+                    .map(|(key, EnvEntry { value, owned: _ })| (key.clone(), value.clone()))
+                    .collect::<HashMap<String, ValueRef>>(),
+            ),
+        }
     }
 
     pub fn import_values(&mut self, values: HashMap<String, ValueRef>) {
@@ -228,6 +243,14 @@ impl Environment {
                 },
             ); // false: value is not owned by the environment
         }
+    }
+
+    pub fn export(&mut self, key: &str) {
+        if let None = self.export_set {
+            self.export_set = Some(HashSet::new());
+        }
+
+        self.export_set.as_mut().unwrap().insert(key.to_string());
     }
 
     fn init_builtins(env: &EnvironmentRef) {
@@ -287,6 +310,8 @@ impl Environment {
     fn init_require_builtin(env: &EnvironmentRef) {
         env.borrow_mut()
             .set_builtin("require", &Rc::new(RequireFn::new(env)));
+        env.borrow_mut()
+            .set_builtin("provide", &Rc::new(ProvideFn::new(env)));
     }
 
     pub fn set_builtin<T: Callable + 'static>(&mut self, name: &str, function: &Rc<T>) {

@@ -1,6 +1,10 @@
-use crate::interpreter::{
-    borrow_value, downcast_value, environment::EnvironmentRef, module_mgmt::ModuleDirRef,
-    new_valueref, Callable, Interpreter, InterpreterError, NilValue, SymbolValue, ValueRef,
+use crate::{
+    frontend::lexer::tokens::TokenType,
+    interpreter::{
+        borrow_value, downcast_value, environment::EnvironmentRef, error,
+        module_mgmt::ModuleDirRef, new_valueref, Callable, Interpreter, InterpreterError, NilValue,
+        QuoteValue, SymbolValue, ValueRef, VectorValue,
+    },
 };
 use std::collections::HashMap;
 
@@ -131,6 +135,52 @@ impl Callable for RequireFn {
                 .import_values_with_alias(module_imports, &alias);
         } else {
             self.env.borrow_mut().import_values(module_imports);
+        }
+
+        Ok(new_valueref(NilValue {}))
+    }
+}
+
+pub struct ProvideFn {
+    env: EnvironmentRef,
+}
+
+impl ProvideFn {
+    pub fn new(env: &EnvironmentRef) -> Self {
+        Self { env: env.clone() }
+    }
+}
+
+impl Callable for ProvideFn {
+    fn call(&self, args: &Vec<ValueRef>) -> Result<ValueRef, InterpreterError> {
+        let num_args = args.len();
+
+        if num_args != 1 {
+            return Err(InterpreterError::new(
+                "provide function expects one argument",
+            ));
+        }
+
+        let arg0 = &borrow_value(&args[0]);
+        let arg0 = downcast_value::<VectorValue>(arg0);
+        if arg0.is_none() {
+            return error("provide expects a list as the argument");
+        }
+        let export_list = arg0.unwrap();
+
+        for export_name in export_list.elements.iter() {
+            let export_name = &borrow_value(export_name);
+            let export_name = downcast_value::<QuoteValue>(export_name);
+            if export_name.is_none() {
+                return error("provide expects a list of symbols as the argument");
+            }
+            let export_token = &export_name.unwrap().token;
+            if export_token.token_type != TokenType::Identifier {
+                return error("provide expects a list of quoted identifiers as the argument");
+            }
+
+            let export_name = export_token.get_string_value().unwrap();
+            self.env.borrow_mut().export(&export_name);
         }
 
         Ok(new_valueref(NilValue {}))
@@ -322,5 +372,46 @@ mod tests {
         let answer = answer.borrow();
         let answer_value = answer.as_any().downcast_ref::<IntValue>().unwrap();
         assert_eq!(answer_value.value, 42);
+    }
+
+    #[test]
+    fn load_module_with_explicit_exports() {
+        let current_dir = Rc::new(RefCell::new(TestDir::new("")));
+        let core_dir = Rc::new(RefCell::new(TestDir::new("core")));
+        current_dir.borrow_mut().add_dir(&core_dir);
+
+        let list_module = Rc::new(RefCell::new(TestFile::new(
+            "list.boli",
+            r#"
+        (provide '(reverse))
+        
+        (def (helper l acc)
+            (if (empty? l)
+                acc
+                (helper (tail l) 
+                        (cons 
+                            (head l) 
+                            acc))))
+        (def (reverse l)
+            (helper l '()))
+        "#,
+        )));
+        core_dir.borrow_mut().add_file(&list_module);
+
+        let env = Environment::new_ref();
+        Environment::set_module_search_dirs(&env, &vec![current_dir]);
+
+        let loader = ModuleLoader::new(&env);
+
+        let loaded_values = loader.load_module("core::list").unwrap();
+
+        assert_eq!(loaded_values.len(), 1);
+
+        let reverse_value = loaded_values.get("reverse").unwrap();
+
+        assert_eq!(
+            reverse_value.borrow().get_type(),
+            interpreter::ValueType::Lambda
+        );
     }
 }
