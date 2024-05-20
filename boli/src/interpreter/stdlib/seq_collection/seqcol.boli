@@ -73,3 +73,15 @@
             [(empty? xs) (reverse acc)]
             [#t (helper (tail xs) (cons (head xs) acc))]))
     (helper xs (empty-col xs)))
+
+(def (enumerate xs)
+     (map (λ (i x) (i . x))
+     	  (range 0)
+	  xs))
+
+(def (string->list s)
+     (def (helper s acc)
+     	  (if (empty? s)
+	      (reverse acc)
+	      (helper (tail s) (cons (head s) acc))))
+     (helper s nil))
