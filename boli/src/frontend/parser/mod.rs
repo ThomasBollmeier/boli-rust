@@ -210,13 +210,7 @@ impl Parser {
                     Err(ParseError::new("Definition not allowed here"))
                 }
             }
-            SetBang => {
-                if define_allowed {
-                    self.set_bang(stream, end_token_type)
-                } else {
-                    Err(ParseError::new("Redefinition not allowed here"))
-                }
-            }
+            SetBang => self.set_bang(stream, end_token_type),
             If => self.if_expression(stream, end_token_type),
             Cond => self.cond_expression(stream, end_token_type),
             Conjunction => self.conjunction(stream, end_token_type),
