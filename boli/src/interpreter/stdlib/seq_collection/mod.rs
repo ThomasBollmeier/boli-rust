@@ -70,10 +70,10 @@ impl Callable for Head {
             ValueType::Vector => VecHead::new().call(args),
             ValueType::Pair => Car::new().call(args),
             ValueType::Stream => {
-                let sequence = args[0].clone();
-                let sequence = borrow_value(&sequence);
-                let mut sequence = downcast_value::<StreamValue>(&sequence).unwrap().clone();
-                match sequence.next() {
+                let stream = args[0].clone();
+                let stream = borrow_value(&stream);
+                let mut stream = downcast_value::<StreamValue>(&stream).unwrap().clone();
+                match stream.next() {
                     Some(head) => Ok(head),
                     None => error("head function expects a non-empty stream "),
                 }
