@@ -10,18 +10,29 @@ use crate::interpreter::{
 
 pub fn create_vector_extension() -> ExtensionRef {
     let core_env = Environment::new_ref();
-    let mut env = Environment::with_parent(&core_env);
-    env.set_callable("vector", &Rc::new(Vector::new()));
-    env.set_callable("vector?", &Rc::new(IsVector::new()));
-    env.set_callable("vector-count", &Rc::new(VecCount::new()));
-    env.set_callable("vector-head", &Rc::new(VecHead::new()));
-    env.set_callable("vector-tail", &Rc::new(VecTail::new()));
-    env.set_callable("vector-cons", &Rc::new(VecCons::new()));
-    env.set_callable("vector-concat", &Rc::new(VecConcat::new()));
-    env.set_callable("vector-ref", &Rc::new(VecRef::new()));
-    env.set_callable("vector-set!", &Rc::new(VecSetBang::new()));
+    let env = Environment::with_parent(&core_env);
+    env.borrow_mut()
+        .set_callable("vector", &Rc::new(Vector::new()));
+    env.borrow_mut()
+        .set_callable("vector?", &Rc::new(IsVector::new()));
+    env.borrow_mut()
+        .set_callable("vector-count", &Rc::new(VecCount::new()));
+    env.borrow_mut()
+        .set_callable("vector-head", &Rc::new(VecHead::new()));
+    env.borrow_mut()
+        .set_callable("vector-tail", &Rc::new(VecTail::new()));
+    env.borrow_mut()
+        .set_callable("vector-cons", &Rc::new(VecCons::new()));
+    env.borrow_mut()
+        .set_callable("vector-concat", &Rc::new(VecConcat::new()));
+    env.borrow_mut()
+        .set_callable("vector-ref", &Rc::new(VecRef::new()));
+    env.borrow_mut()
+        .set_callable("vector-set!", &Rc::new(VecSetBang::new()));
 
-    new_extension("vector", env.get_exported_values())
+    let exported_values = env.borrow().get_exported_values();
+
+    new_extension("vector", exported_values)
 }
 
 struct Vector {}

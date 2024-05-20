@@ -811,7 +811,7 @@ impl LambdaValue {
             ));
         }
 
-        let call_env = Rc::new(RefCell::new(Environment::with_parent(&self.env.clone())));
+        let call_env = Environment::with_parent(&self.env.clone());
 
         for (i, param) in parameters.iter().enumerate() {
             call_env

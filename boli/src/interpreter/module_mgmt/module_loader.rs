@@ -1,9 +1,12 @@
 use crate::{
     frontend::lexer::tokens::TokenType,
     interpreter::{
-        borrow_value, downcast_value, environment::EnvironmentRef, error,
-        module_mgmt::ModuleDirRef, new_valueref, Callable, Interpreter, InterpreterError, NilValue,
-        QuoteValue, SymbolValue, ValueRef, VectorValue,
+        borrow_value, downcast_value,
+        environment::{Environment, EnvironmentRef},
+        error,
+        module_mgmt::ModuleDirRef,
+        new_valueref, Callable, Interpreter, InterpreterError, NilValue, QuoteValue, SymbolValue,
+        ValueRef, VectorValue,
     },
 };
 use std::collections::HashMap;
@@ -57,7 +60,8 @@ impl ModuleLoader {
 
             if let Some(module_file) = dir.borrow().get_file(&module_file) {
                 let module_code = module_file.borrow().read();
-                let mut interpreter = Interpreter::with_environment(&self.env);
+                let module_env = Environment::with_parent(&self.env);
+                let mut interpreter = Interpreter::with_environment(&module_env);
                 interpreter.eval(&module_code)?;
                 return Ok(interpreter.env.clone().borrow().get_exported_values());
             }
@@ -413,5 +417,8 @@ mod tests {
             reverse_value.borrow().get_type(),
             interpreter::ValueType::Lambda
         );
+
+        let helper = env.borrow().get("helper");
+        assert!(helper.is_none());
     }
 }

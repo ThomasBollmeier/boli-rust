@@ -60,15 +60,20 @@ impl Environment {
         ret
     }
 
-    pub fn with_parent(parent: &EnvironmentRef) -> Self {
-        Self {
+    pub fn with_parent(parent: &EnvironmentRef) -> EnvironmentRef {
+        let ret = Rc::new(RefCell::new(Self {
             env: HashMap::new(),
             module_search_dirs: None,
             input: None,
             output: None,
             parent: Some(parent.clone()),
             export_set: None,
-        }
+        }));
+
+        ret.borrow_mut()
+            .set_builtin("provide", &Rc::new(ProvideFn::new(&ret)));
+
+        ret
     }
 
     pub fn set_module_search_dirs(env: &EnvironmentRef, dirs: &Vec<ModuleDirRef>) {

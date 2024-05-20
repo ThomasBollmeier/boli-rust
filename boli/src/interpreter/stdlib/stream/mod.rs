@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{collections::HashMap, rc::Rc};
 
 use crate::interpreter::{
     environment::Environment,
@@ -13,17 +13,18 @@ use super::load_module_code;
 
 pub fn create_stream_extension() -> ExtensionRef {
     let core_env = Environment::new_ref();
-    let mut env = Environment::with_parent(&core_env);
+    let env = Environment::with_parent(&core_env);
 
-    env.set_callable("stream?", &Rc::new(IsStream::new()));
-    env.set_callable("vector->stream", &Rc::new(VectorToStream::new()));
-    env.set_callable("iterator", &Rc::new(Iterator::new()));
-    env.set_callable("stream-map", &Rc::new(StreamMap::new()));
+    env.borrow_mut()
+        .set_callable("stream?", &Rc::new(IsStream::new()));
+    env.borrow_mut()
+        .set_callable("vector->stream", &Rc::new(VectorToStream::new()));
+    env.borrow_mut()
+        .set_callable("iterator", &Rc::new(Iterator::new()));
+    env.borrow_mut()
+        .set_callable("stream-map", &Rc::new(StreamMap::new()));
 
-    let stream_env = Rc::new(RefCell::new(env));
-
-    let values =
-        load_module_code(&stream_env, include_str!("stream.boli")).unwrap_or(HashMap::new());
+    let values = load_module_code(&env, include_str!("stream.boli")).unwrap_or(HashMap::new());
 
     new_extension("stream", values)
 }

@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -13,23 +12,23 @@ use crate::interpreter::{error, Callable};
 
 pub fn create_list_extension(vector: &ExtensionRef) -> ExtensionRef {
     let core_env = Environment::new_ref();
-    let mut env = Environment::with_parent(&core_env);
-    env.set_callable("pair-cons", &Rc::new(PairCons::new()));
-    env.set_callable("pair?", &Rc::new(IsPair::new()));
-    env.set_callable("car", &Rc::new(Car::new()));
-    env.set_callable("cdr", &Rc::new(Cdr::new()));
-
-    let list_env = Rc::new(RefCell::new(env));
+    let env = Environment::with_parent(&core_env);
+    env.borrow_mut()
+        .set_callable("pair-cons", &Rc::new(PairCons::new()));
+    env.borrow_mut()
+        .set_callable("pair?", &Rc::new(IsPair::new()));
+    env.borrow_mut().set_callable("car", &Rc::new(Car::new()));
+    env.borrow_mut().set_callable("cdr", &Rc::new(Cdr::new()));
 
     let deps = new_extension_dir("deps");
     deps.borrow_mut().add_extension(vector);
 
-    let mut search_dirs = list_env.borrow().get_module_search_dirs();
+    let mut search_dirs = env.borrow().get_module_search_dirs();
     search_dirs.push(deps);
 
-    Environment::set_module_search_dirs(&list_env, &search_dirs);
+    Environment::set_module_search_dirs(&env, &search_dirs);
 
-    let values = load_module_code(&list_env, include_str!("list.boli")).unwrap_or(HashMap::new());
+    let values = load_module_code(&env, include_str!("list.boli")).unwrap_or(HashMap::new());
 
     new_extension("list", values)
 }

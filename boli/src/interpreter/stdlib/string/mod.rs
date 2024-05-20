@@ -8,19 +8,28 @@ use crate::interpreter::{
 
 pub fn create_string_extension() -> ExtensionRef {
     let core_env = Environment::new_ref();
-    let mut env = Environment::with_parent(&core_env);
+    let env = Environment::with_parent(&core_env);
 
-    env.set_callable("string?", &Rc::new(IsString::new()));
-    env.set_callable("string-sub", &Rc::new(StrSub::new()));
-    env.set_callable("string-replace", &Rc::new(StrReplace::new()));
-    env.set_callable("string-concat", &Rc::new(StrConcat::new()));
-    env.set_callable("string-upper", &Rc::new(StrUpper::new()));
-    env.set_callable("string-lower", &Rc::new(StrLower::new()));
-    env.set_callable("string->int", &Rc::new(StrToInt::new()));
-    env.set_callable("string->real", &Rc::new(StrToReal::new()));
-    env.set_callable("string-count", &Rc::new(StrCount::new()));
+    env.borrow_mut()
+        .set_callable("string?", &Rc::new(IsString::new()));
+    env.borrow_mut()
+        .set_callable("string-sub", &Rc::new(StrSub::new()));
+    env.borrow_mut()
+        .set_callable("string-replace", &Rc::new(StrReplace::new()));
+    env.borrow_mut()
+        .set_callable("string-concat", &Rc::new(StrConcat::new()));
+    env.borrow_mut()
+        .set_callable("string-upper", &Rc::new(StrUpper::new()));
+    env.borrow_mut()
+        .set_callable("string-lower", &Rc::new(StrLower::new()));
+    env.borrow_mut()
+        .set_callable("string->int", &Rc::new(StrToInt::new()));
+    env.borrow_mut()
+        .set_callable("string->real", &Rc::new(StrToReal::new()));
+    env.borrow_mut()
+        .set_callable("string-count", &Rc::new(StrCount::new()));
 
-    let values = env.get_exported_values();
+    let values = env.borrow().get_exported_values();
 
     new_extension("string", values)
 }

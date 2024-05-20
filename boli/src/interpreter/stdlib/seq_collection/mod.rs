@@ -1,4 +1,4 @@
-use std::cell::{Ref, RefCell};
+use std::cell::Ref;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::vec;
@@ -25,28 +25,27 @@ pub fn create_seq_collection_extension(
     stream_ext: &ExtensionRef,
 ) -> ExtensionRef {
     let core_env = Environment::new_ref();
-    let mut env = Environment::with_parent(&core_env);
+    let env = Environment::with_parent(&core_env);
 
-    env.set_callable("head", &Rc::new(Head::new()));
-    env.set_callable("tail", &Rc::new(Tail::new()));
-    env.set_callable("cons", &Rc::new(Cons::new()));
-    env.set_callable("concat", &Rc::new(Concat::new()));
-    env.set_callable("filter", &Rc::new(Filter::new(list_ext)));
-    env.set_callable("map", &Rc::new(Map::new()));
-
-    let collection_env = Rc::new(RefCell::new(env));
+    env.borrow_mut().set_callable("head", &Rc::new(Head::new()));
+    env.borrow_mut().set_callable("tail", &Rc::new(Tail::new()));
+    env.borrow_mut().set_callable("cons", &Rc::new(Cons::new()));
+    env.borrow_mut()
+        .set_callable("concat", &Rc::new(Concat::new()));
+    env.borrow_mut()
+        .set_callable("filter", &Rc::new(Filter::new(list_ext)));
+    env.borrow_mut().set_callable("map", &Rc::new(Map::new()));
 
     let deps = new_extension_dir("deps");
     for dep in vec![vector_ext, list_ext, string_ext, stream_ext] {
         deps.borrow_mut().add_extension(dep);
     }
 
-    let mut search_dirs = collection_env.borrow().get_module_search_dirs();
+    let mut search_dirs = env.borrow().get_module_search_dirs();
     search_dirs.push(deps);
-    Environment::set_module_search_dirs(&collection_env, &search_dirs);
+    Environment::set_module_search_dirs(&env, &search_dirs);
 
-    let values =
-        load_module_code(&collection_env, include_str!("seqcol.boli")).unwrap_or(HashMap::new());
+    let values = load_module_code(&env, include_str!("seqcol.boli")).unwrap_or(HashMap::new());
 
     new_extension("seqcol", values)
 }

@@ -6,7 +6,6 @@ pub mod stdlib;
 pub mod struct_functions;
 pub mod values;
 
-use std::cell::RefCell;
 use std::rc::Rc;
 use std::vec;
 
@@ -96,7 +95,7 @@ impl AstVisitor for Interpreter {
 
     fn visit_block(&mut self, block: &Block) {
         let env = self.env.clone();
-        self.env = Rc::new(RefCell::new(Environment::with_parent(&self.env)));
+        self.env = Environment::with_parent(&self.env);
 
         let result = self.eval_block(&block.children);
         self.stack.push(result);
