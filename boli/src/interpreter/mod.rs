@@ -15,7 +15,7 @@ use environment::Environment;
 
 use values::*;
 
-use self::environment::EnvironmentRef;
+use self::environment::{EnvironmentBuilder, EnvironmentRef};
 use self::misc_functions::is_truthy;
 
 pub struct Interpreter {
@@ -28,7 +28,7 @@ impl Interpreter {
     pub fn new() -> Self {
         Self {
             stack: Vec::new(),
-            env: Environment::new_ref(),
+            env: EnvironmentBuilder::new().build(),
             call_nesting: 0,
         }
     }
@@ -42,8 +42,7 @@ impl Interpreter {
     }
 
     pub fn with_stdlib() -> Self {
-        let env = Environment::new_ref();
-        Environment::load_stdlib(&env);
+        let env = EnvironmentBuilder::new().with_stdlib(true).build();
         Self::with_environment(&env)
     }
 
@@ -95,7 +94,7 @@ impl AstVisitor for Interpreter {
 
     fn visit_block(&mut self, block: &Block) {
         let env = self.env.clone();
-        self.env = Environment::with_parent(&self.env);
+        self.env = EnvironmentBuilder::new().parent(&self.env).build();
 
         let result = self.eval_block(&block.children);
         self.stack.push(result);

@@ -1,7 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 
 use crate::interpreter::{
-    environment::Environment,
+    environment::EnvironmentBuilder,
     error,
     module_mgmt::extension::{new_extension, ExtensionRef},
     new_valueref,
@@ -12,8 +12,8 @@ use crate::interpreter::{
 use super::load_module_code;
 
 pub fn create_stream_extension() -> ExtensionRef {
-    let core_env = Environment::new_ref();
-    let env = Environment::with_parent(&core_env);
+    let core_env = EnvironmentBuilder::new().build();
+    let env = EnvironmentBuilder::new().parent(&core_env).build();
 
     env.borrow_mut()
         .set_callable("stream?", &Rc::new(IsStream::new()));

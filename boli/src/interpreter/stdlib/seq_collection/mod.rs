@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::vec;
 
-use crate::interpreter::environment::Environment;
+use crate::interpreter::environment::{Environment, EnvironmentBuilder};
 use crate::interpreter::module_mgmt::extension::{new_extension, new_extension_dir, ExtensionRef};
 use crate::interpreter::module_mgmt::ExtensionModule;
 use crate::interpreter::stdlib::load_module_code;
@@ -24,8 +24,8 @@ pub fn create_seq_collection_extension(
     string_ext: &ExtensionRef,
     stream_ext: &ExtensionRef,
 ) -> ExtensionRef {
-    let core_env = Environment::new_ref();
-    let env = Environment::with_parent(&core_env);
+    let core_env = EnvironmentBuilder::new().build();
+    let env = EnvironmentBuilder::new().parent(&core_env).build();
 
     env.borrow_mut().set_callable("head", &Rc::new(Head::new()));
     env.borrow_mut().set_callable("tail", &Rc::new(Tail::new()));

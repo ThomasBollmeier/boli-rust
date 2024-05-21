@@ -12,6 +12,69 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::rc::Rc;
 
+pub struct EnvironmentBuilder {
+    pub env: HashMap<String, EnvEntry>,
+    module_search_dirs: Option<Vec<ModuleDirRef>>,
+    input: Option<InputRef>,
+    output: Option<OutputRef>,
+    parent: Option<EnvironmentRef>,
+    with_stdlib: bool,
+}
+
+impl EnvironmentBuilder {
+    pub fn new() -> Self {
+        Self {
+            env: HashMap::new(),
+            module_search_dirs: None,
+            input: None,
+            output: None,
+            parent: None,
+            with_stdlib: false,
+        }
+    }
+
+    pub fn parent(&mut self, parent: &EnvironmentRef) -> &mut Self {
+        self.parent = Some(parent.clone());
+        self
+    }
+
+    pub fn search_dirs(&mut self, search_dirs: &Vec<ModuleDirRef>) -> &mut Self {
+        self.module_search_dirs = Some(search_dirs.clone());
+        self
+    }
+
+    pub fn input(&mut self, input: &InputRef) -> &mut Self {
+        self.input = Some(input.clone());
+        self
+    }
+
+    pub fn output(&mut self, output: &OutputRef) -> &mut Self {
+        self.output = Some(output.clone());
+        self
+    }
+
+    pub fn with_stdlib(&mut self, with_stdlib: bool) -> &mut Self {
+        self.with_stdlib = with_stdlib;
+        self
+    }
+
+    pub fn build(&self) -> EnvironmentRef {
+        let ret = Rc::new(RefCell::new(Environment {
+            env: self.env.clone(),
+            module_search_dirs: self.module_search_dirs.clone(),
+            input: self.input.clone(),
+            output: self.output.clone(),
+            parent: self.parent.clone(),
+            export_set: None,
+        }));
+        Environment::init_builtins(&ret);
+        if self.with_stdlib {
+            Environment::load_stdlib(&ret);
+        }
+        ret
+    }
+}
+
 pub struct Environment {
     pub env: HashMap<String, EnvEntry>,
     module_search_dirs: Option<Vec<ModuleDirRef>>,
@@ -21,6 +84,7 @@ pub struct Environment {
     export_set: Option<HashSet<String>>,
 }
 
+#[derive(Clone)]
 pub struct EnvEntry {
     value: ValueRef,
     owned: bool,
@@ -29,53 +93,6 @@ pub struct EnvEntry {
 pub type EnvironmentRef = Rc<RefCell<Environment>>;
 
 impl Environment {
-    pub fn new_ref() -> EnvironmentRef {
-        let ret = Rc::new(RefCell::new(Self {
-            env: HashMap::new(),
-            module_search_dirs: None,
-            input: None,
-            output: None,
-            parent: None,
-            export_set: None,
-        }));
-        Self::init_builtins(&ret);
-
-        ret
-    }
-
-    pub fn ref_with_search_dirs_and_output(
-        search_dirs: &Vec<ModuleDirRef>,
-        output: &OutputRef,
-    ) -> EnvironmentRef {
-        let ret = Rc::new(RefCell::new(Self {
-            env: HashMap::new(),
-            module_search_dirs: Some(search_dirs.clone()),
-            input: None,
-            output: Some(output.clone()),
-            parent: None,
-            export_set: None,
-        }));
-        Self::init_builtins(&ret);
-
-        ret
-    }
-
-    pub fn with_parent(parent: &EnvironmentRef) -> EnvironmentRef {
-        let ret = Rc::new(RefCell::new(Self {
-            env: HashMap::new(),
-            module_search_dirs: None,
-            input: None,
-            output: None,
-            parent: Some(parent.clone()),
-            export_set: None,
-        }));
-
-        ret.borrow_mut()
-            .set_builtin("provide", &Rc::new(ProvideFn::new(&ret)));
-
-        ret
-    }
-
     pub fn set_module_search_dirs(env: &EnvironmentRef, dirs: &Vec<ModuleDirRef>) {
         env.borrow_mut().module_search_dirs = Some(dirs.clone());
         Self::init_require_builtin(env);

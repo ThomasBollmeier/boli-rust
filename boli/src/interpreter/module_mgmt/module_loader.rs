@@ -2,7 +2,7 @@ use crate::{
     frontend::lexer::tokens::TokenType,
     interpreter::{
         borrow_value, downcast_value,
-        environment::{Environment, EnvironmentRef},
+        environment::{EnvironmentBuilder, EnvironmentRef},
         error,
         module_mgmt::ModuleDirRef,
         new_valueref, Callable, Interpreter, InterpreterError, NilValue, QuoteValue, SymbolValue,
@@ -60,7 +60,7 @@ impl ModuleLoader {
 
             if let Some(module_file) = dir.borrow().get_file(&module_file) {
                 let module_code = module_file.borrow().read();
-                let module_env = Environment::with_parent(&self.env);
+                let module_env = EnvironmentBuilder::new().parent(&self.env).build();
                 let mut interpreter = Interpreter::with_environment(&module_env);
                 interpreter.eval(&module_code)?;
                 return Ok(interpreter.env.clone().borrow().get_exported_values());
@@ -196,7 +196,7 @@ mod tests {
     use super::*;
     use crate::interpreter::{
         self,
-        environment::Environment,
+        environment::EnvironmentBuilder,
         module_mgmt::{
             extension::{Extension, ExtensionDir},
             ModuleDirectory, ModuleFile, ModuleFileRef, ModuleObject, ModuleObjectType,
@@ -332,8 +332,9 @@ mod tests {
         )));
         core_dir.borrow_mut().add_file(&list_module);
 
-        let env = Environment::new_ref();
-        Environment::set_module_search_dirs(&env, &vec![current_dir]);
+        let env = EnvironmentBuilder::new()
+            .search_dirs(&vec![current_dir])
+            .build();
 
         let loader = ModuleLoader::new(&env);
 
@@ -361,8 +362,9 @@ mod tests {
         let ext_module = Rc::new(RefCell::new(Extension::new("q&a", values)));
         ext_dir.borrow_mut().add_extension(&ext_module);
 
-        let env = Environment::new_ref();
-        Environment::set_module_search_dirs(&env, &vec![search_dir]);
+        let env = EnvironmentBuilder::new()
+            .search_dirs(&vec![search_dir])
+            .build();
 
         let loader = ModuleLoader::new(&env);
 
@@ -402,8 +404,9 @@ mod tests {
         )));
         core_dir.borrow_mut().add_file(&list_module);
 
-        let env = Environment::new_ref();
-        Environment::set_module_search_dirs(&env, &vec![current_dir]);
+        let env = EnvironmentBuilder::new()
+            .search_dirs(&vec![current_dir])
+            .build();
 
         let loader = ModuleLoader::new(&env);
 

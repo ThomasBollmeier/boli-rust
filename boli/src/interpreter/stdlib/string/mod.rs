@@ -1,14 +1,14 @@
 use std::rc::Rc;
 
 use crate::interpreter::{
-    environment::Environment,
+    environment::EnvironmentBuilder,
     module_mgmt::extension::{new_extension, ExtensionRef},
     values::*,
 };
 
 pub fn create_string_extension() -> ExtensionRef {
-    let core_env = Environment::new_ref();
-    let env = Environment::with_parent(&core_env);
+    let core_env = EnvironmentBuilder::new().build();
+    let env = EnvironmentBuilder::new().parent(&core_env).build();
 
     env.borrow_mut()
         .set_callable("string?", &Rc::new(IsString::new()));

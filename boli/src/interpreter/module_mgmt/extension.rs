@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::interpreter::{environment::Environment, Interpreter, ValueRef};
+use crate::interpreter::{environment::EnvironmentBuilder, Interpreter, ValueRef};
 
 use super::{ExtensionModule, ModuleDirectory, ModuleObject, ModuleObjectType};
 
@@ -94,7 +94,7 @@ impl Extension {
     }
 
     pub fn with_code(name: &str, code: &str) -> Self {
-        let env = Environment::new_ref();
+        let env = EnvironmentBuilder::new().build();
         let mut interpreter = Interpreter::with_environment(&env);
 
         match interpreter.eval(code) {

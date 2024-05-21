@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use crate::frontend::lexer::tokens::Token;
 
-use super::environment::Environment;
+use super::environment::{Environment, EnvironmentBuilder};
 use super::{AstRef, Interpreter};
 
 pub mod stream;
@@ -811,7 +811,7 @@ impl LambdaValue {
             ));
         }
 
-        let call_env = Environment::with_parent(&self.env.clone());
+        let call_env = EnvironmentBuilder::new().parent(&self.env.clone()).build();
 
         for (i, param) in parameters.iter().enumerate() {
             call_env

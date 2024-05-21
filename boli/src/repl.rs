@@ -6,19 +6,22 @@ use std::{
 
 use crate::interpreter::{
     self,
-    environment::{Environment, EnvironmentRef},
+    environment::EnvironmentBuilder,
     module_mgmt::{file_system::new_directory, module_loader::ModuleLoader, ModuleDirRef},
 };
 
 pub fn run(module_file: &str, module_dirs: &Vec<String>) -> Result<()> {
-    let env = Environment::new_ref();
-    let mut interpreter = interpreter::Interpreter::with_environment(&env);
-    if !module_dirs.is_empty() {
-        set_module_dirs(&env, &module_dirs);
+    let search_dirs = if !module_dirs.is_empty() {
+        get_search_dirs(&module_dirs)
     } else {
-        set_module_dirs(&env, &vec![".".to_string()]);
-    }
-    Environment::load_stdlib(&env);
+        get_search_dirs(&vec![".".to_string()])
+    };
+
+    let env = EnvironmentBuilder::new()
+        .search_dirs(&search_dirs)
+        .with_stdlib(true)
+        .build();
+    let mut interpreter = interpreter::Interpreter::with_environment(&env);
 
     let mut input = String::new();
     let mut line = String::new();
@@ -106,13 +109,13 @@ pub fn run(module_file: &str, module_dirs: &Vec<String>) -> Result<()> {
     Ok(())
 }
 
-fn set_module_dirs(env: &EnvironmentRef, module_dirs: &Vec<String>) {
+fn get_search_dirs(module_dirs: &Vec<String>) -> Vec<ModuleDirRef> {
     let mut search_dirs = vec![];
     for path in module_dirs {
         let dir: ModuleDirRef = new_directory(path, "");
         search_dirs.push(Rc::clone(&dir));
     }
-    Environment::set_module_search_dirs(env, &search_dirs);
+    search_dirs
 }
 
 fn print_title() {

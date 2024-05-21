@@ -68,6 +68,15 @@
 			   	 acc)))))
      (set-val lst n nil))
 
+(def (list-remove lst n)
+	(def (helper lst i acc)
+		(if (nil? lst)
+			(list-reverse acc)
+			(if (not (= i n))
+				(helper (cdr lst) (+ i 1) (pair-cons (car lst) acc))
+				(helper (cdr lst) (+ i 1) acc))))
+	(helper lst 0 nil))
+
 (def (list-reverse lst)
      (def (helper lst acc)
      	(if (nil? lst)

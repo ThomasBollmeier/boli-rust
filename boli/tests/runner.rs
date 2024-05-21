@@ -2,7 +2,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use boli::interpreter::{
     self,
-    environment::Environment,
+    environment::EnvironmentBuilder,
     misc_functions::OutputRef,
     module_mgmt::{
         extension::{new_extension, new_extension_dir},
@@ -25,7 +25,10 @@ fn test_load_extension_module_ok() {
     let search_dirs: Vec<ModuleDirRef> = vec![new_directory("tests", "code"), ext_dir];
     let output: OutputRef = Rc::new(RefCell::new(StringOutput::new()));
 
-    let env = Environment::ref_with_search_dirs_and_output(&search_dirs, &output);
+    let env = EnvironmentBuilder::new()
+        .search_dirs(&search_dirs)
+        .output(&output)
+        .build();
 
     let module_loader = ModuleLoader::new(&env);
     let result = module_loader.load_module("q&a");
@@ -74,8 +77,12 @@ fn read_expected_output_file(file_name: &str) -> String {
 fn run_file(input_file_name: &str, expected_output_file: &str) {
     let code_dir: ModuleDirRef = new_directory("tests", "input");
     let output: OutputRef = Rc::new(RefCell::new(StringOutput::new()));
-    let env = Environment::ref_with_search_dirs_and_output(&vec![code_dir.clone()], &output);
-    Environment::load_stdlib(&env);
+
+    let env = EnvironmentBuilder::new()
+        .search_dirs(&vec![code_dir.clone()])
+        .output(&output)
+        .with_stdlib(true)
+        .build();
 
     let file = code_dir.borrow().get_file(input_file_name).unwrap();
     let code = file.borrow().read();

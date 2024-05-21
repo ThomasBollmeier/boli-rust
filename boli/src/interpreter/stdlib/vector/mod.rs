@@ -2,15 +2,15 @@ use std::rc::Rc;
 
 use crate::interpreter::{
     borrow_mut_value, borrow_value, downcast_value,
-    environment::Environment,
+    environment::EnvironmentBuilder,
     error,
     module_mgmt::extension::{new_extension, ExtensionRef},
     new_valueref, BoolValue, Callable, EvalResult, IntValue, ValueRef, ValueType, VectorValue,
 };
 
 pub fn create_vector_extension() -> ExtensionRef {
-    let core_env = Environment::new_ref();
-    let env = Environment::with_parent(&core_env);
+    let core_env = EnvironmentBuilder::new().build();
+    let env = EnvironmentBuilder::new().parent(&core_env).build();
     env.borrow_mut()
         .set_callable("vector", &Rc::new(Vector::new()));
     env.borrow_mut()
@@ -29,6 +29,8 @@ pub fn create_vector_extension() -> ExtensionRef {
         .set_callable("vector-ref", &Rc::new(VecRef::new()));
     env.borrow_mut()
         .set_callable("vector-set!", &Rc::new(VecSetBang::new()));
+    env.borrow_mut()
+        .set_callable("vector-remove!", &Rc::new(VecRemoveBang::new()));
 
     let exported_values = env.borrow().get_exported_values();
 
@@ -275,6 +277,42 @@ impl Callable for VecSetBang {
 
         Ok(new_valueref(VectorValue {
             elements: list.elements.clone(),
+        }))
+    }
+}
+
+struct VecRemoveBang {}
+
+impl VecRemoveBang {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for VecRemoveBang {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 2 {
+            return error("vector-remove! function expects exactly two arguments");
+        }
+
+        let arg0 = &mut borrow_mut_value(&args[0]);
+        let vector = match arg0.as_any_mut().downcast_mut::<VectorValue>() {
+            Some(vector) => vector,
+            None => return error("vector-remove! function expects a list"),
+        };
+
+        let arg1 = &borrow_value(&args[1]);
+        let index = match arg1.as_any().downcast_ref::<IntValue>() {
+            Some(index) => index.value,
+            None => {
+                return error("list-remove! function expects an integer as the second argument")
+            }
+        };
+
+        vector.elements.remove(index as usize);
+
+        Ok(new_valueref(VectorValue {
+            elements: vector.elements.clone(),
         }))
     }
 }

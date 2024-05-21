@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::interpreter::environment::Environment;
+use crate::interpreter::environment::{Environment, EnvironmentBuilder};
 use crate::interpreter::module_mgmt::extension::{new_extension, new_extension_dir, ExtensionRef};
 use crate::interpreter::stdlib::load_module_code;
 use crate::interpreter::{
@@ -11,8 +11,9 @@ use crate::interpreter::{
 use crate::interpreter::{error, Callable};
 
 pub fn create_list_extension(vector: &ExtensionRef) -> ExtensionRef {
-    let core_env = Environment::new_ref();
-    let env = Environment::with_parent(&core_env);
+    let core_env = EnvironmentBuilder::new().build();
+    let env = EnvironmentBuilder::new().parent(&core_env).build();
+
     env.borrow_mut()
         .set_callable("pair-cons", &Rc::new(PairCons::new()));
     env.borrow_mut()

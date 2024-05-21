@@ -1,7 +1,7 @@
 use boli::{
     frontend::parser::{json_visitor::JsonData, Parser as BoliParser},
     interpreter::{
-        environment::Environment,
+        environment::EnvironmentBuilder,
         misc_functions::{Output, StdOutput},
         module_mgmt::{file_system::new_directory, ModuleDirRef},
         values::borrow_value,
@@ -103,8 +103,12 @@ fn interpret(code: &str, module_dirs: &Vec<String>) {
         search_dirs
     };
     let output: Rc<RefCell<dyn Output>> = Rc::new(RefCell::new(StdOutput::new()));
-    let env = Environment::ref_with_search_dirs_and_output(&search_dirs, &output);
-    Environment::load_stdlib(&env);
+
+    let env = EnvironmentBuilder::new()
+        .search_dirs(&search_dirs)
+        .output(&output)
+        .with_stdlib(true)
+        .build();
 
     let mut interpreter = Interpreter::with_environment(&env);
 
