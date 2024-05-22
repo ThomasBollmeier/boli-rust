@@ -1,12 +1,12 @@
 use std::{
     env,
-    io::{stdin, stdout, Error, ErrorKind, Result, Write},
+    io::{Error, ErrorKind, Result},
     rc::Rc,
 };
 
 use crate::interpreter::{
     self,
-    environment::EnvironmentBuilder,
+    environment::{EnvironmentBuilder, EnvironmentRef},
     module_mgmt::{file_system::new_directory, module_loader::ModuleLoader, ModuleDirRef},
 };
 
@@ -21,42 +21,25 @@ pub fn run(module_file: &str, module_dirs: &Vec<String>) -> Result<()> {
         .search_dirs(&search_dirs)
         .with_stdlib(true)
         .build();
-    let mut interpreter = interpreter::Interpreter::with_environment(&env);
 
+    if module_file != "-" {
+        load_module(module_file, &env)?;
+    }
+
+    let mut interpreter = interpreter::Interpreter::with_environment(&env);
     let mut input = String::new();
-    let mut line = String::new();
+    let mut line: String;
     let mut continued = false;
     let mut result_count = 0;
 
+    let mut editor = rustyline::DefaultEditor::new().unwrap();
+
     print_title();
 
-    if module_file != "-" {
-        let module_name = if module_file.ends_with(".boli") {
-            module_file[..module_file.len() - 5].to_string()
-        } else {
-            module_file.to_string()
-        };
-        let loader = ModuleLoader::new(&env);
-        let exported_values = loader.load_module(&module_name).map_err(|err| {
-            Error::new(
-                ErrorKind::Other,
-                format!("Error loading module: {}", err.message),
-            )
-        })?;
-        env.borrow_mut().import_values(exported_values);
-    }
-
     loop {
-        if !continued {
-            print!("boλi> ");
-        } else {
-            print!("....> ");
-        }
-        stdout().flush()?;
+        let prompt = if !continued { "boλi> " } else { "....> " };
 
-        line.clear();
-        stdin().read_line(&mut line)?;
-
+        line = editor.readline(prompt).unwrap_or("".to_string());
         line = line.trim().to_string();
 
         if line.is_empty() {
@@ -84,14 +67,20 @@ pub fn run(module_file: &str, module_dirs: &Vec<String>) -> Result<()> {
         if has_open_parens(&input) {
             input.push_str(" ");
             continued = true;
-            continue;
         }
 
         if continued {
             continue;
         }
 
-        let result = interpreter.eval(input.trim());
+        input = input.trim().to_string();
+
+        match editor.add_history_entry(&input) {
+            Ok(_) => (),
+            Err(e) => eprintln!("Error adding history entry: {}", e),
+        }
+
+        let result = interpreter.eval(&input);
 
         match result {
             Ok(value) => {
@@ -105,6 +94,25 @@ pub fn run(module_file: &str, module_dirs: &Vec<String>) -> Result<()> {
 
         input.clear();
     }
+
+    Ok(())
+}
+
+fn load_module(module_file: &str, env: &EnvironmentRef) -> Result<()> {
+    let module_name = if module_file.ends_with(".boli") {
+        module_file[..module_file.len() - 5].to_string()
+    } else {
+        module_file.to_string()
+    };
+
+    let loader = ModuleLoader::new(&env);
+    let exported_values = loader.load_module(&module_name).map_err(|err| {
+        Error::new(
+            ErrorKind::Other,
+            format!("Error loading module: {}", err.message),
+        )
+    })?;
+    env.borrow_mut().import_values(exported_values);
 
     Ok(())
 }
