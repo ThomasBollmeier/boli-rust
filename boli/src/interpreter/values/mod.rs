@@ -629,6 +629,7 @@ impl Callable for SetStructField {
 pub struct StructValue {
     pub struct_type: Option<ValueRef>,
     pub values: HashMap<String, ValueRef>,
+    is_set: bool,
 }
 
 impl StructValue {
@@ -636,6 +637,7 @@ impl StructValue {
         Self {
             struct_type: Some(struct_type.clone()),
             values,
+            is_set: false,
         }
     }
 
@@ -643,6 +645,15 @@ impl StructValue {
         Self {
             struct_type: None,
             values: HashMap::new(),
+            is_set: false,
+        }
+    }
+
+    pub fn new_set() -> Self {
+        Self {
+            struct_type: None,
+            values: HashMap::new(),
+            is_set: true,
         }
     }
 }
@@ -680,19 +691,29 @@ impl Display for StructValue {
                 write!(f, "(struct {} {})", struct_type.name, values_str.join(" "))
             }
             None => {
-                let mut keys = self
-                    .values
-                    .keys()
-                    .map(|k| k.clone())
-                    .collect::<Vec<String>>();
-                keys.sort();
+                if !self.is_set {
+                    let mut keys = self
+                        .values
+                        .keys()
+                        .map(|k| k.clone())
+                        .collect::<Vec<String>>();
+                    keys.sort();
 
-                let values_str = keys
-                    .iter()
-                    .map(|key| format!("'{} {}", key, self.values.get(key).unwrap().borrow()))
-                    .collect::<Vec<String>>();
+                    let values_str = keys
+                        .iter()
+                        .map(|key| format!("'{} {}", key, self.values.get(key).unwrap().borrow()))
+                        .collect::<Vec<String>>();
 
-                write!(f, "(hash-table {})", values_str.join(" "))
+                    write!(f, "(hash-table {})", values_str.join(" "))
+                } else {
+                    let values_str = self
+                        .values
+                        .values()
+                        .map(|value| format!("{}", value.borrow()))
+                        .collect::<Vec<String>>();
+
+                    write!(f, "(set {})", values_str.join(" "))
+                }
             }
         }
     }

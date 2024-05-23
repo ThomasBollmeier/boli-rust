@@ -817,6 +817,20 @@ mod tests {
     }
 
     #[test]
+    fn test_create_set() {
+        let mut interpreter = Interpreter::new();
+        let code = r#"
+            (def s (create-set))
+            (set-add! s 42)
+            s
+        "#;
+        let result = interpreter.eval(code).unwrap();
+        let result = borrow_value(&result);
+        assert_eq!(result.get_type(), ValueType::Struct);
+        assert_eq!(result.to_string(), "(set 42)");
+    }
+
+    #[test]
     fn test_eval_symbol() {
         let mut interpreter = Interpreter::new();
         let code = r#" 'symbol "#;

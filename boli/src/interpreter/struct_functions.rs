@@ -148,6 +148,12 @@ impl Callable for CreateHashTable {
     }
 }
 
+fn get_key(value: &ValueRef) -> String {
+    let value = borrow_value(value);
+
+    format!("{:?}", value.to_string())
+}
+
 pub struct HashGet {}
 
 impl HashGet {
@@ -172,14 +178,8 @@ impl Callable for HashGet {
             return error("hash-get expects a hash table as the first argument");
         }
 
-        let arg1 = &borrow_value(&args[1]);
-        let arg1 = downcast_value::<StrValue>(arg1);
-        if arg1.is_none() {
-            return error("hash-get expects a string as the second argument");
-        }
-        let key = arg1.unwrap();
+        let key = get_key(&args[1]);
 
-        let key = key.value.clone();
         let value = hash_table.values.get(&key);
 
         if value.is_none() {
@@ -214,17 +214,159 @@ impl Callable for HashSetBang {
             return error("hash-set! expects a hash table as the first argument");
         }
 
-        let arg1 = &borrow_value(&args[1]);
-        let arg1 = downcast_value::<StrValue>(arg1);
-        if arg1.is_none() {
-            return error("hash-set! expects a string as the second argument");
-        }
-        let key = arg1.unwrap();
+        let key = get_key(&args[1]);
 
-        let key = key.value.clone();
         let new_value = args[2].clone();
 
         hash_table.values.insert(key, new_value);
+
+        Ok(new_valueref(NilValue {}))
+    }
+}
+
+pub struct HashRemoveBang {}
+
+impl HashRemoveBang {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for HashRemoveBang {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 2 {
+            return error("hash-remove! expects 2 arguments");
+        }
+
+        let mut arg0 = borrow_mut_value(&args[0]);
+        let arg0 = arg0.as_any_mut().downcast_mut::<StructValue>();
+        if arg0.is_none() {
+            return error("hash-remove! expects a hash table as the first argument");
+        }
+        let hash_table = arg0.unwrap();
+        if hash_table.struct_type.is_some() {
+            return error("hash-remove! expects a hash table as the first argument");
+        }
+
+        let key = get_key(&args[1]);
+
+        hash_table.values.remove(&key);
+
+        Ok(new_valueref(NilValue {}))
+    }
+}
+
+pub struct CreateSet {}
+
+impl CreateSet {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for CreateSet {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 0 {
+            return error("create-set expects 0 arguments");
+        }
+
+        Ok(new_valueref(StructValue::new_set()))
+    }
+}
+
+pub struct SetContains {}
+
+impl SetContains {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for SetContains {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 2 {
+            return error("set-contains? expects 2 arguments");
+        }
+
+        let arg0 = &borrow_value(&args[0]);
+        let arg0 = downcast_value::<StructValue>(arg0);
+        if arg0.is_none() {
+            return error("set-contains? expects a set as the first argument");
+        }
+        let set = arg0.unwrap();
+        if set.struct_type.is_some() {
+            return error("set-contains? expects a set as the first argument");
+        }
+
+        let key = get_key(&args[1]);
+
+        let value = set.values.get(&key);
+
+        Ok(new_valueref(BoolValue {
+            value: value.is_some(),
+        }))
+    }
+}
+
+pub struct SetAddBang {}
+
+impl SetAddBang {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for SetAddBang {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 2 {
+            return error("set-add! expects 2 arguments");
+        }
+
+        let mut arg0 = borrow_mut_value(&args[0]);
+        let arg0 = arg0.as_any_mut().downcast_mut::<StructValue>();
+        if arg0.is_none() {
+            return error("set-add! expects a set as the first argument");
+        }
+        let set = arg0.unwrap();
+        if set.struct_type.is_some() {
+            return error("set-add! expects a set as the first argument");
+        }
+
+        let key = get_key(&args[1]);
+
+        set.values.insert(key, args[1].clone());
+
+        Ok(new_valueref(NilValue {}))
+    }
+}
+
+pub struct SetRemoveBang {}
+
+impl SetRemoveBang {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for SetRemoveBang {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 2 {
+            return error("set-remove! expects 2 arguments");
+        }
+
+        let mut arg0 = borrow_mut_value(&args[0]);
+        let arg0 = arg0.as_any_mut().downcast_mut::<StructValue>();
+        if arg0.is_none() {
+            return error("set-remove! expects a set as the first argument");
+        }
+        let set = arg0.unwrap();
+        if set.struct_type.is_some() {
+            return error("set-remove! expects a set as the first argument");
+        }
+
+        let key = get_key(&args[1]);
+
+        set.values.remove(&key);
 
         Ok(new_valueref(NilValue {}))
     }

@@ -311,12 +311,24 @@ impl Environment {
             .set_builtin("struct-get", &Rc::new(StructGet::new()));
         env.borrow_mut()
             .set_builtin("struct-set!", &Rc::new(StructSet::new()));
+
         env.borrow_mut()
             .set_builtin("create-hash-table", &Rc::new(CreateHashTable::new()));
         env.borrow_mut()
             .set_builtin("hash-get", &Rc::new(HashGet::new()));
         env.borrow_mut()
             .set_builtin("hash-set!", &Rc::new(HashSetBang::new()));
+        env.borrow_mut()
+            .set_builtin("hash-remove!", &Rc::new(HashRemoveBang::new()));
+
+        env.borrow_mut()
+            .set_builtin("create-set", &Rc::new(CreateSet::new()));
+        env.borrow_mut()
+            .set_builtin("set-add!", &Rc::new(SetAddBang::new()));
+        env.borrow_mut()
+            .set_builtin("set-contains?", &Rc::new(SetContains::new()));
+        env.borrow_mut()
+            .set_builtin("set-remove!", &Rc::new(SetRemoveBang::new()));
 
         env.borrow_mut()
             .set_builtin("error", &Rc::new(ErrorFn::new()));
