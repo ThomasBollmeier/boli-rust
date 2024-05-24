@@ -45,23 +45,23 @@ impl Callable for StructGet {
         }
 
         let field_name = field_token.get_string_value().unwrap();
-        let field_value = struct_value.values.get(&field_name);
+        let entry = struct_value.values.get(&field_name);
 
-        if field_value.is_none() {
+        if entry.is_none() {
             return error(&format!("field '{}' not found in struct", field_name));
         }
 
-        let field_value = field_value.unwrap();
+        let entry = entry.unwrap();
 
         if path.elements.len() == 1 {
-            return Ok(field_value.clone());
+            return Ok(entry.value.clone());
         }
 
         let new_path = new_valueref(VectorValue {
             elements: path.elements[1..].to_vec(),
         });
 
-        self.call(&vec![field_value.clone(), new_path])
+        self.call(&vec![entry.value.clone(), new_path])
     }
 }
 
@@ -109,10 +109,15 @@ impl Callable for StructSet {
 
         let field_name = field_token.get_string_value().unwrap();
 
-        let new_value = args[2].clone();
+        let new_entry = StructEntry {
+            key: new_valueref(StrValue {
+                value: field_name.clone(),
+            }),
+            value: args[2].clone(),
+        };
 
         if path.elements.len() == 1 {
-            struct_value.values.insert(field_name, new_value);
+            struct_value.values.insert(field_name, new_entry);
             return Ok(new_valueref(NilValue {}));
         }
 
@@ -120,13 +125,13 @@ impl Callable for StructSet {
         if field_value.is_none() {
             return error(&format!("field '{}' not found in struct", field_name));
         }
-        let inner_struct = field_value.unwrap().clone();
+        let inner_struct = field_value.unwrap().value.clone();
 
         let new_path = new_valueref(VectorValue {
             elements: path.elements[1..].to_vec(),
         });
 
-        self.call(&vec![inner_struct, new_path, new_value])
+        self.call(&vec![inner_struct, new_path, new_entry.value])
     }
 }
 
@@ -145,6 +150,40 @@ impl Callable for CreateHashTable {
         }
 
         Ok(new_valueref(StructValue::new_hash_table()))
+    }
+}
+
+pub struct HashKeys {}
+
+impl HashKeys {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for HashKeys {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 1 {
+            return error("hash-keys expects 1 argument");
+        }
+
+        let arg0 = &borrow_value(&args[0]);
+        let arg0 = downcast_value::<StructValue>(arg0);
+        if arg0.is_none() {
+            return error("hash-keys expects a hash table as the first argument");
+        }
+        let hash_table = arg0.unwrap();
+        if hash_table.struct_type.is_some() {
+            return error("hash-keys expects a hash table as the first argument");
+        }
+
+        let keys = hash_table
+            .values
+            .values()
+            .map(|entry| entry.key.clone())
+            .collect();
+
+        Ok(new_valueref(VectorValue { elements: keys }))
     }
 }
 
@@ -180,13 +219,13 @@ impl Callable for HashGet {
 
         let key = get_key(&args[1]);
 
-        let value = hash_table.values.get(&key);
+        let entry = hash_table.values.get(&key);
 
-        if value.is_none() {
+        if entry.is_none() {
             return error(&format!("key '{}' not found in hash table", key));
         }
 
-        Ok(value.unwrap().clone())
+        Ok(entry.unwrap().value.clone())
     }
 }
 
@@ -216,9 +255,12 @@ impl Callable for HashSetBang {
 
         let key = get_key(&args[1]);
 
-        let new_value = args[2].clone();
+        let new_entry = StructEntry {
+            key: args[1].clone(),
+            value: args[2].clone(),
+        };
 
-        hash_table.values.insert(key, new_value);
+        hash_table.values.insert(key, new_entry);
 
         Ok(new_valueref(NilValue {}))
     }
@@ -333,8 +375,12 @@ impl Callable for SetAddBang {
         }
 
         let key = get_key(&args[1]);
+        let entry = StructEntry {
+            key: args[1].clone(),
+            value: new_valueref(NilValue {}),
+        };
 
-        set.values.insert(key, args[1].clone());
+        set.values.insert(key, entry);
 
         Ok(new_valueref(NilValue {}))
     }

@@ -817,6 +817,22 @@ mod tests {
     }
 
     #[test]
+    fn test_hash_keys() {
+        let mut interpreter = Interpreter::new();
+        let code = r#"
+            (def options (create-hash-table))
+            (hash-set! options 'action "parse")
+            (hash-set! options 'input-file "code.boli")
+            (hash-remove! options 'input-file)
+            (hash-keys options)
+        "#;
+        let result = interpreter.eval(code).unwrap();
+        let result = borrow_value(&result);
+        assert_eq!(result.get_type(), ValueType::Vector);
+        assert_eq!(result.to_string(), "(vector 'action)");
+    }
+
+    #[test]
     fn test_create_set() {
         let mut interpreter = Interpreter::new();
         let code = r#"
@@ -828,6 +844,20 @@ mod tests {
         let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Struct);
         assert_eq!(result.to_string(), "(set 42)");
+    }
+
+    #[test]
+    fn test_set_elements() {
+        let mut interpreter = Interpreter::new();
+        let code = r#"
+            (def s (create-set))
+            (set-add! s 42)
+            (set-elements s)
+        "#;
+        let result = interpreter.eval(code).unwrap();
+        let result = borrow_value(&result);
+        assert_eq!(result.get_type(), ValueType::Vector);
+        assert_eq!(result.to_string(), "(vector 42)");
     }
 
     #[test]
