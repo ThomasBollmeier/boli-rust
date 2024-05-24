@@ -85,3 +85,27 @@
 	      (reverse acc)
 	      (helper (tail s) (cons (head s) acc))))
      (helper s nil))
+
+(def (foldl f init-val xs)
+     (def (helper xs acc)
+     	  (if (empty? xs)
+	      	acc
+	      	(helper (tail xs)
+	      		    (f acc (head xs)))))
+     (helper xs init-val))
+
+(def (foldr f init-val xs)
+     (def (helper xs acc)
+     	  (if (empty? xs)
+	      	acc
+	      	(helper (tail xs)
+	      		    (f (head xs) acc))))
+     (helper (reverse xs) init-val))
+
+(def (reduce f xs)
+     (if (empty? xs)
+     	 (error "Cannot call reduce on empty collection")
+	 	 (foldl f (head xs) (tail xs))))
+
+(def (count pred? xs)
+     (count (filter pred? xs)))
