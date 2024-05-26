@@ -19,7 +19,7 @@ pub fn run(module_file: &str, module_dirs: &Vec<String>) -> Result<()> {
 
     let env = EnvironmentBuilder::new()
         .search_dirs(&search_dirs)
-        .with_stdlib(true)
+        .with_prelude(true)
         .build();
 
     if module_file != "-" {

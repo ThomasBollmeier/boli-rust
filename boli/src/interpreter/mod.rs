@@ -42,7 +42,7 @@ impl Interpreter {
     }
 
     pub fn with_stdlib() -> Self {
-        let env = EnvironmentBuilder::new().with_stdlib(true).build();
+        let env = EnvironmentBuilder::new().with_prelude(true).build();
         Self::with_environment(&env)
     }
 

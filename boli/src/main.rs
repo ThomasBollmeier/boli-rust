@@ -107,7 +107,7 @@ fn interpret(code: &str, module_dirs: &Vec<String>) {
     let env = EnvironmentBuilder::new()
         .search_dirs(&search_dirs)
         .output(&output)
-        .with_stdlib(true)
+        .with_prelude(true)
         .build();
 
     let mut interpreter = Interpreter::with_environment(&env);

@@ -18,7 +18,7 @@ pub struct EnvironmentBuilder {
     input: Option<InputRef>,
     output: Option<OutputRef>,
     parent: Option<EnvironmentRef>,
-    with_stdlib: bool,
+    with_prelude: bool,
 }
 
 impl EnvironmentBuilder {
@@ -29,7 +29,7 @@ impl EnvironmentBuilder {
             input: None,
             output: None,
             parent: None,
-            with_stdlib: false,
+            with_prelude: false,
         }
     }
 
@@ -53,8 +53,8 @@ impl EnvironmentBuilder {
         self
     }
 
-    pub fn with_stdlib(&mut self, with_stdlib: bool) -> &mut Self {
-        self.with_stdlib = with_stdlib;
+    pub fn with_prelude(&mut self, with_stdlib: bool) -> &mut Self {
+        self.with_prelude = with_stdlib;
         self
     }
 
@@ -68,7 +68,7 @@ impl EnvironmentBuilder {
             export_set: None,
         }));
         Environment::init_builtins(&ret);
-        if self.with_stdlib {
+        if self.with_prelude {
             Environment::load_prelude(&ret);
         }
         ret

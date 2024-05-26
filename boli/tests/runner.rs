@@ -81,7 +81,7 @@ fn run_file(input_file_name: &str, expected_output_file: &str) {
     let env = EnvironmentBuilder::new()
         .search_dirs(&vec![code_dir.clone()])
         .output(&output)
-        .with_stdlib(true)
+        .with_prelude(true)
         .build();
 
     let file = code_dir.borrow().get_file(input_file_name).unwrap();
