@@ -6,7 +6,7 @@ use std::vec;
 use crate::interpreter::environment::{Environment, EnvironmentBuilder};
 use crate::interpreter::module_mgmt::extension::{new_extension, new_extension_dir, ExtensionRef};
 use crate::interpreter::module_mgmt::ExtensionModule;
-use crate::interpreter::stdlib::load_module_code;
+use crate::interpreter::prelude::load_module_code;
 use crate::interpreter::stream::StreamValue;
 use crate::interpreter::{
     borrow_value, downcast_value, error, new_valueref, BoolValue, BuiltInFunctionValue, Callable,

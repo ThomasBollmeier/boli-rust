@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use crate::interpreter::environment::{Environment, EnvironmentBuilder};
 use crate::interpreter::module_mgmt::extension::{new_extension, new_extension_dir, ExtensionRef};
-use crate::interpreter::stdlib::load_module_code;
+use crate::interpreter::prelude::load_module_code;
 use crate::interpreter::{
     downcast_value, new_valueref, BoolValue, EvalResult, InterpreterError, PairValue, ValueRef,
     ValueType,

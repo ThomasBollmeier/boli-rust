@@ -4,7 +4,7 @@ use super::module_mgmt::module_loader::ProvideFn;
 use super::module_mgmt::module_loader::RequireFn;
 use super::module_mgmt::ModuleDirRef;
 use super::number_functions::*;
-use super::stdlib;
+use super::prelude;
 use super::struct_functions::*;
 use super::values::*;
 use std::cell::RefCell;
@@ -69,7 +69,7 @@ impl EnvironmentBuilder {
         }));
         Environment::init_builtins(&ret);
         if self.with_stdlib {
-            Environment::load_stdlib(&ret);
+            Environment::load_prelude(&ret);
         }
         ret
     }
@@ -199,8 +199,8 @@ impl Environment {
         }
     }
 
-    pub fn load_stdlib(env: &EnvironmentRef) {
-        let stdlib = stdlib::create_stdlib();
+    pub fn load_prelude(env: &EnvironmentRef) {
+        let stdlib = prelude::create_prelude();
 
         Self::import_extension(env, &stdlib, "vector");
         Self::import_extension(env, &stdlib, "list");

@@ -2,7 +2,7 @@ pub mod environment;
 pub mod misc_functions;
 pub mod module_mgmt;
 pub mod number_functions;
-pub mod stdlib;
+pub mod prelude;
 pub mod struct_functions;
 pub mod values;
 
