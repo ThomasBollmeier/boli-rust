@@ -276,6 +276,17 @@ impl Stream<Token> for Lexer {
                 continue;
             }
 
+            if ch == '#' {
+                match self.stream.peek() {
+                    Some('!') => {
+                        self.next_char();
+                        self.skip_line_comment();
+                        continue; // skip shebang
+                    }
+                    _ => {}
+                }
+            }
+
             if let Some(token_type) = TokenType::from_char(ch) {
                 return Some(Token::new(token_type, line, column));
             }
