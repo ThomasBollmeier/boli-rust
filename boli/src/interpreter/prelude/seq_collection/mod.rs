@@ -423,7 +423,7 @@ mod tests {
         (head (iterator 0 (lambda (x) (+ x 1))))
         "#;
 
-        let mut interpreter = interpreter::Interpreter::with_stdlib();
+        let mut interpreter = interpreter::Interpreter::with_prelude();
         let result = interpreter.eval(code).unwrap();
 
         assert_eq!(result.borrow().to_string(), "0");
@@ -435,7 +435,7 @@ mod tests {
         (head (tail (iterator 0 (lambda (x) (+ x 1)))))
         "#;
 
-        let mut interpreter = interpreter::Interpreter::with_stdlib();
+        let mut interpreter = interpreter::Interpreter::with_prelude();
         let result = interpreter.eval(code).unwrap();
 
         assert_eq!(result.borrow().to_string(), "1");
@@ -449,7 +449,7 @@ mod tests {
         (head odds)
         "#;
 
-        let mut interpreter = interpreter::Interpreter::with_stdlib();
+        let mut interpreter = interpreter::Interpreter::with_prelude();
         let result = interpreter.eval(code).unwrap();
 
         assert_eq!(result.borrow().to_string(), "1");
@@ -463,7 +463,7 @@ mod tests {
         (head squares)
         "#;
 
-        let mut interpreter = interpreter::Interpreter::with_stdlib();
+        let mut interpreter = interpreter::Interpreter::with_prelude();
         let result = interpreter.eval(code).unwrap();
 
         assert_eq!(result.borrow().to_string(), "4");
@@ -477,7 +477,7 @@ mod tests {
         (head (drop 2 squares))
         "#;
 
-        let mut interpreter = interpreter::Interpreter::with_stdlib();
+        let mut interpreter = interpreter::Interpreter::with_prelude();
         let result = interpreter.eval(code).unwrap();
 
         assert_eq!(result.borrow().to_string(), "4");
@@ -491,7 +491,7 @@ mod tests {
         (head (drop-while (λ (n) (< n 50)) squares))
         "#;
 
-        let mut interpreter = interpreter::Interpreter::with_stdlib();
+        let mut interpreter = interpreter::Interpreter::with_prelude();
         let result = interpreter.eval(code).unwrap();
 
         assert_eq!(result.borrow().to_string(), "64");
@@ -505,7 +505,7 @@ mod tests {
         (take 3 naturals)
         "#;
 
-        let mut interpreter = interpreter::Interpreter::with_stdlib();
+        let mut interpreter = interpreter::Interpreter::with_prelude();
         let result = interpreter.eval(code).unwrap();
 
         assert_eq!(result.borrow().to_string(), "(vector 0 1 2)");
@@ -522,7 +522,7 @@ mod tests {
         (take-while (λ (n) (< n 100)) fib)
         "#;
 
-        let mut interpreter = interpreter::Interpreter::with_stdlib();
+        let mut interpreter = interpreter::Interpreter::with_prelude();
         let result = interpreter.eval(code).unwrap();
 
         assert_eq!(
@@ -538,7 +538,7 @@ mod tests {
         (vector-ref v 1)
         "#;
 
-        let mut interpreter = interpreter::Interpreter::with_stdlib();
+        let mut interpreter = interpreter::Interpreter::with_prelude();
         let result = interpreter.eval(code).unwrap();
 
         assert_eq!(result.borrow().to_string(), "2");
@@ -552,7 +552,7 @@ mod tests {
         v
         "#;
 
-        let mut interpreter = interpreter::Interpreter::with_stdlib();
+        let mut interpreter = interpreter::Interpreter::with_prelude();
         let result = interpreter.eval(code).unwrap();
 
         assert_eq!(result.borrow().to_string(), "(vector 1 4 3)");

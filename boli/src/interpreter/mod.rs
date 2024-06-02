@@ -41,7 +41,7 @@ impl Interpreter {
         }
     }
 
-    pub fn with_stdlib() -> Self {
+    pub fn with_prelude() -> Self {
         let env = EnvironmentBuilder::new().with_prelude(true).build();
         Self::with_environment(&env)
     }
@@ -358,7 +358,20 @@ impl AstVisitor for Interpreter {
         let callee_type = callee.get_type();
 
         let callable: &dyn Callable = match callee_type {
-            ValueType::Lambda => downcast_value::<LambdaValue>(&callee).unwrap(),
+            ValueType::Lambda => {
+                let lambda = downcast_value::<LambdaValue>(&callee).unwrap();
+                if let Some(name) = &lambda.name {
+                    if name == "main" {
+                        let err = self.new_eval_error("Cannot call main function");
+                        self.stack.push(err);
+                        return;
+                    } else {
+                        lambda
+                    }
+                } else {
+                    lambda
+                }
+            }
             ValueType::BuiltInFunction => downcast_value::<BuiltInFunctionValue>(&callee).unwrap(),
             _ => {
                 let err = self.new_eval_error("Callee is not a function");
@@ -899,10 +912,10 @@ mod tests {
         let mut interpreter = Interpreter::new();
         let code = r#"
             (def x 42)
-            (def (main)
+            (def (run)
                 (set! x 43)
                 42)
-            (main)
+            (run)
             x
         "#;
         let result = interpreter.eval(code).unwrap();

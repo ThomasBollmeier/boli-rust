@@ -1,0 +1,5 @@
+3 command line arguments: 
+arg1
+-v2
+--answer=42
+nil

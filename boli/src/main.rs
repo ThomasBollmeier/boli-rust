@@ -4,7 +4,10 @@ use boli::{
         environment::EnvironmentBuilder,
         misc_functions::{Output, StdOutput},
         module_mgmt::{file_system::new_directory, ModuleDirRef},
-        values::borrow_value,
+        values::{
+            borrow_value, downcast_value, new_valueref, Callable, EvalResult, LambdaValue,
+            StrValue, ValueRef, ValueType,
+        },
         Interpreter,
     },
     repl,
@@ -53,6 +56,9 @@ struct Options {
         help = "colon separated list of directories to search for BOLI modules"
     )]
     module_dirs: String,
+
+    #[arg(trailing_var_arg = true, allow_hyphen_values = true, hide = true)]
+    boli_args: Vec<String>,
 }
 
 fn main() -> Result<()> {
@@ -74,7 +80,7 @@ fn main() -> Result<()> {
     } else if options.parse_only {
         parse(&code);
     } else {
-        interpret(&code, &module_dirs);
+        interpret(&code, &module_dirs, &options.boli_args);
     }
 
     Ok(())
@@ -91,7 +97,7 @@ fn parse(code: &str) {
     }
 }
 
-fn interpret(code: &str, module_dirs: &Vec<String>) {
+fn interpret(code: &str, module_dirs: &Vec<String>, args: &Vec<String>) {
     let search_dirs: Vec<ModuleDirRef> = if module_dirs.is_empty() {
         vec![new_directory(".", "")]
     } else {
@@ -112,12 +118,37 @@ fn interpret(code: &str, module_dirs: &Vec<String>) {
 
     let mut interpreter = Interpreter::with_environment(&env);
 
-    let result = interpreter.eval(code);
+    let result = eval_code(&mut interpreter, code, args);
 
     match result {
         Ok(value) => println!("{}", borrow_value(&value)),
         Err(err) => println!("Error: {:?}", err),
     }
+}
+
+fn eval_code(interpreter: &mut Interpreter, code: &str, main_args: &Vec<String>) -> EvalResult {
+    let mut result = interpreter.eval(code);
+
+    if let Ok(_) = result {
+        let main_opt = interpreter.env.borrow().get("main");
+        if let Some(main) = main_opt {
+            if main.borrow().get_type() == ValueType::Lambda {
+                let main = &borrow_value(&main);
+                let main = downcast_value::<LambdaValue>(main).unwrap();
+                let args: Vec<ValueRef> = main_args
+                    .iter()
+                    .map(|s| {
+                        new_valueref(StrValue {
+                            value: s.to_string(),
+                        })
+                    })
+                    .collect();
+                result = main.call(&args);
+            }
+        }
+    }
+
+    result
 }
 
 fn read_input(file_path: &str) -> Result<String> {

@@ -53,8 +53,8 @@ impl EnvironmentBuilder {
         self
     }
 
-    pub fn with_prelude(&mut self, with_stdlib: bool) -> &mut Self {
-        self.with_prelude = with_stdlib;
+    pub fn with_prelude(&mut self, with_prelude: bool) -> &mut Self {
+        self.with_prelude = with_prelude;
         self
     }
 
@@ -193,9 +193,7 @@ impl Environment {
                     self.set_owned(key.clone(), value);
                 }
             }
-            _ => {
-                self.set_owned(key.clone(), value);
-            }
+            _ => self.set_owned(key.clone(), value),
         }
     }
 
