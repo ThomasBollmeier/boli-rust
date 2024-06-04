@@ -313,6 +313,8 @@ impl Environment {
         env.borrow_mut()
             .set_builtin("create-hash-table", &Rc::new(CreateHashTable::new()));
         env.borrow_mut()
+            .set_builtin("hash-length", &Rc::new(HashLength::new()));
+        env.borrow_mut()
             .set_builtin("hash-keys", &Rc::new(HashKeys::new()));
         env.borrow_mut()
             .set_builtin("hash-get", &Rc::new(HashGet::new()));
@@ -323,6 +325,8 @@ impl Environment {
 
         env.borrow_mut()
             .set_builtin("create-set", &Rc::new(CreateSet::new()));
+        env.borrow_mut()
+            .set_builtin("set-length", &Rc::new(SetLength::new()));
         env.borrow_mut()
             .set_builtin("set-elements", &Rc::new(HashKeys::new()));
         env.borrow_mut()

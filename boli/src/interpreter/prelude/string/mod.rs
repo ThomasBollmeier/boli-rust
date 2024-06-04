@@ -84,20 +84,21 @@ impl Callable for StrSub {
         };
 
         if num_args == 2 {
-            Ok(new_valueref(StrValue {
-                value: string.value[start..].to_string(),
-            }))
+            let new_string = string.value.chars().skip(start).collect::<String>();
+            Ok(new_valueref(StrValue { value: new_string }))
         } else {
             let arg2 = borrow_value(&args[2]);
             let length = match arg2.get_type() {
                 ValueType::Int => downcast_value::<IntValue>(&arg2).unwrap().value as usize,
                 _ => return error("str-sub function expects an integer as the third argument"),
             };
-            let end = start + length;
-
-            Ok(new_valueref(StrValue {
-                value: string.value[start..end].to_string(),
-            }))
+            let new_string = string
+                .value
+                .chars()
+                .skip(start)
+                .take(length)
+                .collect::<String>();
+            Ok(new_valueref(StrValue { value: new_string }))
         }
     }
 }

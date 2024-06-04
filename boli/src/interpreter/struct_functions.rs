@@ -153,6 +153,36 @@ impl Callable for CreateHashTable {
     }
 }
 
+pub struct HashLength {}
+
+impl HashLength {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for HashLength {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 1 {
+            return error("hash-length expects 1 argument");
+        }
+
+        let arg0 = &borrow_value(&args[0]);
+        let arg0 = downcast_value::<StructValue>(arg0);
+        if arg0.is_none() {
+            return error("hash-length expects a hash table as the first argument");
+        }
+        let hash_table = arg0.unwrap();
+        if hash_table.struct_type.is_some() {
+            return error("hash-length expects a hash table as the first argument");
+        }
+
+        Ok(new_valueref(IntValue {
+            value: hash_table.values.len() as i64,
+        }))
+    }
+}
+
 pub struct HashKeys {}
 
 impl HashKeys {
@@ -308,11 +338,47 @@ impl CreateSet {
 
 impl Callable for CreateSet {
     fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
-        if args.len() != 0 {
-            return error("create-set expects 0 arguments");
+        let mut ret = StructValue::new_set();
+        for arg in args {
+            let key = get_key(arg);
+            let entry = StructEntry {
+                key: arg.clone(),
+                value: new_valueref(NilValue {}),
+            };
+            ret.values.insert(key, entry);
         }
 
-        Ok(new_valueref(StructValue::new_set()))
+        Ok(new_valueref(ret))
+    }
+}
+
+pub struct SetLength {}
+
+impl SetLength {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for SetLength {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 1 {
+            return error("set-length expects 1 argument");
+        }
+
+        let arg0 = &borrow_value(&args[0]);
+        let arg0 = downcast_value::<StructValue>(arg0);
+        if arg0.is_none() {
+            return error("set-length expects a set as the first argument");
+        }
+        let set = arg0.unwrap();
+        if set.struct_type.is_some() {
+            return error("set-length expects a set as the first argument");
+        }
+
+        Ok(new_valueref(IntValue {
+            value: set.values.len() as i64,
+        }))
     }
 }
 

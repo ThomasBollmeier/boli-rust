@@ -656,6 +656,19 @@ mod tests {
     }
 
     #[test]
+    fn test_eval_string_head_w_unicode() {
+        let mut interpreter = Interpreter::with_prelude();
+        let code = r#"
+            (def 🦀-str "🦀 Hello, World!")
+            (head 🦀-str)
+        "#;
+        let result = interpreter.eval(code).unwrap();
+        let result = borrow_value(&result);
+        assert_eq!(result.get_type(), ValueType::Str);
+        assert_eq!(result.to_string(), "\"🦀\"");
+    }
+
+    #[test]
     fn test_eval_function_call() {
         let mut interpreter = Interpreter::new();
         let code = r#"
@@ -830,6 +843,21 @@ mod tests {
     }
 
     #[test]
+    fn test_hash_length() {
+        let mut interpreter = Interpreter::new();
+        let code = r#"
+            (def options (create-hash-table))
+            (hash-set! options 'action "parse")
+            (hash-set! options 'input-file "code.boli")
+            (hash-length options)
+        "#;
+        let result = interpreter.eval(code).unwrap();
+        let result = borrow_value(&result);
+        assert_eq!(result.get_type(), ValueType::Int);
+        assert_eq!(result.to_string(), "2");
+    }
+
+    #[test]
     fn test_hash_keys() {
         let mut interpreter = Interpreter::new();
         let code = r#"
@@ -857,6 +885,19 @@ mod tests {
         let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Struct);
         assert_eq!(result.to_string(), "(set 42)");
+    }
+
+    #[test]
+    fn test_set_length() {
+        let mut interpreter = Interpreter::new();
+        let code = r#"
+            (def s (create-set 42 42 43))
+            (set-length s)
+        "#;
+        let result = interpreter.eval(code).unwrap();
+        let result = borrow_value(&result);
+        assert_eq!(result.get_type(), ValueType::Int);
+        assert_eq!(result.to_string(), "2");
     }
 
     #[test]
