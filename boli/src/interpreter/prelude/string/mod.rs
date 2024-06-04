@@ -68,19 +68,19 @@ impl Callable for StrSub {
         let num_args = args.len();
 
         if num_args != 2 && num_args != 3 {
-            return error("str-sub function expects two or three arguments");
+            return error("string-sub function expects two or three arguments");
         }
 
         let arg0 = borrow_value(&args[0]);
         let string = match arg0.get_type() {
             ValueType::Str => downcast_value::<StrValue>(&arg0).unwrap(),
-            _ => return error("str-sub function expects a string as the first argument"),
+            _ => return error("string-sub function expects a string as the first argument"),
         };
 
         let arg1 = borrow_value(&args[1]);
         let start = match arg1.get_type() {
             ValueType::Int => downcast_value::<IntValue>(&arg1).unwrap().value as usize,
-            _ => return error("str-sub function expects an integer as the second argument"),
+            _ => return error("string-sub function expects an integer as the second argument"),
         };
 
         if num_args == 2 {
@@ -90,7 +90,7 @@ impl Callable for StrSub {
             let arg2 = borrow_value(&args[2]);
             let length = match arg2.get_type() {
                 ValueType::Int => downcast_value::<IntValue>(&arg2).unwrap().value as usize,
-                _ => return error("str-sub function expects an integer as the third argument"),
+                _ => return error("string-sub function expects an integer as the third argument"),
             };
             let new_string = string
                 .value
@@ -114,25 +114,25 @@ impl StrReplace {
 impl Callable for StrReplace {
     fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         if args.len() != 3 {
-            return error("str-replace function expects exactly three arguments");
+            return error("string-replace function expects exactly three arguments");
         }
 
         let arg0 = borrow_value(&args[0]);
         let string = match arg0.get_type() {
             ValueType::Str => downcast_value::<StrValue>(&arg0).unwrap(),
-            _ => return error("str-replace function expects a string as the first argument"),
+            _ => return error("string-replace function expects a string as the first argument"),
         };
 
         let arg1 = borrow_value(&args[1]);
         let pattern = match arg1.get_type() {
             ValueType::Str => downcast_value::<StrValue>(&arg1).unwrap(),
-            _ => return error("str-replace function expects a string as the second argument"),
+            _ => return error("string-replace function expects a string as the second argument"),
         };
 
         let arg2 = borrow_value(&args[2]);
         let replacement = match arg2.get_type() {
             ValueType::Str => downcast_value::<StrValue>(&arg2).unwrap(),
-            _ => return error("str-replace function expects a string as the third argument"),
+            _ => return error("string-replace function expects a string as the third argument"),
         };
 
         Ok(new_valueref(StrValue {
@@ -160,7 +160,7 @@ impl Callable for StrConcat {
                     let string = downcast_value::<StrValue>(&value).unwrap();
                     result.push_str(&string.value);
                 }
-                _ => return error("str-concat function expects only strings as arguments"),
+                _ => return error("string-concat function expects only strings as arguments"),
             }
         }
 
@@ -179,13 +179,13 @@ impl StrUpper {
 impl Callable for StrUpper {
     fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         if args.len() != 1 {
-            return error("str-upper function expects exactly one argument");
+            return error("string-upper function expects exactly one argument");
         }
 
         let arg0 = borrow_value(&args[0]);
         let string = match arg0.get_type() {
             ValueType::Str => downcast_value::<StrValue>(&arg0).unwrap(),
-            _ => return error("str-upper function expects a string as the first argument"),
+            _ => return error("string-upper function expects a string as the first argument"),
         };
 
         Ok(new_valueref(StrValue {
@@ -205,13 +205,13 @@ impl StrLower {
 impl Callable for StrLower {
     fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         if args.len() != 1 {
-            return error("str-lower function expects exactly one argument");
+            return error("string-lower function expects exactly one argument");
         }
 
         let arg0 = borrow_value(&args[0]);
         let string = match arg0.get_type() {
             ValueType::Str => downcast_value::<StrValue>(&arg0).unwrap(),
-            _ => return error("str-lower function expects a string as the first argument"),
+            _ => return error("string-lower function expects a string as the first argument"),
         };
 
         Ok(new_valueref(StrValue {
@@ -231,13 +231,13 @@ impl StrToInt {
 impl Callable for StrToInt {
     fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         if args.len() != 1 {
-            return error("str-to-int function expects exactly one argument");
+            return error("string->int function expects exactly one argument");
         }
 
         let arg0 = borrow_value(&args[0]);
         let string = match arg0.get_type() {
             ValueType::Str => downcast_value::<StrValue>(&arg0).unwrap(),
-            _ => return error("str-to-int function expects a string as the first argument"),
+            _ => return error("string->int function expects a string as the first argument"),
         };
 
         let string_val = str::replace(&string.value, ".", "");
@@ -260,13 +260,13 @@ impl StrToReal {
 impl Callable for StrToReal {
     fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         if args.len() != 1 {
-            return error("str-to-real function expects exactly one argument");
+            return error("string->real function expects exactly one argument");
         }
 
         let arg0 = borrow_value(&args[0]);
         let string = match arg0.get_type() {
             ValueType::Str => downcast_value::<StrValue>(&arg0).unwrap(),
-            _ => return error("str-to-real function expects a string as the first argument"),
+            _ => return error("string->real function expects a string as the first argument"),
         };
 
         let mut string_val = str::replace(&string.value, ".", "");
@@ -290,17 +290,17 @@ impl StrCount {
 impl Callable for StrCount {
     fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         if args.len() != 1 {
-            return error("str-count function expects exactly two arguments");
+            return error("string-count function expects exactly one argument");
         }
 
         let arg0 = borrow_value(&args[0]);
         let string = match arg0.get_type() {
             ValueType::Str => downcast_value::<StrValue>(&arg0).unwrap(),
-            _ => return error("str-count function expects a string as the first argument"),
+            _ => return error("string-count function expects a string as its argument"),
         };
 
         Ok(new_valueref(IntValue {
-            value: string.value.len() as i64,
+            value: string.value.chars().count() as i64,
         }))
     }
 }
