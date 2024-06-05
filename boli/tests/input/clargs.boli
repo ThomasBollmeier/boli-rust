@@ -1,10 +1,3 @@
 (def (main args...)
     (display (count args) " command line arguments: \n")
-    (show-args args))
-
-(def (show-args args)
-    (if (not (empty? args))
-        (block
-            (display (head args) "\n")
-            (show-args (tail args)))
-        nil))
+    (for-each args (λ (arg) (display arg "\n"))))

@@ -86,6 +86,13 @@
 	      (helper (tail s) (cons (head s) acc))))
      (helper s nil))
 
+(def (for-each xs f)
+    (if (empty? xs)
+        nil
+        (block
+            (f (head xs))
+            (for-each (tail xs) f))))
+
 (def (foldl f init-val xs)
      (def (helper xs acc)
      	  (if (empty? xs)
