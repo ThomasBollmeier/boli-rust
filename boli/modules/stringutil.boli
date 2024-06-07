@@ -1,0 +1,63 @@
+(provide '(string-split
+		   string-reverse
+		   string-ltrim
+		   string-rtrim
+		   string-trim))
+
+(def (cons-if-not-empty curr acc)
+     (if (not (empty? curr))
+     	 (cons curr acc)
+	 acc))
+
+(def (string-split s chars)
+     (def (loop s curr acc)
+     	  (if (empty? s)
+	      (reverse (cons-if-not-empty curr acc))
+	      (let ([ch (head s)]
+	      	    [rest (tail s)])
+		   (if (set-contains? chars ch)
+		       (loop rest "" (cons-if-not-empty curr acc))
+		       (loop rest (string-concat curr ch) acc)))))
+     (loop s "" (vector)))
+
+(def (string-split s)
+     (let ([whitespace (create-set " " "\t" "\r" "\n")])
+     	  (string-split s whitespace)))
+
+(def (list->string xs)
+	(def (helper xs s)
+		(if (empty? xs)
+			s
+			(helper (tail xs) (string-concat s (head xs)))))
+	(helper xs ""))
+
+(def (string-reverse s)
+	(def (helper s acc)
+		(if (empty? s)
+			(list->string acc)
+			(helper (tail s) (cons (head s) acc))))
+	(helper s (list)))
+
+(def (string-ltrim s chars)
+	(let ([cs (string->list s)]
+		  [trimmed (drop-while (λ (c) (set-contains? chars c)) cs)])
+		(list->string trimmed)))
+
+(def (string-ltrim s)
+     (let ([whitespace (create-set " " "\t" "\r" "\n")])
+     	  (string-ltrim s whitespace)))
+
+(def (string-rtrim s chars)
+	(string-reverse (string-ltrim (string-reverse s) chars)))
+
+(def (string-rtrim s)
+     (let ([whitespace (create-set " " "\t" "\r" "\n")])
+     	  (string-rtrim s whitespace)))
+
+(def (string-trim s chars)
+	(string-ltrim (string-rtrim s chars) chars))
+
+(def (string-trim s)
+     (let ([whitespace (create-set " " "\t" "\r" "\n")])
+     	  (string-trim s whitespace)))
+
