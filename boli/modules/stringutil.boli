@@ -1,8 +1,10 @@
 (provide '(string-split
-		   string-reverse
-		   string-ltrim
-		   string-rtrim
-		   string-trim))
+	   string-reverse
+	   string-ltrim
+	   string-rtrim
+	   string-trim))
+
+(def WHITESPACE (create-set " " "\t" "\r" "\n"))
 
 (def (cons-if-not-empty curr acc)
      (if (not (empty? curr))
@@ -21,8 +23,7 @@
      (loop s "" (vector)))
 
 (def (string-split s)
-     (let ([whitespace (create-set " " "\t" "\r" "\n")])
-     	  (string-split s whitespace)))
+     (string-split s WHITESPACE))
 
 (def (list->string xs)
 	(def (helper xs s)
@@ -44,20 +45,17 @@
 		(list->string trimmed)))
 
 (def (string-ltrim s)
-     (let ([whitespace (create-set " " "\t" "\r" "\n")])
-     	  (string-ltrim s whitespace)))
+     (string-ltrim s WHITESPACE))
 
 (def (string-rtrim s chars)
 	(string-reverse (string-ltrim (string-reverse s) chars)))
 
 (def (string-rtrim s)
-     (let ([whitespace (create-set " " "\t" "\r" "\n")])
-     	  (string-rtrim s whitespace)))
+     (string-rtrim s WHITESPACE))
 
 (def (string-trim s chars)
 	(string-ltrim (string-rtrim s chars) chars))
 
 (def (string-trim s)
-     (let ([whitespace (create-set " " "\t" "\r" "\n")])
-     	  (string-trim s whitespace)))
+     (string-trim s WHITESPACE))
 
