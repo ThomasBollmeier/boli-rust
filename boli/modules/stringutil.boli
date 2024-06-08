@@ -2,7 +2,8 @@
 	   string-reverse
 	   string-ltrim
 	   string-rtrim
-	   string-trim))
+	   string-trim
+	   string-starts-with?))
 
 (def WHITESPACE (create-set " " "\t" "\r" "\n"))
 
@@ -59,3 +60,12 @@
 (def (string-trim s)
      (string-trim s WHITESPACE))
 
+(def (string-starts-with? s prefix)
+     (cond
+	[(empty? prefix) #t]
+	[(empty? s) #f]
+	[#t (let ([c1 (head s)]
+	    	  [c2 (head prefix)])
+		 (if (equal? c1 c2)
+		     (string-starts-with? (tail s) (tail prefix))
+		     #f))]))
