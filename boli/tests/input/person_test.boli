@@ -1,0 +1,5 @@
+(require 'person)
+
+(def ego (create-person "Mustermann" "Herbert" (create-date 1966 01 07)))
+
+(display (person-first-name ego) " " (person-name ego) "\n")

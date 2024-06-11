@@ -115,3 +115,8 @@ fn test_reverse() {
 fn test_varargs() {
     run_file("varargs.boli", "varargs.out");
 }
+
+#[test]
+fn test_person() {
+    run_file("person_test.boli", "person_test.out");
+}

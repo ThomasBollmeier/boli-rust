@@ -271,7 +271,7 @@ impl AstVisitor for Interpreter {
             .set(struct_def.name.clone(), struct_type.clone());
 
         let create_struct_name = format!("create-{}", &struct_def.name);
-        self.env.borrow_mut().set_builtin(
+        self.env.borrow_mut().set_callable(
             &create_struct_name,
             &Rc::new(CreateStructValue::new(&struct_type)),
         );
@@ -279,18 +279,18 @@ impl AstVisitor for Interpreter {
         let type_query_name = format!("{}?", &struct_def.name);
         self.env
             .borrow_mut()
-            .set_builtin(&type_query_name, &Rc::new(IsStructType::new(&struct_type)));
+            .set_callable(&type_query_name, &Rc::new(IsStructType::new(&struct_type)));
 
         for field in &struct_def.fields {
             let getter_name = format!("{}-{}", &struct_def.name, &field);
             self.env
                 .borrow_mut()
-                .set_builtin(&getter_name, &Rc::new(GetStructField::new(&field)));
+                .set_callable(&getter_name, &Rc::new(GetStructField::new(&field)));
 
             let setter_name = format!("{}-set-{}!", &struct_def.name, &field);
             self.env
                 .borrow_mut()
-                .set_builtin(&setter_name, &Rc::new(SetStructField::new(&field)));
+                .set_callable(&setter_name, &Rc::new(SetStructField::new(&field)));
         }
 
         self.stack.push(Ok(new_valueref(NilValue {})));

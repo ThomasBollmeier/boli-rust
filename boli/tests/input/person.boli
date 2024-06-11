@@ -1,0 +1,3 @@
+(def-struct date (year month day))
+
+(def-struct person (name first-name birthdate))
