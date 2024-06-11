@@ -223,6 +223,40 @@ fn get_key(value: &ValueRef) -> String {
     format!("{:?}", value.to_string())
 }
 
+pub struct HashContains {}
+
+impl HashContains {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for HashContains {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 2 {
+            return error("hash-contains? expects 2 arguments");
+        }
+
+        let arg0 = &borrow_value(&args[0]);
+        let arg0 = downcast_value::<StructValue>(arg0);
+        if arg0.is_none() {
+            return error("hash-contains? expects a hash table as the first argument");
+        }
+        let hash_table = arg0.unwrap();
+        if hash_table.struct_type.is_some() {
+            return error("hash-contains? expects a hash table as the first argument");
+        }
+
+        let key = get_key(&args[1]);
+
+        let value = hash_table.values.get(&key);
+
+        Ok(new_valueref(BoolValue {
+            value: value.is_some(),
+        }))
+    }
+}
+
 pub struct HashGet {}
 
 impl HashGet {

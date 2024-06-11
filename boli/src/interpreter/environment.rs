@@ -317,6 +317,8 @@ impl Environment {
         env.borrow_mut()
             .set_builtin("hash-keys", &Rc::new(HashKeys::new()));
         env.borrow_mut()
+            .set_builtin("hash-contains?", &Rc::new(HashContains::new()));
+        env.borrow_mut()
             .set_builtin("hash-get", &Rc::new(HashGet::new()));
         env.borrow_mut()
             .set_builtin("hash-set!", &Rc::new(HashSetBang::new()));

@@ -874,6 +874,21 @@ mod tests {
     }
 
     #[test]
+    fn test_hash_contains() {
+        let mut interpreter = Interpreter::new();
+        let code = r#"
+            (def options (create-hash-table))
+            (hash-set! options 'action "parse")
+            (hash-set! options 'input-file "code.boli")
+            (hash-contains? options 'input-file)
+        "#;
+        let result = interpreter.eval(code).unwrap();
+        let result = borrow_value(&result);
+        assert_eq!(result.get_type(), ValueType::Bool);
+        assert_eq!(result.to_string(), "#true");
+    }
+
+    #[test]
     fn test_create_set() {
         let mut interpreter = Interpreter::new();
         let code = r#"
