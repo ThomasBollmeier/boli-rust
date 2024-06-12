@@ -507,7 +507,7 @@ impl Callable for CreateStructValue {
         let mut values = HashMap::new();
         for (i, field) in struct_type.fields.iter().enumerate() {
             let entry = StructEntry {
-                key: new_valueref(StrValue {
+                key: new_valueref(SymbolValue {
                     value: field.clone(),
                 }),
                 value: args[i].clone(),
@@ -625,7 +625,7 @@ impl Callable for SetStructField {
         let struct_value = struct_value.unwrap();
 
         let new_entry = StructEntry {
-            key: new_valueref(StrValue {
+            key: new_valueref(SymbolValue {
                 value: self.field.clone(),
             }),
             value: args[1].clone(),
@@ -701,7 +701,7 @@ impl Display for StructValue {
                     .filter_map(|field| {
                         self.values
                             .get(field)
-                            .map(|entry| format!("'{} {}", field, entry.value.borrow()))
+                            .map(|entry| format!("{} {}", entry.key.borrow(), entry.value.borrow()))
                     })
                     .collect::<Vec<String>>();
 
@@ -719,7 +719,8 @@ impl Display for StructValue {
                     let values_str = keys
                         .iter()
                         .map(|key| {
-                            format!("'{} {}", key, self.values.get(key).unwrap().value.borrow())
+                            let entry = self.values.get(key).unwrap();
+                            format!("{} {}", entry.key.borrow(), entry.value.borrow())
                         })
                         .collect::<Vec<String>>();
 
