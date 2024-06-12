@@ -110,7 +110,7 @@ impl Callable for StructSet {
         let field_name = field_token.get_string_value().unwrap();
 
         let new_entry = StructEntry {
-            key: new_valueref(StrValue {
+            key: new_valueref(SymbolValue {
                 value: field_name.clone(),
             }),
             value: args[2].clone(),
