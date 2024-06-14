@@ -1,4 +1,5 @@
-(provide '(merge-sort))
+(provide '(merge-sort
+	   quick-sort))
 
 (def (split-into-halves lst)
      (let [(n (count lst))]
@@ -32,3 +33,47 @@
 
 (def (merge-sort lst)
      (merge-sort lst <))
+
+(def (quick-sort xs comp-fn)
+     (let ([n (count xs)])
+     	  (if (< n 2)
+	      xs
+	      (let ([pivot-idx (/ n 2)]
+	      	    [parts (partition xs pivot-idx comp-fn)]
+		    [left (ref parts 0)]
+		    [pivot (ref parts 1)]
+		    [right (ref parts 2)])
+		   (save-concat (quick-sort left comp-fn)
+		   	 	(cons pivot (empty-col xs))
+			   	(quick-sort right comp-fn))))))
+
+(def (quick-sort xs)
+     (quick-sort xs <))
+
+(def (save-concat xs...)
+     (let ([non-empty-xs (filter (λ (x) (not (empty? x))) xs)])
+     	  (concat ...non-empty-xs)))
+     
+(def (partition xs pivot-idx comp-fn)
+     (let ([indexed (enumerate xs)]
+           [pivot (ref xs pivot-idx)]
+     	   [parts (foldl (λ (acc elem)
+	  	    	    (let ([i (car elem)]
+		    	    	  [x (cdr elem)]
+			  	  [left (car acc)]
+			  	  [right (cdr acc)])
+		    	 	  (cond
+					[(= i pivot-idx) acc]
+					[(comp-fn x pivot) ((cons x left) . right)]
+					[#t (left . (cons x right))])))
+		 	 ((empty-col xs) . (empty-col xs))
+		 	 indexed)])
+	(list (reverse (car parts))
+	      pivot
+	      (reverse (cdr parts)))))
+
+(def (ref xs i)
+     (cond
+	[(vector? xs) (vector-ref xs i)]
+	[(list? xs) (list-ref xs i)]
+	[#t (error "ref requires vector or list as first argument")]))
