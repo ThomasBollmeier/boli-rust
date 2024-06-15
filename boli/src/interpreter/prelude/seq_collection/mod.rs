@@ -164,7 +164,11 @@ impl Callable for Concat {
         let mut unique_type: Option<ValueType> = None;
 
         for arg in args {
-            let arg_type = arg.borrow().get_type();
+            let mut arg_type = arg.borrow().get_type();
+            if arg_type == ValueType::Nil {
+                // empty list
+                arg_type = ValueType::Pair;
+            }
             if let Some(prev_type) = unique_type {
                 if arg_type != prev_type {
                     return error("concat function expects all arguments to be of the same type");
@@ -182,19 +186,34 @@ impl Callable for Concat {
         match unique_type {
             ValueType::Vector => VecConcat::new().call(args),
             ValueType::Pair => {
-                let all_lists = args.iter().all(|arg| {
-                    let pair = arg.borrow();
-                    let pair = pair.as_any().downcast_ref::<PairValue>().unwrap();
-                    pair.is_list()
+                let all_lists = args.iter().all(|arg| match arg.borrow().get_type() {
+                    ValueType::Nil => true,
+                    ValueType::Pair => {
+                        let pair = arg.borrow();
+                        let pair = pair.as_any().downcast_ref::<PairValue>().unwrap();
+                        pair.is_list()
+                    }
+                    _ => false,
                 });
                 if !all_lists {
                     return error("concat function expects all arguments to be lists");
                 }
-                let result: Option<ValueRef> = args.iter().fold(None, |acc, arg| {
-                    if let Some(acc) = acc {
-                        let acc_pair = acc.borrow();
-                        let acc_pair = acc_pair.as_any().downcast_ref::<PairValue>().unwrap();
-                        Some(acc_pair.concat(&arg))
+                let result: Option<ValueRef> = args.iter().fold(None, |acc_opt, arg| {
+                    if let Some(acc) = acc_opt {
+                        let acc_type = acc.borrow().get_type();
+                        let arg_type = arg.borrow().get_type();
+                        match (acc_type, arg_type) {
+                            (ValueType::Pair, ValueType::Pair) => {
+                                let acc_pair = acc.borrow();
+                                let acc_pair =
+                                    acc_pair.as_any().downcast_ref::<PairValue>().unwrap();
+                                Some(acc_pair.concat(&arg))
+                            }
+                            (ValueType::Pair, ValueType::Nil) => Some(acc.clone()),
+                            (ValueType::Nil, ValueType::Pair) => Some(arg.clone()),
+                            (ValueType::Nil, ValueType::Nil) => Some(acc.clone()),
+                            _ => None,
+                        }
                     } else {
                         Some(arg.clone())
                     }
@@ -415,7 +434,8 @@ impl Callable for Map {
 
 #[cfg(test)]
 mod tests {
-    use crate::interpreter;
+
+    use crate::interpreter::{self, ValueType};
 
     #[test]
     fn test_head_seq() {
@@ -556,5 +576,18 @@ mod tests {
         let result = interpreter.eval(code).unwrap();
 
         assert_eq!(result.borrow().to_string(), "(vector 1 4 3)");
+    }
+
+    #[test]
+    fn test_concat_w_empty_list() {
+        let code = r#"
+        (concat (list) (list 1 2 3) (list) (list 4 5 6))
+        "#;
+
+        let mut interpreter = interpreter::Interpreter::with_prelude();
+        let result = interpreter.eval(code).unwrap();
+
+        assert_eq!(result.borrow().get_type(), ValueType::Pair);
+        assert_eq!(result.borrow().to_string(), "(list 1 2 3 4 5 6)");
     }
 }
