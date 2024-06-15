@@ -227,19 +227,19 @@ impl VecRef {
 impl Callable for VecRef {
     fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         if args.len() != 2 {
-            return error("list-ref function expects exactly two arguments");
+            return error("vector-ref function expects exactly two arguments");
         }
 
         let arg0 = &borrow_value(&args[0]);
         let list = match arg0.as_any().downcast_ref::<VectorValue>() {
             Some(list) => list,
-            None => return error("list-ref function expects a list"),
+            None => return error("vector-ref function expects a list"),
         };
 
         let arg1 = &borrow_value(&args[1]);
         let index = match arg1.as_any().downcast_ref::<IntValue>() {
             Some(index) => index.value,
-            None => return error("list-ref function expects an integer as the second argument"),
+            None => return error("vector-ref function expects an integer as the second argument"),
         };
 
         Ok(list.elements[index as usize].clone())
@@ -257,19 +257,19 @@ impl VecSetBang {
 impl Callable for VecSetBang {
     fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         if args.len() != 3 {
-            return error("list-set! function expects exactly three arguments");
+            return error("vector-set! function expects exactly three arguments");
         }
 
         let arg0 = &mut borrow_mut_value(&args[0]);
         let list = match arg0.as_any_mut().downcast_mut::<VectorValue>() {
             Some(list) => list,
-            None => return error("list-set! function expects a list"),
+            None => return error("vector-set! function expects a list"),
         };
 
         let arg1 = &borrow_value(&args[1]);
         let index = match arg1.as_any().downcast_ref::<IntValue>() {
             Some(index) => index.value,
-            None => return error("list-set! function expects an integer as the second argument"),
+            None => return error("vector-set! function expects an integer as the second argument"),
         };
 
         let arg2 = args[2].clone();
@@ -305,7 +305,7 @@ impl Callable for VecRemoveBang {
         let index = match arg1.as_any().downcast_ref::<IntValue>() {
             Some(index) => index.value,
             None => {
-                return error("list-remove! function expects an integer as the second argument")
+                return error("vector-remove! function expects an integer as the second argument")
             }
         };
 
