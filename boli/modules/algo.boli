@@ -51,22 +51,17 @@
      (quick-sort xs <))
      
 (def (partition xs pivot-idx comp-fn)
-     (let ([indexed (enumerate xs)]
-           [pivot (ref xs pivot-idx)]
-     	   [parts (foldl (λ (acc elem)
-	  	    	    (let ([i (car elem)]
-		    	    	  [x (cdr elem)]
-			  	  [left (car acc)]
-			  	  [right (cdr acc)])
-		    	 	  (cond
-					[(= i pivot-idx) acc]
-					[(comp-fn x pivot) ((cons x left) . right)]
-					[#t (left . (cons x right))])))
-		 	 ((empty-col xs) . (empty-col xs))
-		 	 indexed)])
-	(list (reverse (car parts))
-	      pivot
-	      (reverse (cdr parts)))))
+     (let ([pivot (ref xs pivot-idx)]
+           [left (take pivot-idx xs)]
+	       [right (drop (+ pivot-idx 1) xs)]
+	       [lt-pivot? (λ (x) (comp-fn x pivot))]
+	       [ge-pivot? (λ (x) (not (comp-fn x pivot)))])
+	   (list
+		(concat (filter lt-pivot? left)
+			(filter lt-pivot? right))
+		pivot
+		(concat (filter ge-pivot? left)
+			(filter ge-pivot? right)))))
 
 (def (ref xs i)
      (cond
