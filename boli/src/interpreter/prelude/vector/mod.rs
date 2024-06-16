@@ -31,6 +31,10 @@ pub fn create_vector_extension() -> ExtensionRef {
         .set_callable("vector-set!", &Rc::new(VecSetBang::new()));
     env.borrow_mut()
         .set_callable("vector-remove!", &Rc::new(VecRemoveBang::new()));
+    env.borrow_mut()
+        .set_callable("vector-take", &Rc::new(VecTake::new()));
+    env.borrow_mut()
+        .set_callable("vector-drop", &Rc::new(VecDrop::new()));
 
     let exported_values = env.borrow().get_exported_values();
 
@@ -313,6 +317,70 @@ impl Callable for VecRemoveBang {
 
         Ok(new_valueref(VectorValue {
             elements: vector.elements.clone(),
+        }))
+    }
+}
+
+struct VecTake {}
+
+impl VecTake {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for VecTake {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 2 {
+            return error("vector-take function expects exactly two arguments");
+        }
+
+        let first = &borrow_value(&args[0]);
+        let count = match first.as_any().downcast_ref::<IntValue>() {
+            Some(count) => count.value,
+            None => return error("vector-take function expects an integer as the first argument"),
+        };
+
+        let second = &borrow_value(&args[1]);
+        let list = match second.as_any().downcast_ref::<VectorValue>() {
+            Some(list) => list,
+            None => return error("vector-take function expects vector as the second argument"),
+        };
+
+        Ok(new_valueref(VectorValue {
+            elements: list.elements[..count as usize].to_vec(),
+        }))
+    }
+}
+
+struct VecDrop {}
+
+impl VecDrop {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for VecDrop {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 2 {
+            return error("vector-drop function expects exactly two arguments");
+        }
+
+        let first = &borrow_value(&args[0]);
+        let count = match first.as_any().downcast_ref::<IntValue>() {
+            Some(count) => count.value,
+            None => return error("vector-drop function expects an integer as the first argument"),
+        };
+
+        let second = &borrow_value(&args[1]);
+        let list = match second.as_any().downcast_ref::<VectorValue>() {
+            Some(list) => list,
+            None => return error("vector-drop function expects vector as the second argument"),
+        };
+
+        Ok(new_valueref(VectorValue {
+            elements: list.elements[count as usize..].to_vec(),
         }))
     }
 }

@@ -3,6 +3,32 @@
 (require 'string)
 (require 'stream)
 
+(provide '(
+    head ; <-- builtin
+    tail ; <-- builtin
+    cons  ; <-- builtin
+    concat ; <-- builtin
+    filter ; <-- builtin
+    map ; <-- builtin
+    count
+    empty?
+    all?
+    any?
+    empty-col
+    reverse
+    drop
+    drop-while
+    take
+    take-while
+    enumerate
+    string->list
+    for-each
+    foldl
+    foldr
+    reduce
+    count
+))
+
 (def (count xs)
     (cond 
         [(vector? xs) (vector-count xs)]
@@ -47,10 +73,15 @@
     (helper xs (empty-col xs)))
 
 (def (drop n xs)
+    (if (vector? xs)
+        (vector-drop n xs)
+        (list-drop n xs)))
+
+(def (list-drop n xs)
     (cond 
         [(= n 0) xs]
         [(empty? xs) xs]
-        [#t (drop (- n 1) (tail xs))]))
+        [#t (list-drop (- n 1) (tail xs))]))
 
 (def (drop-while pred? xs)
     (cond 
@@ -59,6 +90,11 @@
         [#t xs]))
 
 (def (take n xs)
+    (if (vector? xs)
+        (vector-take n xs)
+        (list-take n xs)))
+
+(def (list-take n xs)
     (def (helper n xs acc)
         (cond 
             [(= n 0) (reverse acc)]
