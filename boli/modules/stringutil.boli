@@ -3,7 +3,8 @@
 	   string-ltrim
 	   string-rtrim
 	   string-trim
-	   string-starts-with?))
+	   string-starts-with?
+	   string-join))
 
 (def WHITESPACE (create-set " " "\t" "\r" "\n"))
 
