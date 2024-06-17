@@ -69,3 +69,15 @@
 		 (if (equal? c1 c2)
 		     (string-starts-with? (tail s) (tail prefix))
 		     #f))]))
+
+(def (string-join strings sep)
+     (def (helper strs result)
+     	  (if (empty? strs)
+	      result
+	      (let ([s (head strs)])
+	      	   (if (not (empty? result))
+		       (helper (tail strs)
+		       	       (string-concat result sep s))
+		       (helper (tail strs)
+		       	       s)))))
+     (helper strings ""))
