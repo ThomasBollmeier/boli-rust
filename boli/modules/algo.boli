@@ -4,7 +4,7 @@
 (def (split-into-halves lst)
      (let [(n (count lst))]
      	  (if (< n 2)
-	      (list lst (expty-col lst))
+	      (list lst (empty-col lst))
 	      (let [(m (/ n 2))]
 	      	   (list (take m lst)
 		   	 (drop m lst))))))
@@ -12,13 +12,13 @@
 (def (merge lst1 lst2 comp-fn)
      (def (helper lst1 lst2 acc)
      	  (cond
-		[(empty? lst1) (concat (reverse acc) lst2)]
-		[(empty? lst2) (concat (reverse acc) lst1)]
-		[#t (let [(x1 (head lst1))
-		    	  (x2 (head lst2))]
-			 (if (comp-fn x1 x2)
-			     (helper (tail lst1) lst2 (cons x1 acc))
-			     (helper lst1 (tail lst2) (cons x2 acc))))]))
+			[(empty? lst1) (concat (reverse acc) lst2)]
+			[(empty? lst2) (concat (reverse acc) lst1)]
+			[#t (let [(x1 (head lst1))
+		    		  (x2 (head lst2))]
+			 		(if (comp-fn x1 x2)
+			     		(helper (tail lst1) lst2 (cons x1 acc))
+			     		(helper lst1 (tail lst2) (cons x2 acc))))]))
      (helper lst1 lst2 (empty-col lst1)))
 
 (def (merge-sort lst comp-fn)
@@ -26,7 +26,7 @@
      	 lst
      	 (let [(halves (split-into-halves lst))
      	       (lst1 (list-ref halves 0))
-	       (lst2 (list-ref halves 1))]
+	           (lst2 (list-ref halves 1))]
 	      (merge (merge-sort lst1 comp-fn)
 	      	     (merge-sort lst2 comp-fn)
 		     comp-fn))))
