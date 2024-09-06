@@ -10,6 +10,8 @@ use crate::frontend::lexer::tokens::Token;
 use super::environment::{Environment, EnvironmentBuilder};
 use super::{AstRef, Interpreter};
 
+mod numbers;
+pub use numbers::{IntValue, RationalValue, RealValue};
 pub mod stream;
 
 #[derive(PartialEq, Debug, Clone, Copy, Eq, Hash)]
@@ -17,6 +19,7 @@ pub enum ValueType {
     Nil,
     Bool,
     Int,
+    Rational,
     Real,
     Str,
     Symbol,
@@ -111,67 +114,6 @@ impl ComparableEq for BoolValue {
         } else {
             false
         }
-    }
-}
-
-#[derive(Debug)]
-pub struct IntValue {
-    pub value: i64,
-}
-
-impl Value for IntValue {
-    fn get_type(&self) -> ValueType {
-        ValueType::Int
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
-        self
-    }
-}
-
-impl Display for IntValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.value)
-    }
-}
-
-impl ComparableEq for IntValue {
-    fn is_equal(&self, other: &ValueRef) -> bool {
-        if let Some(other) = downcast_value::<IntValue>(&other.borrow()) {
-            self.value == other.value
-        } else {
-            false
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct RealValue {
-    pub value: f64,
-}
-
-impl Value for RealValue {
-    fn get_type(&self) -> ValueType {
-        ValueType::Real
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
-        self
-    }
-}
-
-impl Display for RealValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let value_str = format!("{:?}", self.value).replace(".", ",");
-        write!(f, "{value_str}")
     }
 }
 

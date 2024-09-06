@@ -1,10 +1,9 @@
-use std::rc::Rc;
-
 use crate::interpreter::{
     environment::EnvironmentBuilder,
     module_mgmt::extension::{new_extension, ExtensionRef},
     values::*,
 };
+use std::rc::Rc;
 
 pub fn create_string_extension() -> ExtensionRef {
     let core_env = EnvironmentBuilder::new().build();

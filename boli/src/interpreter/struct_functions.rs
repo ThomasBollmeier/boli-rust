@@ -1,6 +1,5 @@
-use crate::frontend::lexer::tokens::TokenType;
-
 use super::values::*;
+use crate::frontend::lexer::tokens::TokenType;
 
 pub struct StructGet {}
 

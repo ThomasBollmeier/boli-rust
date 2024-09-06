@@ -1,3 +1,5 @@
+use numbers::IntValue;
+
 use crate::interpreter::misc_functions::is_truthy;
 
 use super::*;
