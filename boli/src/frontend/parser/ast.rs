@@ -26,6 +26,7 @@ pub trait AstVisitor {
     fn visit_program(&mut self, program: &Program);
     fn visit_block(&mut self, block: &Block);
     fn visit_integer(&mut self, integer: &Integer);
+    fn visit_rational(&mut self, rational: &Rational);
     fn visit_real(&mut self, real: &Real);
     fn visit_bool(&mut self, bool: &Bool);
     fn visit_str(&mut self, str: &Str);
@@ -51,6 +52,7 @@ pub trait AstMutVisitor {
     fn visit_program(&mut self, program: &mut Program);
     fn visit_block(&mut self, block: &mut Block);
     fn visit_integer(&mut self, integer: &mut Integer);
+    fn visit_rational(&mut self, rational: &mut Rational);
     fn visit_real(&mut self, real: &mut Real);
     fn visit_bool(&mut self, bool: &mut Bool);
     fn visit_str(&mut self, str: &mut Str);
@@ -119,6 +121,25 @@ impl Ast for Integer {
 
     fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
         visitor.visit_integer(self);
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+pub struct Rational {
+    pub numerator: i64,
+    pub denominator: i64,
+}
+
+impl Ast for Rational {
+    fn accept(&self, visitor: &mut dyn AstVisitor) {
+        visitor.visit_rational(self);
+    }
+
+    fn accept_mut(&mut self, visitor: &mut dyn AstMutVisitor) {
+        visitor.visit_rational(self);
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

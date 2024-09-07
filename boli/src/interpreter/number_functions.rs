@@ -162,6 +162,16 @@ where
     let calc_result = calculate(op, &numbers, left_associative);
     match calc_result {
         Number::Int(result) => Ok(new_valueref(IntValue { value: result })),
+        Number::Rational(n, d) => {
+            let rational_value = RationalValue::new(n, d);
+            if rational_value.denominator != 1 {
+                Ok(new_valueref(rational_value))
+            } else {
+                Ok(new_valueref(IntValue {
+                    value: rational_value.numerator,
+                }))
+            }
+        }
         Number::Float(result) => Ok(new_valueref(RealValue { value: result })),
     }
 }
@@ -248,6 +258,10 @@ fn values_to_numbers(vals: &Vec<ValueRef>) -> Result<Vec<Number>, InterpreterErr
                 let int_value = downcast_value::<IntValue>(val).unwrap();
                 Number::Int(int_value.value)
             }
+            ValueType::Rational => {
+                let rational_value = downcast_value::<RationalValue>(val).unwrap();
+                Number::Rational(rational_value.numerator, rational_value.denominator)
+            }
             ValueType::Real => {
                 let real_value = downcast_value::<RealValue>(val).unwrap();
                 Number::Float(real_value.value)
@@ -263,15 +277,33 @@ fn values_to_numbers(vals: &Vec<ValueRef>) -> Result<Vec<Number>, InterpreterErr
 #[derive(Clone)]
 enum Number {
     Int(i64),
+    Rational(i64, i64),
     Float(f64),
 }
 
 impl Number {
+    fn to_float(&self) -> f64 {
+        match self {
+            Number::Int(a) => *a as f64,
+            Number::Rational(n, d) => *n as f64 / *d as f64,
+            Number::Float(a) => *a,
+        }
+    }
+
     fn add(&self, other: &Number) -> Number {
         match (self, other) {
             (Number::Int(a), Number::Int(b)) => Number::Int(a + b),
+            (Number::Int(a), Number::Rational(n, d)) => Number::Rational(a * d + n, *d),
             (Number::Int(a), Number::Float(b)) => Number::Float(*a as f64 + b),
+            (Number::Rational(n, d), Number::Int(b)) => Number::Rational(n + b * d, *d),
+            (Number::Rational(n, d), Number::Rational(n2, d2)) => {
+                Number::Rational(n * d2 + n2 * d, d * d2)
+            }
+            (Number::Rational(n, d), Number::Float(b)) => {
+                Number::Float((*n as f64 / *d as f64) + b)
+            }
             (Number::Float(a), Number::Int(b)) => Number::Float(a + *b as f64),
+            (Number::Float(a), Number::Rational(n, d)) => Number::Float(a + *n as f64 / *d as f64),
             (Number::Float(a), Number::Float(b)) => Number::Float(a + b),
         }
     }
@@ -279,8 +311,17 @@ impl Number {
     fn sub(&self, other: &Number) -> Number {
         match (self, other) {
             (Number::Int(a), Number::Int(b)) => Number::Int(a - b),
+            (Number::Int(a), Number::Rational(n, d)) => Number::Rational(a * d - n, *d),
             (Number::Int(a), Number::Float(b)) => Number::Float(*a as f64 - b),
+            (Number::Rational(n, d), Number::Int(b)) => Number::Rational(n - b * d, *d),
+            (Number::Rational(n, d), Number::Rational(n2, d2)) => {
+                Number::Rational(n * d2 - n2 * d, d * d2)
+            }
+            (Number::Rational(n, d), Number::Float(b)) => {
+                Number::Float((*n as f64 / *d as f64) - b)
+            }
             (Number::Float(a), Number::Int(b)) => Number::Float(a - *b as f64),
+            (Number::Float(a), Number::Rational(n, d)) => Number::Float(a - *n as f64 / *d as f64),
             (Number::Float(a), Number::Float(b)) => Number::Float(a - b),
         }
     }
@@ -288,8 +329,15 @@ impl Number {
     fn mul(&self, other: &Number) -> Number {
         match (self, other) {
             (Number::Int(a), Number::Int(b)) => Number::Int(a * b),
+            (Number::Int(a), Number::Rational(n, d)) => Number::Rational(a * n, *d),
             (Number::Int(a), Number::Float(b)) => Number::Float(*a as f64 * b),
+            (Number::Rational(n, d), Number::Int(b)) => Number::Rational(n * b, *d),
+            (Number::Rational(n, d), Number::Rational(n2, d2)) => Number::Rational(n * n2, d * d2),
+            (Number::Rational(n, d), Number::Float(b)) => {
+                Number::Float((*n as f64 / *d as f64) * b)
+            }
             (Number::Float(a), Number::Int(b)) => Number::Float(a * *b as f64),
+            (Number::Float(a), Number::Rational(n, d)) => Number::Float(a * *n as f64 / *d as f64),
             (Number::Float(a), Number::Float(b)) => Number::Float(a * b),
         }
     }
@@ -297,8 +345,15 @@ impl Number {
     fn div(&self, other: &Number) -> Number {
         match (self, other) {
             (Number::Int(a), Number::Int(b)) => Number::Int(a / b),
+            (Number::Int(a), Number::Rational(n, d)) => Number::Rational(a * d, *n),
             (Number::Int(a), Number::Float(b)) => Number::Float(*a as f64 / b),
+            (Number::Rational(n, d), Number::Int(b)) => Number::Rational(*n, d * b),
+            (Number::Rational(n, d), Number::Rational(n2, d2)) => Number::Rational(n * d2, d * n2),
+            (Number::Rational(n, d), Number::Float(b)) => {
+                Number::Float((*n as f64 / *d as f64) / b)
+            }
             (Number::Float(a), Number::Int(b)) => Number::Float(a / *b as f64),
+            (Number::Float(a), Number::Rational(n, d)) => Number::Float(a / *n as f64 / *d as f64),
             (Number::Float(a), Number::Float(b)) => Number::Float(a / b),
         }
     }
@@ -306,63 +361,66 @@ impl Number {
     fn pow(&self, other: &Number) -> Number {
         match (self, other) {
             (Number::Int(a), Number::Int(b)) => Number::Int(a.pow(*b as u32)),
-            (Number::Int(a), Number::Float(b)) => Number::Float((*a as f64).powf(*b)),
-            (Number::Float(a), Number::Int(b)) => Number::Float(a.powi(*b as i32)),
-            (Number::Float(a), Number::Float(b)) => Number::Float(a.powf(*b)),
+            (_, Number::Int(n)) => {
+                let x = self.to_float();
+                Number::Float(x.powi(*n as i32))
+            }
+            _ => {
+                let x = self.to_float();
+                let y = other.to_float();
+                Number::Float(x.powf(y))
+            }
         }
     }
 
     fn rem(&self, other: &Number) -> Number {
         match (self, other) {
             (Number::Int(a), Number::Int(b)) => Number::Int(a % b),
-            (Number::Int(a), Number::Float(b)) => Number::Float(*a as f64 % b),
-            (Number::Float(a), Number::Int(b)) => Number::Float(a % *b as f64),
-            (Number::Float(a), Number::Float(b)) => Number::Float(a % b),
+            _ => {
+                let x = self.to_float();
+                let y = other.to_float();
+                Number::Float(x % y)
+            }
         }
     }
 
     fn eq(&self, other: &Number) -> bool {
         match (self, other) {
             (Number::Int(a), Number::Int(b)) => a == b,
-            (Number::Int(a), Number::Float(b)) => (*a as f64 - b).abs() < f64::EPSILON,
-            (Number::Float(a), Number::Int(b)) => (a - *b as f64).abs() < f64::EPSILON,
-            (Number::Float(a), Number::Float(b)) => (a - b).abs() < f64::EPSILON,
+            (Number::Int(a), Number::Rational(n, d)) => *a * d == *n,
+            (Number::Rational(n, d), Number::Int(b)) => *n == *b * d,
+            (Number::Rational(n, d), Number::Rational(n2, d2)) => n * d2 == n2 * d,
+            _ => {
+                let a = self.to_float();
+                let b = other.to_float();
+                (a - b).abs() < f64::EPSILON
+            }
         }
     }
 
     fn gt(&self, other: &Number) -> bool {
-        match (self, other) {
-            (Number::Int(a), Number::Int(b)) => a > b,
-            (Number::Int(a), Number::Float(b)) => *a as f64 > *b,
-            (Number::Float(a), Number::Int(b)) => *a > *b as f64,
-            (Number::Float(a), Number::Float(b)) => a > b,
-        }
+        let x = self.to_float();
+        let y = other.to_float();
+        x > y
     }
 
     fn ge(&self, other: &Number) -> bool {
-        match (self, other) {
-            (Number::Int(a), Number::Int(b)) => a >= b,
-            (Number::Int(a), Number::Float(b)) => *a as f64 >= *b,
-            (Number::Float(a), Number::Int(b)) => *a >= *b as f64,
-            (Number::Float(a), Number::Float(b)) => a >= b,
+        if self.eq(other) {
+            return true;
         }
+        self.gt(other)
     }
 
     fn lt(&self, other: &Number) -> bool {
-        match (self, other) {
-            (Number::Int(a), Number::Int(b)) => a < b,
-            (Number::Int(a), Number::Float(b)) => (*a as f64) < *b,
-            (Number::Float(a), Number::Int(b)) => *a < *b as f64,
-            (Number::Float(a), Number::Float(b)) => a < b,
-        }
+        let x = self.to_float();
+        let y = other.to_float();
+        x < y
     }
 
     fn le(&self, other: &Number) -> bool {
-        match (self, other) {
-            (Number::Int(a), Number::Int(b)) => a <= b,
-            (Number::Int(a), Number::Float(b)) => *a as f64 <= *b,
-            (Number::Float(a), Number::Int(b)) => *a <= *b as f64,
-            (Number::Float(a), Number::Float(b)) => a <= b,
+        if self.eq(other) {
+            return true;
         }
+        self.lt(other)
     }
 }

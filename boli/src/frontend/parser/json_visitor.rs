@@ -180,6 +180,29 @@ impl AstVisitor for AstToJsonVisitor {
         self.stack.push(JsonData::Object(data, fields));
     }
 
+    fn visit_rational(&mut self, rational: &Rational) {
+        let (mut data, mut fields) = Self::new_object_content();
+        Self::add_field(
+            "type",
+            JsonData::String("Rational".to_string()),
+            &mut data,
+            &mut fields,
+        );
+        Self::add_field(
+            "numerator",
+            JsonData::Number(rational.numerator as f64),
+            &mut data,
+            &mut fields,
+        );
+        Self::add_field(
+            "denominator",
+            JsonData::Number(rational.denominator as f64),
+            &mut data,
+            &mut fields,
+        );
+        self.stack.push(JsonData::Object(data, fields));
+    }
+
     fn visit_real(&mut self, real: &Real) {
         let (mut data, mut fields) = Self::new_object_content();
         Self::add_field(

@@ -107,6 +107,13 @@ impl AstVisitor for Interpreter {
         })));
     }
 
+    fn visit_rational(&mut self, rational: &Rational) {
+        self.stack.push(Ok(new_valueref(RationalValue {
+            numerator: rational.numerator,
+            denominator: rational.denominator,
+        })));
+    }
+
     fn visit_real(&mut self, real: &Real) {
         self.stack
             .push(Ok(new_valueref(RealValue { value: real.value })));
@@ -532,10 +539,10 @@ mod tests {
     #[test]
     fn test_eval_addition() {
         let mut interpreter = Interpreter::new();
-        let result = interpreter.eval("(+ 1 2 3 4,0)").unwrap();
+        let result = interpreter.eval("(+ 1 2 3 4,0 1/2)").unwrap();
         let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Real);
-        assert_eq!(result.to_string(), "10,0");
+        assert_eq!(result.to_string(), "10,5");
     }
 
     #[test]
@@ -550,7 +557,7 @@ mod tests {
     #[test]
     fn test_eval_multiplication() {
         let mut interpreter = Interpreter::new();
-        let result = interpreter.eval("(* 2 3 7)").unwrap();
+        let result = interpreter.eval("(* 2 3 7 6 1/6)").unwrap();
         let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Int);
         assert_eq!(result.to_string(), "42");

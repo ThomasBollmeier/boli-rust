@@ -34,6 +34,7 @@ pub enum TokenType {
     QuoteBrace,
     QuoteBracket,
     Integer,
+    Rational,
     Real,
     Bool,
     Str,
@@ -77,6 +78,7 @@ impl TokenType {
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenValue {
     Integer(i64),
+    Rational(i64, i64),
     Real(f64),
     Bool(bool),
     Str(String),
@@ -108,6 +110,15 @@ impl Token {
         Self {
             token_type: TokenType::Integer,
             token_value: Some(TokenValue::Integer(value)),
+            line,
+            column,
+        }
+    }
+
+    pub fn new_rational(numerator: i64, denominator: i64, line: usize, column: usize) -> Self {
+        Self {
+            token_type: TokenType::Rational,
+            token_value: Some(TokenValue::Rational(numerator, denominator)),
             line,
             column,
         }
@@ -183,6 +194,13 @@ impl Token {
         }
     }
 
+    pub fn get_rational_value(&self) -> Option<(i64, i64)> {
+        match self.token_value {
+            Some(TokenValue::Rational(numerator, denominator)) => Some((numerator, denominator)),
+            _ => None,
+        }
+    }
+
     pub fn get_real_value(&self) -> Option<f64> {
         match self.token_value {
             Some(TokenValue::Real(value)) => Some(value),
@@ -211,6 +229,9 @@ impl Token {
     pub fn get_display_str(&self) -> Option<String> {
         match &self.token_type {
             TokenType::Integer => self.get_int_value().map(|v| v.to_string()),
+            TokenType::Rational => self
+                .get_rational_value()
+                .map(|(n, d)| format!("{}/{}", n, d)),
             TokenType::Real => self.get_real_value().map(|v| v.to_string()),
             TokenType::Bool => self.get_bool_value().map(|v| v.to_string()),
             TokenType::Str => self.get_string_value(),
@@ -264,6 +285,13 @@ impl Display for Token {
         match &self.token_value {
             Some(TokenValue::Integer(value)) => {
                 write!(f, "Token: {:?}({})", self.token_type, value)
+            }
+            Some(TokenValue::Rational(numerator, denominator)) => {
+                write!(
+                    f,
+                    "Token: {:?}({}/{})",
+                    self.token_type, numerator, denominator
+                )
             }
             Some(TokenValue::Real(value)) => write!(f, "Token: {:?}({})", self.token_type, value),
             Some(TokenValue::Bool(value)) => write!(f, "Token: {:?}({})", self.token_type, value),

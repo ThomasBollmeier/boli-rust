@@ -82,9 +82,41 @@ impl Lexer {
         let mut number = String::new();
         number.push(first_char);
 
+        if let Some(digits) = self.scan_digits() {
+            number.push_str(&digits);
+        }
+
+        let next_char = self.stream.peek();
+
+        match next_char {
+            Some(',') => {
+                number.push('.');
+                self.next_char();
+                let digits = self.scan_digits()?;
+                number.push_str(&digits);
+                let number = number.parse::<f64>().unwrap();
+                Some(Token::new_real(number, line, column))
+            }
+            Some('/') => {
+                self.next_char();
+                let numerator = number.parse::<i64>().unwrap();
+                let denominator = self.scan_digits().unwrap();
+                let denominator = denominator.parse::<i64>().unwrap();
+                Some(Token::new_rational(numerator, denominator, line, column))
+            }
+            _ => {
+                let number = number.parse::<i64>().unwrap();
+                Some(Token::new_int(number, line, column))
+            }
+        }
+    }
+
+    fn scan_digits(&mut self) -> Option<String> {
+        let mut ret = String::new();
+
         while let Some(c) = self.stream.peek() {
             if c.is_digit(10) {
-                number.push(self.next_char()?);
+                ret.push(self.next_char()?);
             } else if c == '.' {
                 self.next_char();
                 continue; // . can be used for grouping digits
@@ -93,25 +125,7 @@ impl Lexer {
             }
         }
 
-        if self.stream.peek() == Some(',') {
-            self.next_char();
-            number.push('.');
-            while let Some(c) = self.stream.peek() {
-                if c.is_digit(10) {
-                    number.push(self.next_char()?);
-                } else if c == '.' {
-                    self.next_char();
-                    continue; // . can be used for grouping digits
-                } else {
-                    break;
-                }
-            }
-            let number = number.parse::<f64>().unwrap();
-            Some(Token::new_real(number, line, column))
-        } else {
-            let number = number.parse::<i64>().unwrap();
-            Some(Token::new_int(number, line, column))
-        }
+        Some(ret)
     }
 
     fn scan_string(&mut self, line: usize, column: usize) -> Option<Token> {
@@ -402,7 +416,7 @@ mod tests {
 
     #[test]
     fn test_scan_numbers() {
-        let code = "(+ 41 1,0 1.000.000)";
+        let code = "(+ 41 1,0 1.000.000 1/2)";
         let mut lexer = Lexer::new(code);
         assert_eq!(lexer.next().unwrap().token_type, LeftParen);
         assert_eq!(lexer.next().unwrap().token_type, Operator(Op::Plus));
@@ -418,6 +432,10 @@ mod tests {
         let int_token = lexer.next().unwrap();
         assert_eq!(int_token.token_type, Integer);
         assert_eq!(int_token.token_value, Some(TokenValue::Integer(1_000_000)));
+
+        let rational_token = lexer.next().unwrap();
+        assert_eq!(rational_token.token_type, Rational);
+        assert_eq!(rational_token.token_value, Some(TokenValue::Rational(1, 2)));
 
         assert_eq!(lexer.next().unwrap().token_type, RightParen);
         assert!(lexer.next().is_none());

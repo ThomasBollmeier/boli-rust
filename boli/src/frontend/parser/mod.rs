@@ -87,6 +87,13 @@ impl Parser {
             Integer => Ok(new_astref(ast::Integer {
                 value: token.get_int_value().unwrap(),
             })),
+            Rational => {
+                let (numerator, denominator) = token.get_rational_value().unwrap();
+                Ok(new_astref(ast::Rational {
+                    numerator,
+                    denominator,
+                }))
+            }
             Real => Ok(new_astref(ast::Real {
                 value: token.get_real_value().unwrap(),
             })),
@@ -163,6 +170,13 @@ impl Parser {
             Integer => Ok(new_astref(ast::Integer {
                 value: token.get_int_value().unwrap(),
             })),
+            Rational => {
+                let (numerator, denominator) = token.get_rational_value().unwrap();
+                Ok(new_astref(ast::Rational {
+                    numerator,
+                    denominator,
+                }))
+            }
             Real => Ok(new_astref(ast::Real {
                 value: token.get_real_value().unwrap(),
             })),
@@ -649,6 +663,7 @@ mod tests {
         let parser = super::Parser::new();
         let code = r#"
             123 
+            1/2
             3,14 
             #true
             "Thomas"
@@ -659,36 +674,41 @@ mod tests {
         let program = parser.parse(code);
         assert!(program.is_ok());
         let program = program.unwrap();
-        assert_eq!(program.children.len(), 7);
+        assert_eq!(program.children.len(), 8);
 
         let integer = &borrow_ast(&program.children[0]);
         let integer = downcast_ast::<Integer>(integer).unwrap();
         assert_eq!(integer.value, 123);
 
-        let real = &borrow_ast(&program.children[1]);
+        let rational = &borrow_ast(&program.children[1]);
+        let rational = downcast_ast::<Rational>(rational).unwrap();
+        assert_eq!(rational.numerator, 1);
+        assert_eq!(rational.denominator, 2);
+
+        let real = &borrow_ast(&program.children[2]);
         let real = downcast_ast::<Real>(real).unwrap();
         assert_eq!(real.value, 3.14);
 
-        let boolean = &borrow_ast(&program.children[2]);
+        let boolean = &borrow_ast(&program.children[3]);
         let boolean = downcast_ast::<Bool>(boolean).unwrap();
         assert_eq!(boolean.value, true);
 
-        let string = &borrow_ast(&program.children[3]);
+        let string = &borrow_ast(&program.children[4]);
         let string = downcast_ast::<Str>(string).unwrap();
         assert_eq!(string.value, "Thomas");
 
-        let ident = &borrow_ast(&program.children[4]);
+        let ident = &borrow_ast(&program.children[5]);
         let ident = downcast_ast::<Identifier>(ident).unwrap();
         assert_eq!(ident.value, "an-identifier");
 
-        let absname = &borrow_ast(&program.children[5]);
+        let absname = &borrow_ast(&program.children[6]);
         let absname = downcast_ast::<AbsoluteName>(absname).unwrap();
         assert_eq!(
             absname.segments,
             vec!["absolute".to_string(), "name".to_string()]
         );
 
-        let nil = &borrow_ast(&program.children[6]);
+        let nil = &borrow_ast(&program.children[7]);
         let nil = downcast_ast::<Nil>(nil);
         assert!(nil.is_some());
     }
@@ -886,7 +906,7 @@ mod tests {
     fn test_quotation() {
         let parser = super::Parser::new();
         let code = r#"
-            '(1 2 a)
+            '(1 2 4/3 a)
         "#;
         let program = parser.parse(code);
         assert!(program.is_ok(), "{}", program.err().unwrap());
@@ -895,7 +915,7 @@ mod tests {
 
         let list = &borrow_ast(&program.children[0]);
         let list = downcast_ast::<List>(list).unwrap();
-        assert_eq!(list.elements.len(), 3);
+        assert_eq!(list.elements.len(), 4);
 
         let integer = &borrow_ast(&list.elements[0]);
         let integer = downcast_ast::<Integer>(integer).unwrap();
@@ -905,7 +925,12 @@ mod tests {
         let integer = downcast_ast::<Integer>(integer).unwrap();
         assert_eq!(integer.value, 2);
 
-        let ident = &borrow_ast(&list.elements[2]);
+        let rational = &borrow_ast(&list.elements[2]);
+        let rational = downcast_ast::<Rational>(rational).unwrap();
+        assert_eq!(rational.numerator, 4);
+        assert_eq!(rational.denominator, 3);
+
+        let ident = &borrow_ast(&list.elements[3]);
         let ident = downcast_ast::<Quote>(ident).unwrap();
         assert_eq!(ident.value.token_type, TokenType::Identifier);
         assert_eq!(ident.value.get_string_value().unwrap(), "a");

@@ -27,6 +27,8 @@ impl AstMutVisitor for TailCallFinder {
 
     fn visit_integer(&mut self, _integer: &mut Integer) {}
 
+    fn visit_rational(&mut self, _rational: &mut Rational) {}
+
     fn visit_real(&mut self, _real: &mut Real) {}
 
     fn visit_bool(&mut self, _bool: &mut Bool) {}
@@ -113,6 +115,8 @@ impl AstMutVisitor for TailCallSetter {
     }
 
     fn visit_integer(&mut self, _integer: &mut Integer) {}
+
+    fn visit_rational(&mut self, _rational: &mut Rational) {}
 
     fn visit_real(&mut self, _real: &mut Real) {}
 

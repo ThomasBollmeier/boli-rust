@@ -1,5 +1,3 @@
-use std::ops::Add;
-
 use super::*;
 
 #[derive(Debug)]
@@ -33,37 +31,6 @@ impl ComparableEq for IntValue {
             self.value == other.value
         } else {
             false
-        }
-    }
-}
-
-impl Add<IntValue> for IntValue {
-    type Output = IntValue;
-
-    fn add(self, other: IntValue) -> IntValue {
-        IntValue {
-            value: self.value + other.value,
-        }
-    }
-}
-
-impl Add<RationalValue> for IntValue {
-    type Output = RationalValue;
-
-    fn add(self, other: RationalValue) -> RationalValue {
-        RationalValue::new(
-            self.value * other.denominator + other.numerator,
-            other.denominator,
-        )
-    }
-}
-
-impl Add<RealValue> for IntValue {
-    type Output = RealValue;
-
-    fn add(self, other: RealValue) -> RealValue {
-        RealValue {
-            value: self.value as f64 + other.value,
         }
     }
 }
@@ -122,35 +89,6 @@ impl Display for RationalValue {
     }
 }
 
-impl Add<IntValue> for RationalValue {
-    type Output = RationalValue;
-
-    fn add(self, other: IntValue) -> Self::Output {
-        other + self
-    }
-}
-
-impl Add<RationalValue> for RationalValue {
-    type Output = RationalValue;
-
-    fn add(self, other: RationalValue) -> RationalValue {
-        RationalValue::new(
-            self.numerator * other.denominator + other.numerator * self.denominator,
-            self.denominator * other.denominator,
-        )
-    }
-}
-
-impl Add<RealValue> for RationalValue {
-    type Output = RealValue;
-
-    fn add(self, other: RealValue) -> RealValue {
-        RealValue {
-            value: self.numerator as f64 / self.denominator as f64 + other.value,
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct RealValue {
     pub value: f64,
@@ -174,121 +112,5 @@ impl Display for RealValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let value_str = format!("{:?}", self.value).replace(".", ",");
         write!(f, "{value_str}")
-    }
-}
-
-impl Add<IntValue> for RealValue {
-    type Output = RealValue;
-
-    fn add(self, other: IntValue) -> RealValue {
-        other + self
-    }
-}
-
-impl Add<RationalValue> for RealValue {
-    type Output = RealValue;
-
-    fn add(self, other: RationalValue) -> RealValue {
-        other + self
-    }
-}
-
-impl Add<RealValue> for RealValue {
-    type Output = RealValue;
-
-    fn add(self, other: RealValue) -> RealValue {
-        RealValue {
-            value: self.value + other.value,
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_int_add_int() {
-        let value1 = IntValue { value: 42 };
-        let value2 = IntValue { value: 43 };
-
-        let result = value1 + value2;
-        assert_eq!(result.value, 85);
-    }
-
-    #[test]
-    fn test_int_add_rational() {
-        let value1 = IntValue { value: 2 };
-        let value2 = RationalValue::new(1, 2);
-
-        let result = value1 + value2;
-        assert_eq!(result.numerator, 5);
-        assert_eq!(result.denominator, 2);
-    }
-
-    #[test]
-    fn test_int_add_real() {
-        let value1 = IntValue { value: 2 };
-        let value2 = RealValue { value: 1.5 };
-
-        let result = value1 + value2;
-        assert_eq!(result.value, 3.5);
-    }
-
-    #[test]
-    fn test_rational_add_int() {
-        let value1 = RationalValue::new(1, 2);
-        let value2 = IntValue { value: 2 };
-
-        let result = value1 + value2;
-        assert_eq!(result.numerator, 5);
-        assert_eq!(result.denominator, 2);
-    }
-
-    #[test]
-    fn test_rational_add_rational() {
-        let value1 = RationalValue::new(1, 3);
-        let value2 = RationalValue::new(5, 3);
-
-        let result = value1 + value2;
-        assert_eq!(result.numerator, 2);
-        assert_eq!(result.denominator, 1);
-        assert_eq!(format!("{result}"), "2");
-    }
-
-    #[test]
-    fn test_rational_add_real() {
-        let value1 = RationalValue::new(1, 2);
-        let value2 = RealValue { value: 1.5 };
-
-        let result = value1 + value2;
-        assert_eq!(result.value, 2.0);
-    }
-
-    #[test]
-    fn test_real_add_int() {
-        let value1 = RealValue { value: 1.5 };
-        let value2 = IntValue { value: 2 };
-
-        let result = value1 + value2;
-        assert_eq!(result.value, 3.5);
-    }
-
-    #[test]
-    fn test_real_add_rational() {
-        let value1 = RealValue { value: 1.5 };
-        let value2 = RationalValue::new(1, 2);
-
-        let result = value1 + value2;
-        assert_eq!(result.value, 2.0);
-    }
-
-    #[test]
-    fn test_real_add_real() {
-        let value1 = RealValue { value: 1.5 };
-        let value2 = RealValue { value: 2.0 };
-
-        let result = value1 + value2;
-        assert_eq!(result.value, 3.5);
     }
 }
