@@ -55,6 +55,14 @@ impl RationalValue {
         let gcd = Self::gcd(self.numerator, self.denominator);
         self.numerator /= gcd;
         self.denominator /= gcd;
+
+        if self.numerator > 0 && self.denominator < 0 {
+            self.numerator *= -1;
+            self.denominator *= -1;
+        } else if self.numerator < 0 && self.denominator < 0 {
+            self.numerator *= -1;
+            self.denominator *= -1;
+        }
     }
 
     fn gcd(a: i64, b: i64) -> i64 {

@@ -344,7 +344,7 @@ impl Number {
 
     fn div(&self, other: &Number) -> Number {
         match (self, other) {
-            (Number::Int(a), Number::Int(b)) => Number::Int(a / b),
+            (Number::Int(a), Number::Int(b)) => Number::Rational(*a, *b),
             (Number::Int(a), Number::Rational(n, d)) => Number::Rational(a * d, *n),
             (Number::Int(a), Number::Float(b)) => Number::Float(*a as f64 / b),
             (Number::Rational(n, d), Number::Int(b)) => Number::Rational(*n, d * b),

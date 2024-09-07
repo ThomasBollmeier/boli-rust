@@ -570,6 +570,11 @@ mod tests {
         let result = borrow_value(&result);
         assert_eq!(result.get_type(), ValueType::Real);
         assert_eq!(result.to_string(), "42,25");
+
+        let result = interpreter.eval("(/ 1 3)").unwrap();
+        let result = borrow_value(&result);
+        assert_eq!(result.get_type(), ValueType::Rational);
+        assert_eq!(result.to_string(), "1/3");
     }
 
     #[test]
