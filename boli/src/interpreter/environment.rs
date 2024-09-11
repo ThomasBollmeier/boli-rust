@@ -283,6 +283,7 @@ impl Environment {
         env.borrow_mut().set_builtin("-", &Rc::new(Sub::new()));
         env.borrow_mut().set_builtin("*", &Rc::new(Mul::new()));
         env.borrow_mut().set_builtin("/", &Rc::new(Div::new()));
+        env.borrow_mut().set_builtin("idiv", &Rc::new(IDiv::new()));
         env.borrow_mut().set_builtin("^", &Rc::new(Pow::new()));
         env.borrow_mut().set_builtin("%", &Rc::new(Rem::new()));
         env.borrow_mut().set_builtin("=", &Rc::new(Eq::new()));

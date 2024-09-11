@@ -578,6 +578,15 @@ mod tests {
     }
 
     #[test]
+    fn test_eval_integer_division() {
+        let mut interpreter = Interpreter::new();
+        let result = interpreter.eval("(idiv 85 2)").unwrap();
+        let result = borrow_value(&result);
+        assert_eq!(result.get_type(), ValueType::Int);
+        assert_eq!(result.to_string(), "42");
+    }
+
+    #[test]
     fn test_eval_power() {
         let mut interpreter = Interpreter::new();
         let result = interpreter.eval("(^ 2 2 3)").unwrap();

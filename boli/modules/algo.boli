@@ -5,7 +5,7 @@
      (let [(n (count lst))]
      	  (if (< n 2)
 	      (list lst (empty-col lst))
-	      (let [(m (/ n 2))]
+	      (let [(m (idiv n 2))]
 	      	   (list (take m lst)
 		   	 (drop m lst))))))
 
@@ -38,7 +38,7 @@
      (let ([n (count xs)])
      	  (if (< n 2)
 	      xs
-	      (let ([pivot-idx (/ n 2)]
+	      (let ([pivot-idx (idiv n 2)]
 	      	    [parts (partition xs pivot-idx comp-fn)]
 		        [left (ref parts 0)]
 		        [pivot (ref parts 1)]

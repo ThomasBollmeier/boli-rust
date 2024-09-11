@@ -84,6 +84,47 @@ impl Callable for Rem {
     }
 }
 
+pub struct IDiv {}
+
+impl IDiv {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Callable for IDiv {
+    fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
+        if args.len() != 2 {
+            return Err(InterpreterError::new("idiv requires exactly two arguments"));
+        }
+
+        let arg0 = &borrow_value(&args[0]);
+        let arg0 = match downcast_value::<IntValue>(arg0) {
+            Some(int_value) => int_value.value,
+            None => {
+                return Err(InterpreterError::new(
+                    "idiv requires integer as first argument",
+                ))
+            }
+        };
+        let arg1 = &borrow_value(&args[1]);
+        let arg1 = match downcast_value::<IntValue>(arg1) {
+            Some(int_value) => int_value.value,
+            None => {
+                return Err(InterpreterError::new(
+                    "idiv requires integer as second argument",
+                ))
+            }
+        };
+
+        if arg1 == 0 {
+            return Err(InterpreterError::new("division by zero"));
+        }
+
+        Ok(new_valueref(IntValue { value: arg0 / arg1 }))
+    }
+}
+
 pub struct Eq {}
 
 impl Eq {
