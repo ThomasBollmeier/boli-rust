@@ -1,0 +1,9 @@
+#| 
+This is a block comment.
+
+(def answer1 40)
+(displayln answer1)
+
+|#
+
+(displayln 42)

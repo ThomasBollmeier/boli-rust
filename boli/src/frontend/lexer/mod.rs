@@ -54,6 +54,20 @@ impl Lexer {
         }
     }
 
+    fn skip_block_comment(&mut self) {
+        loop {
+            let c = self.next_char();
+            if c == Some('|') {
+                if let Some('#') = self.stream.peek() {
+                    self.next_char();
+                    break;
+                }
+            } else if c.is_none() {
+                break;
+            }
+        }
+    }
+
     fn scan_logical_operator(
         &mut self,
         first_char: char,
@@ -296,6 +310,11 @@ impl Stream<Token> for Lexer {
                         self.next_char();
                         self.skip_line_comment();
                         continue; // skip shebang
+                    }
+                    Some('|') => {
+                        self.next_char();
+                        self.skip_block_comment();
+                        continue; // skip block comment
                     }
                     _ => {}
                 }

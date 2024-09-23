@@ -120,3 +120,8 @@ fn test_varargs() {
 fn test_person() {
     run_file("person_test.boli", "person_test.out");
 }
+
+#[test]
+fn test_block_comment() {
+    run_file("block_comment.boli", "block_comment.out");
+}
