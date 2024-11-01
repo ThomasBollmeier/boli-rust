@@ -52,7 +52,12 @@ impl Div {
 
 impl Callable for Div {
     fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
-        calculate_value(|a, b| a.div(b), args, true)
+        let mut args = args.clone();
+        if args.len() == 1 {
+            let one = new_valueref(IntValue { value: 1 });
+            args.insert(0, one);
+        }
+        calculate_value(|a, b| a.div(b), &args, true)
     }
 }
 
@@ -463,5 +468,91 @@ impl Number {
             return true;
         }
         self.lt(other)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_add() {
+        let add = Add::new();
+        let args = vec![
+            new_valueref(IntValue { value: 1 }),
+            new_valueref(IntValue { value: 2 }),
+            new_valueref(IntValue { value: 3 }),
+        ];
+        let result = add.call(&args).unwrap();
+        let result = borrow_value(&result);
+        let result = downcast_value::<IntValue>(&result).unwrap();
+        assert_eq!(result.value, 6);
+    }
+
+    #[test]
+    fn test_sub() {
+        let sub = Sub::new();
+        let args = vec![
+            new_valueref(IntValue { value: 10 }),
+            new_valueref(IntValue { value: 2 }),
+            new_valueref(IntValue { value: 3 }),
+        ];
+        let result = sub.call(&args).unwrap();
+        let result = borrow_value(&result);
+        let result = downcast_value::<IntValue>(&result).unwrap();
+        assert_eq!(result.value, 5);
+    }
+
+    #[test]
+    fn test_mul() {
+        let mul = Mul::new();
+        let args = vec![
+            new_valueref(IntValue { value: 2 }),
+            new_valueref(IntValue { value: 3 }),
+            new_valueref(IntValue { value: 4 }),
+        ];
+        let result = mul.call(&args).unwrap();
+        let result = borrow_value(&result);
+        let result = downcast_value::<IntValue>(&result).unwrap();
+        assert_eq!(result.value, 24);
+    }
+
+    #[test]
+    fn test_div() {
+        let div = Div::new();
+        let args = vec![
+            new_valueref(IntValue { value: 10 }),
+            new_valueref(IntValue { value: 2 }),
+        ];
+        let result = div.call(&args).unwrap();
+        let result = borrow_value(&result);
+        let result = downcast_value::<IntValue>(&result).unwrap();
+        assert_eq!(result.value, 5);
+    }
+
+    #[test]
+    fn test_div_w_single_arg() {
+        let div = Div::new();
+        let args = vec![new_valueref(IntValue { value: 3 })];
+
+        let result = div.call(&args).unwrap();
+        let result = borrow_value(&result);
+        let result = downcast_value::<RationalValue>(&result).unwrap();
+
+        assert_eq!(result.numerator, 1);
+        assert_eq!(result.denominator, 3);
+    }
+
+    #[test]
+    fn test_pow() {
+        let pow = Pow::new();
+        let args = vec![
+            new_valueref(IntValue { value: 2 }),
+            new_valueref(IntValue { value: 3 }),
+        ];
+        let result = pow.call(&args).unwrap();
+        let result = borrow_value(&result);
+        let result = downcast_value::<IntValue>(&result).unwrap();
+        assert_eq!(result.value, 8);
     }
 }
