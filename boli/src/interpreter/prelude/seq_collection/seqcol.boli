@@ -97,16 +97,16 @@
 (def (list-take n xs)
     (def (helper n xs acc)
         (cond 
-            [(= n 0) (reverse acc)]
             [(empty? xs) (reverse acc)]
+            [(= n 0) (reverse acc)]
             [#t (helper (- n 1) (tail xs) (cons (head xs) acc))]))
     (helper n xs (empty-col xs)))
 
 (def (take-while pred? xs)
     (def (helper xs acc)
         (cond 
-            [(not (pred? (head xs))) (reverse acc)]
             [(empty? xs) (reverse acc)]
+            [(not (pred? (head xs))) (reverse acc)]
             [#t (helper (tail xs) (cons (head xs) acc))]))
     (helper xs (empty-col xs)))
 

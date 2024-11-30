@@ -10,7 +10,7 @@ use crate::interpreter::prelude::load_module_code;
 use crate::interpreter::stream::StreamValue;
 use crate::interpreter::{
     borrow_value, downcast_value, error, new_valueref, BoolValue, BuiltInFunctionValue, Callable,
-    EvalResult, IntValue, InterpreterError, LambdaValue, PairValue, ValueRef, ValueType,
+    EvalResult, IntValue, InterpreterError, LambdaValue, NilValue, PairValue, ValueRef, ValueType,
     VectorValue,
 };
 
@@ -73,9 +73,9 @@ impl Callable for Head {
                 let stream = args[0].clone();
                 let stream = borrow_value(&stream);
                 let mut stream = downcast_value::<StreamValue>(&stream).unwrap().clone();
-                match stream.next() {
+                match stream.next_value() {
                     Some(head) => Ok(head),
-                    None => error("head function expects a non-empty stream "),
+                    None => Ok(new_valueref(NilValue {})),
                 }
             }
             ValueType::Str => {
@@ -112,7 +112,7 @@ impl Callable for Tail {
                 let sequence = args[0].clone();
                 let sequence = borrow_value(&sequence);
                 let mut sequence = downcast_value::<StreamValue>(&sequence).unwrap().clone();
-                sequence.next();
+                sequence.next_value();
                 Ok(new_valueref(sequence))
             }
             ValueType::Str => {
@@ -393,7 +393,7 @@ impl Callable for Map {
                         let mut stream = downcast_value::<StreamValue>(&col.borrow())
                             .unwrap()
                             .clone();
-                        match stream.next() {
+                        match stream.next_value() {
                             Some(head) => {
                                 let tail = StreamValue::new_dropped(
                                     new_valueref(IntValue { value: 1 }),

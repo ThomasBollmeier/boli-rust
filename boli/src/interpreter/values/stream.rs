@@ -157,7 +157,7 @@ impl StreamValue {
         })
     }
 
-    pub fn next(&mut self) -> Option<ValueRef> {
+    pub fn next_value(&mut self) -> Option<ValueRef> {
         match self {
             Self::Vector {
                 vector: list,
@@ -202,7 +202,7 @@ impl StreamValue {
                 predicate_func,
                 sequence,
             } => {
-                let pred = &borrow_value(&predicate_func);
+                let pred = &borrow_value(predicate_func);
                 let pred: &dyn Callable = match pred.get_type() {
                     ValueType::BuiltInFunction => {
                         downcast_value::<BuiltInFunctionValue>(pred).unwrap()
@@ -215,7 +215,7 @@ impl StreamValue {
                 let seq = seq.as_any_mut().downcast_mut::<StreamValue>().unwrap();
 
                 loop {
-                    if let Some(value) = seq.next() {
+                    if let Some(value) = seq.next_value() {
                         let result = pred.call(&vec![value.clone()]);
                         if result.is_err() {
                             return None;
@@ -233,7 +233,7 @@ impl StreamValue {
                 map_func,
                 sequences,
             } => {
-                let func = &borrow_value(&map_func);
+                let func = &borrow_value(map_func);
                 let func: &dyn Callable = match func.get_type() {
                     ValueType::BuiltInFunction => {
                         downcast_value::<BuiltInFunctionValue>(func).unwrap()
@@ -248,7 +248,7 @@ impl StreamValue {
                         .as_any_mut()
                         .downcast_mut::<StreamValue>()
                         .unwrap()
-                        .next()
+                        .next_value()
                     {
                         args.push(value);
                     } else {
@@ -271,21 +271,21 @@ impl StreamValue {
                     let n = downcast_value::<IntValue>(&n).unwrap().value;
 
                     for _ in 0..n {
-                        if sequence.next().is_none() {
+                        if sequence.next_value().is_none() {
                             return None;
                         }
                     }
                     *initial = false;
                 }
 
-                sequence.next()
+                sequence.next_value()
             }
             Self::DroppedWhile {
                 predicate_func,
                 sequence,
                 initial,
             } => {
-                let pred = &borrow_value(&predicate_func);
+                let pred = &borrow_value(predicate_func);
                 let pred: &dyn Callable = match pred.get_type() {
                     ValueType::BuiltInFunction => {
                         downcast_value::<BuiltInFunctionValue>(pred).unwrap()
@@ -299,7 +299,7 @@ impl StreamValue {
 
                 if *initial {
                     loop {
-                        if let Some(value) = seq.next() {
+                        if let Some(value) = seq.next_value() {
                             let result = pred.call(&vec![value.clone()]);
                             if result.is_err() {
                                 return None;
@@ -315,13 +315,13 @@ impl StreamValue {
                     }
                 }
 
-                seq.next()
+                seq.next_value()
             }
         }
     }
 
     fn clone_sequence(value: &ValueRef) -> ValueRef {
-        let value = borrow_value(&value);
+        let value = borrow_value(value);
         let value = value.as_any().downcast_ref::<StreamValue>().unwrap();
         new_valueref(value.clone())
     }
@@ -335,7 +335,7 @@ impl Clone for StreamValue {
                 index,
             } => Self::Vector {
                 vector: list.clone(),
-                index: index.clone(),
+                index: *index,
             },
             Self::Iterator {
                 start,
@@ -410,7 +410,7 @@ mod tests {
         let mut seq = sequence.clone();
         let mut elements = Vec::new();
         for _ in 0..n {
-            if let Some(value) = seq.next() {
+            if let Some(value) = seq.next_value() {
                 elements.push(value);
             } else {
                 break;
