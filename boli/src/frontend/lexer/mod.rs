@@ -26,7 +26,7 @@ impl Lexer {
     }
 
     fn next_char(&mut self) -> Option<char> {
-        let c = self.stream.next();
+        let c = self.stream.next_item();
         if c == Some('\n') {
             self.line += 1;
             self.column = 0;

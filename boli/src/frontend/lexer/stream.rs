@@ -43,7 +43,7 @@ impl<T: Clone> BufferedStream<T> {
         }
     }
 
-    pub fn next(&mut self) -> Option<T> {
+    pub fn next_item(&mut self) -> Option<T> {
         self.fill_buffer(1);
         self.buffer.pop_front()
     }
@@ -91,32 +91,32 @@ mod tests {
     #[test]
     fn test_buffered_stream() {
         let mut stream = BufferedStream::new(Box::new(CharsStream::new("hello")));
-        assert_eq!(stream.next(), Some('h'));
-        assert_eq!(stream.next(), Some('e'));
-        assert_eq!(stream.next(), Some('l'));
-        assert_eq!(stream.next(), Some('l'));
-        assert_eq!(stream.next(), Some('o'));
-        assert_eq!(stream.next(), None);
+        assert_eq!(stream.next_item(), Some('h'));
+        assert_eq!(stream.next_item(), Some('e'));
+        assert_eq!(stream.next_item(), Some('l'));
+        assert_eq!(stream.next_item(), Some('l'));
+        assert_eq!(stream.next_item(), Some('o'));
+        assert_eq!(stream.next_item(), None);
     }
 
     #[test]
     fn test_buffered_stream_peek() {
         let mut stream = BufferedStream::new(Box::new(CharsStream::new("hello")));
         assert_eq!(stream.peek(), Some('h'));
-        assert_eq!(stream.next(), Some('h')); // Ensure peek doesn't advance the stream
+        assert_eq!(stream.next_item(), Some('h')); // Ensure peek doesn't advance the stream
     }
 
     #[test]
     fn test_buffered_stream_peek_many() {
         let mut stream = BufferedStream::new(Box::new(CharsStream::new("hello")));
         assert_eq!(stream.peek_many(3), vec!['h', 'e', 'l']);
-        assert_eq!(stream.next(), Some('h')); // Ensure peek_many doesn't advance the stream
+        assert_eq!(stream.next_item(), Some('h')); // Ensure peek_many doesn't advance the stream
     }
 
     #[test]
     fn test_buffered_stream_peek_many_more() {
         let mut stream = BufferedStream::new(Box::new(CharsStream::new("hello")));
         assert_eq!(stream.peek_many(10), vec!['h', 'e', 'l', 'l', 'o']);
-        assert_eq!(stream.next(), Some('h')); // Ensure peek_many doesn't advance the stream
+        assert_eq!(stream.next_item(), Some('h')); // Ensure peek_many doesn't advance the stream
     }
 }

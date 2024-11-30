@@ -75,6 +75,12 @@ impl EnvironmentBuilder {
     }
 }
 
+impl Default for EnvironmentBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct Environment {
     pub env: HashMap<String, EnvEntry>,
     module_search_dirs: Option<Vec<ModuleDirRef>>,
@@ -229,20 +235,18 @@ impl Environment {
 
     pub fn get_exported_values(&self) -> HashMap<String, ValueRef> {
         match &self.export_set {
-            None => HashMap::from(
-                self.env
-                    .iter()
-                    .filter(|(_, EnvEntry { value: _, owned })| *owned)
-                    .map(|(key, EnvEntry { value, owned: _ })| (key.clone(), value.clone()))
-                    .collect::<HashMap<String, ValueRef>>(),
-            ),
-            Some(exp_set) => HashMap::from(
-                self.env
-                    .iter()
-                    .filter(|(key, EnvEntry { value: _, owned })| *owned && exp_set.contains(*key))
-                    .map(|(key, EnvEntry { value, owned: _ })| (key.clone(), value.clone()))
-                    .collect::<HashMap<String, ValueRef>>(),
-            ),
+            None => self
+                .env
+                .iter()
+                .filter(|(_, EnvEntry { value: _, owned })| *owned)
+                .map(|(key, EnvEntry { value, owned: _ })| (key.clone(), value.clone()))
+                .collect::<HashMap<String, ValueRef>>(),
+            Some(exp_set) => self
+                .env
+                .iter()
+                .filter(|(key, EnvEntry { value: _, owned })| *owned && exp_set.contains(*key))
+                .map(|(key, EnvEntry { value, owned: _ })| (key.clone(), value.clone()))
+                .collect::<HashMap<String, ValueRef>>(),
         }
     }
 
@@ -271,7 +275,7 @@ impl Environment {
     }
 
     pub fn export(&mut self, key: &str) {
-        if let None = self.export_set {
+        if self.export_set.is_none() {
             self.export_set = Some(HashSet::new());
         }
 

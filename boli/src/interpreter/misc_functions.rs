@@ -15,6 +15,12 @@ impl IsEqual {
     }
 }
 
+impl Default for IsEqual {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Callable for IsEqual {
     fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         if args.len() != 2 {
@@ -53,6 +59,12 @@ pub struct StdInput {}
 impl StdInput {
     pub fn new() -> Self {
         Self {}
+    }
+}
+
+impl Default for StdInput {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -105,6 +117,12 @@ pub struct StdOutput {}
 impl StdOutput {
     pub fn new() -> Self {
         Self {}
+    }
+}
+
+impl Default for StdOutput {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -246,6 +264,12 @@ impl Not {
     }
 }
 
+impl Default for Not {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Callable for Not {
     fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         if args.len() != 1 {
@@ -266,6 +290,12 @@ impl IsNil {
     }
 }
 
+impl Default for IsNil {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Callable for IsNil {
     fn call(&self, args: &Vec<ValueRef>) -> EvalResult {
         if args.len() != 1 {
@@ -283,6 +313,12 @@ pub struct ErrorFn {}
 impl ErrorFn {
     pub fn new() -> Self {
         Self {}
+    }
+}
+
+impl Default for ErrorFn {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

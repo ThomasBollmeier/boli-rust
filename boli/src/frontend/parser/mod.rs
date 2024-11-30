@@ -35,7 +35,7 @@ impl Parser {
         expected_types: &Vec<&TokenType>,
     ) -> Result<Token, ParseError> {
         let token = stream
-            .next()
+            .next_item()
             .ok_or(ParseError::new("Unexpected end of input"))?;
         for expected_type in expected_types {
             if token.token_type == **expected_type {
@@ -664,7 +664,7 @@ mod tests {
         let code = r#"
             123 
             1/2
-            3,14 
+            42,0 
             #true
             "Thomas"
             an-identifier
@@ -687,11 +687,11 @@ mod tests {
 
         let real = &borrow_ast(&program.children[2]);
         let real = downcast_ast::<Real>(real).unwrap();
-        assert_eq!(real.value, 3.14);
+        assert_eq!(real.value, 42.0);
 
         let boolean = &borrow_ast(&program.children[3]);
         let boolean = downcast_ast::<Bool>(boolean).unwrap();
-        assert_eq!(boolean.value, true);
+        assert!(boolean.value);
 
         let string = &borrow_ast(&program.children[4]);
         let string = downcast_ast::<Str>(string).unwrap();
